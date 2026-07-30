@@ -29,14 +29,21 @@ export function planFrameSampling(input: FrameSamplingInput): FrameSamplingPlan 
     : planExplicit(durationSeconds, input.timestampsSeconds, maxFrames);
 }
 
-function planEvenly(durationSeconds: number, requested: number | undefined, maxFrames: number): FrameSamplingPlan {
+function planEvenly(
+  durationSeconds: number,
+  requested: number | undefined,
+  maxFrames: number,
+): FrameSamplingPlan {
   const requestedCount = normalizeRequestedCount(requested, maxFrames);
   const lastSample = round(Math.max(0, durationSeconds - END_MARGIN_SECONDS));
   const durationLimit = Math.max(1, Math.floor(lastSample / MIN_SPACING_SECONDS) + 1);
   const count = Math.min(requestedCount, maxFrames, durationLimit);
-  const timestampsSeconds = count === 1
-    ? [round(durationSeconds / 2)]
-    : Array.from({ length: count }, (_unused, index) => round((index * lastSample) / (count - 1)));
+  const timestampsSeconds =
+    count === 1
+      ? [round(durationSeconds / 2)]
+      : Array.from({ length: count }, (_unused, index) =>
+          round((index * lastSample) / (count - 1)),
+        );
   return {
     durationSeconds,
     requestedCount,
@@ -66,7 +73,8 @@ function planExplicit(
   accepted.sort((left, right) => left - right);
   const timestampsSeconds = accepted.slice(0, maxFrames);
   rejectedTimestampsSeconds.push(...accepted.slice(maxFrames));
-  if (timestampsSeconds.length === 0) throw new Error("no requested timestamp falls inside the video duration");
+  if (timestampsSeconds.length === 0)
+    throw new Error("no requested timestamp falls inside the video duration");
   return {
     durationSeconds,
     requestedCount: requestedTimestamps.length,
@@ -80,14 +88,18 @@ function planExplicit(
 
 // Coverage is reported as the intervals no frame observed, because a frame count says nothing about
 // which part of the video was seen.
-function omittedIntervals(durationSeconds: number, timestampsSeconds: readonly number[]): SampledInterval[] {
+function omittedIntervals(
+  durationSeconds: number,
+  timestampsSeconds: readonly number[],
+): SampledInterval[] {
   const intervals: SampledInterval[] = [];
   let cursor = 0;
   for (const timestamp of timestampsSeconds) {
     if (timestamp > cursor) intervals.push({ startSeconds: round(cursor), endSeconds: timestamp });
     cursor = timestamp;
   }
-  if (durationSeconds > cursor) intervals.push({ startSeconds: round(cursor), endSeconds: durationSeconds });
+  if (durationSeconds > cursor)
+    intervals.push({ startSeconds: round(cursor), endSeconds: durationSeconds });
   return intervals;
 }
 
@@ -104,13 +116,15 @@ function boundedBy(
 
 function normalizeMaxFrames(value: number | undefined): number {
   if (value === undefined) return DEFAULT_MAX_FRAMES;
-  if (!Number.isSafeInteger(value) || value <= 0) throw new Error("maxFrames must be a positive integer");
+  if (!Number.isSafeInteger(value) || value <= 0)
+    throw new Error("maxFrames must be a positive integer");
   return value;
 }
 
 function normalizeRequestedCount(value: number | undefined, maxFrames: number): number {
   if (value === undefined) return Math.min(3, maxFrames);
-  if (!Number.isSafeInteger(value) || value <= 0) throw new Error("frameCount must be a positive integer");
+  if (!Number.isSafeInteger(value) || value <= 0)
+    throw new Error("frameCount must be a positive integer");
   return value;
 }
 

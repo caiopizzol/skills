@@ -8,4 +8,10 @@ export {
   type CatalogEntry,
 } from "./validate-catalog.ts";
 export { localLinks, type MarkdownLink } from "./validate-links.ts";
-export type { AgentMetadataSource, CatalogRule, CatalogSource, CatalogViolation, SkillSource } from "./types.ts";
+export type {
+  AgentMetadataSource,
+  CatalogRule,
+  CatalogSource,
+  CatalogViolation,
+  SkillSource,
+} from "./types.ts";

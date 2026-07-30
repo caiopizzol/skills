@@ -4,18 +4,18 @@
 
 The identified format decides the route, not the file extension. An extension is a claim the file makes about itself, and the identify step is what checks it.
 
-| Format | Route | What the agent inspects |
-| --- | --- | --- |
-| PNG | view directly | the original bytes |
-| JPEG | view directly | the original bytes |
-| WebP, static | view directly | the original bytes |
-| TIFF | view directly, convert when the viewer refuses it | the original bytes, or a PNG derivative |
-| AVIF | convert to a temporary PNG | a PNG derivative |
-| HEIC | convert to a temporary PNG | a PNG derivative |
-| HEIF | convert to a temporary PNG | a PNG derivative |
-| BMP | convert to a temporary PNG | a PNG derivative |
-| GIF | expand to per-frame PNGs | one PNG derivative per inspected frame |
-| SVG | inspect safety first, then rasterize only if self-contained | a PNG derivative, or nothing at all |
+| Format       | Route                                                       | What the agent inspects                 |
+| ------------ | ----------------------------------------------------------- | --------------------------------------- |
+| PNG          | view directly                                               | the original bytes                      |
+| JPEG         | view directly                                               | the original bytes                      |
+| WebP, static | view directly                                               | the original bytes                      |
+| TIFF         | view directly, convert when the viewer refuses it           | the original bytes, or a PNG derivative |
+| AVIF         | convert to a temporary PNG                                  | a PNG derivative                        |
+| HEIC         | convert to a temporary PNG                                  | a PNG derivative                        |
+| HEIF         | convert to a temporary PNG                                  | a PNG derivative                        |
+| BMP          | convert to a temporary PNG                                  | a PNG derivative                        |
+| GIF          | expand to per-frame PNGs                                    | one PNG derivative per inspected frame  |
+| SVG          | inspect safety first, then rasterize only if self-contained | a PNG derivative, or nothing at all     |
 
 TIFF sits between the two raster columns because viewer support for it is uneven. Try it directly, and convert only when the viewer refuses. Say which of the two happened, because it changes whether the observation is of the original.
 

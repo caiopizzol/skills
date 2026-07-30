@@ -1,7 +1,14 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile, rm } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
-import { errorMessage, isToolUnavailableError, isToolUnavailableResult, type ExecBoundary, type ExecRequest, type ExecResult } from "./exec.ts";
+import {
+  errorMessage,
+  isToolUnavailableError,
+  isToolUnavailableResult,
+  type ExecBoundary,
+  type ExecRequest,
+  type ExecResult,
+} from "./exec.ts";
 
 export const DEFAULT_TIMEOUT_MS = 60_000;
 
@@ -47,18 +54,28 @@ export async function runTool(
   let deadline: ReturnType<typeof setTimeout> | undefined;
   const expiry = new Promise<ToolRun>((resolveRace) => {
     deadline = setTimeout(
-      () => resolveRace({ kind: "timeout", message: `${request.command} exceeded the ${timeoutMs} ms deadline` }),
+      () =>
+        resolveRace({
+          kind: "timeout",
+          message: `${request.command} exceeded the ${timeoutMs} ms deadline`,
+        }),
       timeoutMs,
     );
   });
   const attempt = exec({ ...request, timeoutMs }).then(
     (result): ToolRun =>
       isToolUnavailableResult(result)
-        ? { kind: "tool-unavailable", message: `${request.command} is not available in this runtime` }
+        ? {
+            kind: "tool-unavailable",
+            message: `${request.command} is not available in this runtime`,
+          }
         : { kind: "result", result },
     (error: unknown): ToolRun =>
       isToolUnavailableError(error)
-        ? { kind: "tool-unavailable", message: `${request.command} is not available in this runtime` }
+        ? {
+            kind: "tool-unavailable",
+            message: `${request.command} is not available in this runtime`,
+          }
         : { kind: "error", message: errorMessage(error) },
   );
   try {

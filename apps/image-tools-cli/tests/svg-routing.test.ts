@@ -2,7 +2,7 @@ import { gzipSync } from "node:zlib";
 import { mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vite-plus/test";
 import type { ExecBoundary, ExecRequest } from "@caiopizzol/media-exec";
 import { isComplete, prepareImage, type PrepareImageResult } from "../src/prepare-image.ts";
 
@@ -14,7 +14,9 @@ import { isComplete, prepareImage, type PrepareImageResult } from "../src/prepar
 const directories: string[] = [];
 
 afterEach(async () => {
-  await Promise.all(directories.splice(0).map((path) => rm(path, { recursive: true, force: true })));
+  await Promise.all(
+    directories.splice(0).map((path) => rm(path, { recursive: true, force: true })),
+  );
 });
 
 async function temporaryDirectory(): Promise<string> {
@@ -23,8 +25,10 @@ async function temporaryDirectory(): Promise<string> {
   return directory;
 }
 
-const UNSAFE_BODY = '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><script>x</script><rect width="40" height="40"/></svg>';
-const SAFE_BODY = '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" fill="red"/></svg>';
+const UNSAFE_BODY =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><script>x</script><rect width="40" height="40"/></svg>';
+const SAFE_BODY =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" fill="red"/></svg>';
 
 interface SpyExec {
   exec: ExecBoundary;
@@ -37,12 +41,20 @@ interface SpyExec {
 function spyExec(identifiedFormat = "SVG"): SpyExec {
   const requests: ExecRequest[] = [];
   return {
-    commands: () => requests.filter((request) => !request.args.includes("-version")).map((request) => request.command),
-    conversions: () => requests.filter((request) => request.command === "magick" && !request.args.includes("-version")),
+    commands: () =>
+      requests
+        .filter((request) => !request.args.includes("-version"))
+        .map((request) => request.command),
+    conversions: () =>
+      requests.filter(
+        (request) => request.command === "magick" && !request.args.includes("-version"),
+      ),
     exec: async (request) => {
       requests.push(request);
-      if (request.args.includes("-version")) return { exitCode: 0, stdout: `${request.command} 7.1\n`, stderr: "" };
-      if (request.command === "identify") return { exitCode: 0, stdout: `${identifiedFormat} 40 40\n`, stderr: "" };
+      if (request.args.includes("-version"))
+        return { exitCode: 0, stdout: `${request.command} 7.1\n`, stderr: "" };
+      if (request.command === "identify")
+        return { exitCode: 0, stdout: `${identifiedFormat} 40 40\n`, stderr: "" };
       const target = request.args.at(-1);
       if (target !== undefined) await writeFile(target.replace(/^png:/, ""), "rasterized bytes");
       return { exitCode: 0, stdout: "", stderr: "" };
@@ -50,7 +62,10 @@ function spyExec(identifiedFormat = "SVG"): SpyExec {
   };
 }
 
-async function prepare(filename: string, contents: string | Uint8Array): Promise<{ result: PrepareImageResult; spy: SpyExec; directory: string }> {
+async function prepare(
+  filename: string,
+  contents: string | Uint8Array,
+): Promise<{ result: PrepareImageResult; spy: SpyExec; directory: string }> {
   const directory = await temporaryDirectory();
   const inputPath = join(directory, filename);
   await writeFile(inputPath, contents);
@@ -65,15 +80,51 @@ async function prepare(filename: string, contents: string | Uint8Array): Promise
 // Each row was confirmed against the pinned ImageMagick image to be routed to an SVG coder, or is
 // a spelling of the same evasion. A new bypass should be one more row, not a new test.
 const hostile: ReadonlyArray<{ label: string; filename: string; body: string }> = [
-  { label: "an SVG whose name claims PNG, behind an XML declaration and a comment", filename: "attachment.png", body: `<?xml version="1.0"?><!-- c -->${UNSAFE_BODY}` },
-  { label: "the same document named .txt", filename: "attachment.txt", body: `<?xml version="1.0"?><!-- c -->${UNSAFE_BODY}` },
-  { label: "the same document named .dat", filename: "attachment.dat", body: `<?xml version="1.0"?><!-- c -->${UNSAFE_BODY}` },
-  { label: "the same document named .xml", filename: "attachment.xml", body: `<?xml version="1.0"?><!-- c -->${UNSAFE_BODY}` },
-  { label: "the .msvg coder ImageMagick maps to its own SVG renderer", filename: "attachment.msvg", body: `<!DOCTYPE svg PUBLIC "" "">${UNSAFE_BODY}` },
-  { label: "a DOCTYPE prefix before the root element", filename: "attachment.svg", body: `<!DOCTYPE svg PUBLIC "" "">${UNSAFE_BODY}` },
-  { label: "a leading comment before the root element", filename: "attachment.svg", body: `<!-- c -->${UNSAFE_BODY}` },
-  { label: "a root element padded past any prefix window", filename: "attachment.png", body: `<?xml version="1.0"?>\n${"\n".repeat(50_000)}${UNSAFE_BODY}` },
-  { label: "whitespace padding with no declaration at all", filename: "attachment.png", body: `${" ".repeat(50_000)}${UNSAFE_BODY}` },
+  {
+    label: "an SVG whose name claims PNG, behind an XML declaration and a comment",
+    filename: "attachment.png",
+    body: `<?xml version="1.0"?><!-- c -->${UNSAFE_BODY}`,
+  },
+  {
+    label: "the same document named .txt",
+    filename: "attachment.txt",
+    body: `<?xml version="1.0"?><!-- c -->${UNSAFE_BODY}`,
+  },
+  {
+    label: "the same document named .dat",
+    filename: "attachment.dat",
+    body: `<?xml version="1.0"?><!-- c -->${UNSAFE_BODY}`,
+  },
+  {
+    label: "the same document named .xml",
+    filename: "attachment.xml",
+    body: `<?xml version="1.0"?><!-- c -->${UNSAFE_BODY}`,
+  },
+  {
+    label: "the .msvg coder ImageMagick maps to its own SVG renderer",
+    filename: "attachment.msvg",
+    body: `<!DOCTYPE svg PUBLIC "" "">${UNSAFE_BODY}`,
+  },
+  {
+    label: "a DOCTYPE prefix before the root element",
+    filename: "attachment.svg",
+    body: `<!DOCTYPE svg PUBLIC "" "">${UNSAFE_BODY}`,
+  },
+  {
+    label: "a leading comment before the root element",
+    filename: "attachment.svg",
+    body: `<!-- c -->${UNSAFE_BODY}`,
+  },
+  {
+    label: "a root element padded past any prefix window",
+    filename: "attachment.png",
+    body: `<?xml version="1.0"?>\n${"\n".repeat(50_000)}${UNSAFE_BODY}`,
+  },
+  {
+    label: "whitespace padding with no declaration at all",
+    filename: "attachment.png",
+    body: `${" ".repeat(50_000)}${UNSAFE_BODY}`,
+  },
 ];
 
 describe("hostile SVG candidates never reach a rasterizer", () => {

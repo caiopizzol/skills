@@ -53,20 +53,29 @@ export async function prepareVideo(
 ): Promise<PrepareVideoResult> {
   const cwd = options.cwd ?? process.cwd();
   const inputPath = resolve(cwd, args.inputPath);
-  const requestedArtifactsDirectory = args.artifactsDirectory === undefined
-    ? undefined
-    : resolve(cwd, args.artifactsDirectory);
-  if (inputPath === requestedArtifactsDirectory) throw new Error("the input and artifacts directory must differ");
+  const requestedArtifactsDirectory =
+    args.artifactsDirectory === undefined ? undefined : resolve(cwd, args.artifactsDirectory);
+  if (inputPath === requestedArtifactsDirectory)
+    throw new Error("the input and artifacts directory must differ");
   const inputStats = await stat(inputPath);
   if (!inputStats.isFile()) throw new Error(`input is not a regular file: ${inputPath}`);
   const { identity } = await readSourceIdentity(inputPath);
-  const artifacts = requestedArtifactsDirectory === undefined
-    ? { directory: await mkdtemp(join(tmpdir(), "video-tools-")), mode: "temporary" as const }
-    : { directory: requestedArtifactsDirectory, mode: "caller-provided" as const };
+  const artifacts =
+    requestedArtifactsDirectory === undefined
+      ? { directory: await mkdtemp(join(tmpdir(), "video-tools-")), mode: "temporary" as const }
+      : { directory: requestedArtifactsDirectory, mode: "caller-provided" as const };
   const artifactsDirectory = artifacts.directory;
   await mkdir(artifactsDirectory, { recursive: true });
   const file = { path: identity.path, bytes: identity.bytes, sha256: identity.sha256 };
-  const empty = { formatVersion: 1 as const, file, artifacts, probe: null, frames: null, audio: null, inputChanged: null };
+  const empty = {
+    formatVersion: 1 as const,
+    file,
+    artifacts,
+    probe: null,
+    frames: null,
+    audio: null,
+    inputChanged: null,
+  };
 
   let exec = options.hostExec ?? execWithBun;
   let image: ContainerIdentity | undefined;
@@ -90,11 +99,20 @@ export async function prepareVideo(
 
   // Probe first. It is the operation whose structured outcome already distinguishes an absent
   // binary from a broken run, so it decides capability instead of a version string doing it.
-  const toolStage = image === undefined ? "host-tool" as const : "container-tool" as const;
-  const probe = await probeVideo({ inputPath, cwd, exec, ...(args.timeoutMs === undefined ? {} : { timeoutMs: args.timeoutMs }) });
+  const toolStage = image === undefined ? ("host-tool" as const) : ("container-tool" as const);
+  const probe = await probeVideo({
+    inputPath,
+    cwd,
+    exec,
+    ...(args.timeoutMs === undefined ? {} : { timeoutMs: args.timeoutMs }),
+  });
   if (probe.outcome === "tool-unavailable") {
     // A tool missing from a caller-supplied image is a fact about that image, not about the host.
-    return { ...empty, capability: null, capabilityGap: { outcome: "tool-unavailable", stage: toolStage, message: probe.message } };
+    return {
+      ...empty,
+      capability: null,
+      capabilityGap: { outcome: "tool-unavailable", stage: toolStage, message: probe.message },
+    };
   }
 
   const versions = await readToolVersions({
@@ -140,7 +158,17 @@ export async function prepareVideo(
 
   const inputChanged = await detectInputChange({ identity, writtenPaths: written });
   if (inputChanged) return { ...empty, capability, capabilityGap: null, probe, inputChanged };
-  return { formatVersion: 1, file, artifacts, capability, capabilityGap: null, probe, frames, audio, inputChanged: null };
+  return {
+    formatVersion: 1,
+    file,
+    artifacts,
+    capability,
+    capabilityGap: null,
+    probe,
+    frames,
+    audio,
+    inputChanged: null,
+  };
 }
 
 export function isComplete(result: PrepareVideoResult): boolean {

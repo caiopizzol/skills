@@ -1,14 +1,16 @@
 import { mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vite-plus/test";
 import type { ExecBoundary, ExecRequest } from "@caiopizzol/media-exec";
 import { isComplete, prepareImage } from "../src/prepare-image.ts";
 
 const directories: string[] = [];
 
 afterEach(async () => {
-  await Promise.all(directories.splice(0).map((path) => rm(path, { recursive: true, force: true })));
+  await Promise.all(
+    directories.splice(0).map((path) => rm(path, { recursive: true, force: true })),
+  );
 });
 
 async function temporaryDirectory(): Promise<string> {
@@ -20,13 +22,18 @@ async function temporaryDirectory(): Promise<string> {
 const BMP = Buffer.from([0x42, 0x4d, 0x20, 0, 0, 0, 0, 0, 0, 0, 0x1a, 0, 0, 0]);
 
 function missing(command: string): Error {
-  return Object.assign(new Error(`spawn ${command} ENOENT`), { code: "ENOENT", syscall: `spawn ${command}` });
+  return Object.assign(new Error(`spawn ${command} ENOENT`), {
+    code: "ENOENT",
+    syscall: `spawn ${command}`,
+  });
 }
 
 function workingExec(format: string, onWrite?: () => void): ExecBoundary {
   return async (request) => {
-    if (request.args.includes("-version")) return { exitCode: 0, stdout: `${request.command} 7.1\n`, stderr: "" };
-    if (request.command === "identify") return { exitCode: 0, stdout: `${format} 10 20\n`, stderr: "" };
+    if (request.args.includes("-version"))
+      return { exitCode: 0, stdout: `${request.command} 7.1\n`, stderr: "" };
+    if (request.command === "identify")
+      return { exitCode: 0, stdout: `${format} 10 20\n`, stderr: "" };
     const target = request.args.at(-1);
     if (target !== undefined) await writeFile(target.replace(/^png:/, ""), "converted bytes");
     onWrite?.();
@@ -44,7 +51,12 @@ describe("prepareImage capability reporting", () => {
 
     const result = await prepareImage(
       { command: "prepare", inputPath, artifactsDirectory: join(directory, "artifacts") },
-      { cwd: directory, hostExec: async () => { throw missing("identify"); } },
+      {
+        cwd: directory,
+        hostExec: async () => {
+          throw missing("identify");
+        },
+      },
     );
 
     expect(result.capabilityGap).toMatchObject({ outcome: "tool-unavailable", stage: "host-tool" });
@@ -58,15 +70,28 @@ describe("prepareImage capability reporting", () => {
     const attempted: string[] = [];
 
     const result = await prepareImage(
-      { command: "prepare", inputPath, artifactsDirectory: join(directory, "artifacts"), containerImage: `x@sha256:${"a".repeat(64)}` },
+      {
+        command: "prepare",
+        inputPath,
+        artifactsDirectory: join(directory, "artifacts"),
+        containerImage: `x@sha256:${"a".repeat(64)}`,
+      },
       {
         cwd: directory,
-        hostExec: async (request: ExecRequest) => { attempted.push(request.command); return { exitCode: 0, stdout: "", stderr: "" }; },
-        dockerExec: async () => { throw missing("docker"); },
+        hostExec: async (request: ExecRequest) => {
+          attempted.push(request.command);
+          return { exitCode: 0, stdout: "", stderr: "" };
+        },
+        dockerExec: async () => {
+          throw missing("docker");
+        },
       },
     );
 
-    expect(result.capabilityGap).toMatchObject({ outcome: "tool-unavailable", stage: "container-runtime" });
+    expect(result.capabilityGap).toMatchObject({
+      outcome: "tool-unavailable",
+      stage: "container-runtime",
+    });
     expect(attempted).toEqual([]);
   });
 
@@ -82,7 +107,8 @@ describe("prepareImage capability reporting", () => {
         cwd: directory,
         hostExec: async (request) => {
           if (request.command === "magick") throw missing("magick");
-          if (request.args.includes("-version")) return { exitCode: 0, stdout: "identify 7.1\n", stderr: "" };
+          if (request.args.includes("-version"))
+            return { exitCode: 0, stdout: "identify 7.1\n", stderr: "" };
           return { exitCode: 0, stdout: "PNG 10 20\n", stderr: "" };
         },
       },
@@ -101,17 +127,29 @@ describe("prepareImage capability reporting", () => {
     await writeFile(inputPath, BMP);
 
     const result = await prepareImage(
-      { command: "prepare", inputPath, artifactsDirectory: join(directory, "artifacts"), containerImage: `x@sha256:${"a".repeat(64)}` },
+      {
+        command: "prepare",
+        inputPath,
+        artifactsDirectory: join(directory, "artifacts"),
+        containerImage: `x@sha256:${"a".repeat(64)}`,
+      },
       {
         cwd: directory,
         dockerExec: async (request) =>
           request.args.includes("inspect")
             ? { exitCode: 0, stdout: `sha256:${"b".repeat(64)}\n`, stderr: "" }
-            : { exitCode: 127, stdout: "", stderr: 'exec: "identify": executable file not found in $PATH' },
+            : {
+                exitCode: 127,
+                stdout: "",
+                stderr: 'exec: "identify": executable file not found in $PATH',
+              },
       },
     );
 
-    expect(result.capabilityGap).toMatchObject({ outcome: "tool-unavailable", stage: "container-tool" });
+    expect(result.capabilityGap).toMatchObject({
+      outcome: "tool-unavailable",
+      stage: "container-tool",
+    });
   });
 });
 
@@ -134,7 +172,10 @@ describe("prepareImage source identity", () => {
       },
     );
 
-    expect(result.inputChanged).toMatchObject({ outcome: "input-changed", initialSha256: result.file.sha256 });
+    expect(result.inputChanged).toMatchObject({
+      outcome: "input-changed",
+      initialSha256: result.file.sha256,
+    });
     expect(result.derivative).toBeNull();
     expect(isComplete(result)).toBe(false);
     expect(await readdir(join(directory, "artifacts"))).toEqual([]);

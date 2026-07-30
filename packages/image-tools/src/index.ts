@@ -1,4 +1,9 @@
-export { MAGICK_COMMAND, buildConvertArgs, convertImage, type ConvertImageOptions } from "./convert-image.ts";
+export {
+  MAGICK_COMMAND,
+  buildConvertArgs,
+  convertImage,
+  type ConvertImageOptions,
+} from "./convert-image.ts";
 export {
   execWithBun,
   isToolUnavailableError,
@@ -23,7 +28,11 @@ export {
   parseIdentifyOutput,
   type IdentifyImageOptions,
 } from "./identify-image.ts";
-export { inspectSvgSafety, inspectSvgText, type InspectSvgSafetyOptions } from "./inspect-svg-safety.ts";
+export {
+  inspectSvgSafety,
+  inspectSvgText,
+  type InspectSvgSafetyOptions,
+} from "./inspect-svg-safety.ts";
 export { classifyInput, isSvgCandidate } from "./classify-input.ts";
 export {
   DEFAULT_TIMEOUT_MS,

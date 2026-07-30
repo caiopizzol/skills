@@ -12,7 +12,8 @@ export function parseArguments(argv: readonly string[]): CliArguments {
   }
   if (argv[0] !== "inspect") throw new Error(`unknown command: ${argv[0]}`);
   const inputPath = argv[1];
-  if (inputPath === undefined || inputPath.startsWith("--")) throw new Error("inspect requires one exact input path");
+  if (inputPath === undefined || inputPath.startsWith("--"))
+    throw new Error("inspect requires one exact input path");
 
   let maximumCharacters: number | undefined;
   for (let index = 2; index < argv.length; index += 1) {
@@ -28,11 +29,16 @@ export function parseArguments(argv: readonly string[]): CliArguments {
     }
     index += 1;
   }
-  return { command: "inspect", inputPath, ...(maximumCharacters === undefined ? {} : { maximumCharacters }) };
+  return {
+    command: "inspect",
+    inputPath,
+    ...(maximumCharacters === undefined ? {} : { maximumCharacters }),
+  };
 }
 
 function positiveInteger(value: string, option: string | undefined): number {
   const parsed = Number(value);
-  if (!Number.isSafeInteger(parsed) || parsed <= 0) throw new Error(`${option} requires a positive integer`);
+  if (!Number.isSafeInteger(parsed) || parsed <= 0)
+    throw new Error(`${option} requires a positive integer`);
   return parsed;
 }

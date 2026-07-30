@@ -35,7 +35,9 @@ export interface ImageFixtureManifest {
 }
 
 export function readImageManifest(): ImageFixtureManifest {
-  return JSON.parse(readFileSync(join(IMAGE_FIXTURE_DIRECTORY, "manifest.json"), "utf8")) as ImageFixtureManifest;
+  return JSON.parse(
+    readFileSync(join(IMAGE_FIXTURE_DIRECTORY, "manifest.json"), "utf8"),
+  ) as ImageFixtureManifest;
 }
 
 export type ExecHandler = (request: ExecRequest) => ExecResult | Promise<ExecResult>;

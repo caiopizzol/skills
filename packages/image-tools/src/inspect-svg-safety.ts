@@ -116,7 +116,10 @@ const CHECKS: ReadonlyArray<{
   },
   {
     code: "external-image",
-    pattern: new RegExp(`<\\s*${NAMESPACE_PREFIX}image\\b[^>]*?\\b${NAMESPACE_PREFIX}href\\s*=\\s*(["'])([\\s\\S]*?)\\1`, "gi"),
+    pattern: new RegExp(
+      `<\\s*${NAMESPACE_PREFIX}image\\b[^>]*?\\b${NAMESPACE_PREFIX}href\\s*=\\s*(["'])([\\s\\S]*?)\\1`,
+      "gi",
+    ),
     describe: (match) => `an image element points outside the file: ${snippet(match[2] ?? "")}`,
     // Only an inline data: target keeps an image element self-contained, and only when its own
     // payload is self-contained. A fragment reference names nothing a raster image can come from,
@@ -142,12 +145,14 @@ const CHECKS: ReadonlyArray<{
     // @import is reported, including one whose target looks harmless: a self-contained file has no
     // reason to import a stylesheet at all.
     pattern: /@import\b[^;}]*/gi,
-    describe: (match) => `an @import rule fetches a stylesheet from outside the file: ${snippet(match[0])}`,
+    describe: (match) =>
+      `an @import rule fetches a stylesheet from outside the file: ${snippet(match[0])}`,
   },
   {
     code: "event-handler-attribute",
     pattern: /\son[a-z]+\s*=\s*["']/gi,
-    describe: (match) => `an event handler attribute can run code in the renderer: ${snippet(match[0].trim())}`,
+    describe: (match) =>
+      `an event handler attribute can run code in the renderer: ${snippet(match[0].trim())}`,
   },
 ];
 
@@ -172,7 +177,11 @@ function inspectSvgTextAtDepth(source: string, depth: number): SvgSafetyVerdict 
       match = pattern.exec(decoded);
     }
   }
-  return { formatVersion: IMAGE_TOOLS_FORMAT_VERSION, selfContained: reasons.length === 0, reasons };
+  return {
+    formatVersion: IMAGE_TOOLS_FORMAT_VERSION,
+    selfContained: reasons.length === 0,
+    reasons,
+  };
 }
 
 export function inspectSvgSafety(options: InspectSvgSafetyOptions): InspectSvgSafetyResult {

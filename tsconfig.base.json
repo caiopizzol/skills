@@ -2,6 +2,7 @@
   "compilerOptions": {
     "strict": true,
     "allowImportingTsExtensions": true,
+    "noEmit": true,
     "skipLibCheck": true,
     "types": ["bun"]
   }

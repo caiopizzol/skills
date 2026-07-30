@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import type { ExecResult } from "../src/index.ts";
 import { FFPROBE_COMMAND, buildProbeArgs, parseProbeOutput, probeVideo } from "../src/index.ts";
 import {
@@ -31,8 +31,22 @@ describe("parseProbeOutput", () => {
     expect(probe.hasVideoStream).toBe(true);
     expect(probe.hasAudioStream).toBe(true);
     expect(probe.streams).toEqual([
-      { index: 0, codecType: "video", codecName: expected.videoCodec, width: expected.width, height: expected.height, channels: null },
-      { index: 1, codecType: "audio", codecName: expected.audioCodec, width: null, height: null, channels: 1 },
+      {
+        index: 0,
+        codecType: "video",
+        codecName: expected.videoCodec,
+        width: expected.width,
+        height: expected.height,
+        channels: null,
+      },
+      {
+        index: 1,
+        codecType: "audio",
+        codecName: expected.audioCodec,
+        width: null,
+        height: null,
+        channels: 1,
+      },
     ]);
   });
 
@@ -43,8 +57,22 @@ describe("parseProbeOutput", () => {
     expect(probe.containers).toContain(expected.container);
     expect(probe.durationSeconds).toBe(expected.durationSeconds);
     expect(probe.streams).toEqual([
-      { index: 0, codecType: "video", codecName: expected.videoCodec, width: expected.width, height: expected.height, channels: null },
-      { index: 1, codecType: "audio", codecName: expected.audioCodec, width: null, height: null, channels: 1 },
+      {
+        index: 0,
+        codecType: "video",
+        codecName: expected.videoCodec,
+        width: expected.width,
+        height: expected.height,
+        channels: null,
+      },
+      {
+        index: 1,
+        codecType: "audio",
+        codecName: expected.audioCodec,
+        width: null,
+        height: null,
+        channels: 1,
+      },
     ]);
   });
 
@@ -57,8 +85,22 @@ describe("parseProbeOutput", () => {
     expect(probe.durationSeconds).toBe(6.008);
     expect(probe.durationSeconds).toBe(expected.durationSeconds);
     expect(probe.streams).toEqual([
-      { index: 0, codecType: "video", codecName: expected.videoCodec, width: expected.width, height: expected.height, channels: null },
-      { index: 1, codecType: "audio", codecName: expected.audioCodec, width: null, height: null, channels: 1 },
+      {
+        index: 0,
+        codecType: "video",
+        codecName: expected.videoCodec,
+        width: expected.width,
+        height: expected.height,
+        channels: null,
+      },
+      {
+        index: 1,
+        codecType: "audio",
+        codecName: expected.audioCodec,
+        width: null,
+        height: null,
+        channels: 1,
+      },
     ]);
   });
 
@@ -66,7 +108,9 @@ describe("parseProbeOutput", () => {
     expect(() => parseProbeOutput("{not json")).toThrow(/invalid JSON/);
     expect(() => parseProbeOutput("")).toThrow(/no output/);
     expect(() => parseProbeOutput(JSON.stringify({ streams: [] }))).toThrow(/format object/);
-    expect(() => parseProbeOutput(JSON.stringify({ format: { format_name: "mp4" }, streams: [] }))).toThrow(/duration/);
+    expect(() =>
+      parseProbeOutput(JSON.stringify({ format: { format_name: "mp4" }, streams: [] })),
+    ).toThrow(/duration/);
   });
 });
 
@@ -127,7 +171,7 @@ describe("probeVideo", () => {
   });
 
   it("classifies malformed JSON on a clean exit as probe-failed", async () => {
-    const boundary = fakeExec(() => ok("{\"streams\": ["));
+    const boundary = fakeExec(() => ok('{"streams": ['));
 
     const result = await probeVideo({ inputPath: INPUT_PATH, cwd: CWD, exec: boundary.exec });
 
@@ -153,7 +197,12 @@ describe("probeVideo", () => {
         }),
     );
 
-    const result = await probeVideo({ inputPath: INPUT_PATH, cwd: CWD, timeoutMs: 5, exec: boundary.exec });
+    const result = await probeVideo({
+      inputPath: INPUT_PATH,
+      cwd: CWD,
+      timeoutMs: 5,
+      exec: boundary.exec,
+    });
 
     expect(result.outcome).toBe("timeout");
     expect(result).not.toHaveProperty("probe");
