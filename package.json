@@ -1,11 +1,11 @@
 {
   "name": "skills",
   "private": true,
-  "packageManager": "bun@1.3.12",
   "workspaces": [
     "apps/*",
     "packages/*"
   ],
+  "type": "module",
   "scripts": {
     "image-tools": "bun apps/image-tools-cli/src/cli.ts",
     "text-tools": "bun apps/text-tools-cli/src/cli.ts",
@@ -15,14 +15,25 @@
     "link:cli": "bun link --cwd apps/image-tools-cli && bun link --cwd apps/text-tools-cli && bun link --cwd apps/video-tools-cli",
     "typecheck": "tsc --noEmit -p tsconfig.scripts.json && bun scripts/run-workspaces.ts typecheck",
     "test": "bun scripts/run-workspaces.ts test && bun run test:scripts",
-    "check": "bun run validate:skills && bun run typecheck && bun run test",
-    "test:scripts": "bun test scripts/tests/"
+    "check": "vp check && bun run validate:skills && bun run typecheck && bun run test",
+    "test:scripts": "bun test scripts/tests/",
+    "prepare": "test ! -x node_modules/.bin/vp || vp config --no-agent"
   },
   "dependencies": {
     "@caiopizzol/catalog-validation": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "^1.3.0",
-    "typescript": "7.0.2"
+    "typescript": "7.0.2",
+    "vite": "catalog:",
+    "vite-plus": "catalog:"
+  },
+  "overrides": {
+    "vite": "catalog:"
+  },
+  "packageManager": "bun@1.3.12",
+  "catalog": {
+    "vite": "npm:@voidzero-dev/vite-plus-core@0.2.6",
+    "vite-plus": "0.2.6"
   }
 }

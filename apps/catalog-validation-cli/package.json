@@ -2,10 +2,10 @@
   "name": "@caiopizzol/catalog-validation-cli",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
   "bin": {
     "validate-catalog": "src/cli.ts"
   },
+  "type": "module",
   "scripts": {
     "validate-catalog": "bun run src/cli.ts",
     "typecheck": "tsc --noEmit",

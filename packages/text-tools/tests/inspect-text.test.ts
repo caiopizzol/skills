@@ -1,5 +1,11 @@
-import { describe, expect, it } from "vitest";
-import { decodeText, detectTextFormat, inspectText, parseCsv, selectTextSections } from "../src/index.ts";
+import { describe, expect, it } from "vite-plus/test";
+import {
+  decodeText,
+  detectTextFormat,
+  inspectText,
+  parseCsv,
+  selectTextSections,
+} from "../src/index.ts";
 
 const CWD = "/fixture/run";
 
@@ -17,12 +23,13 @@ describe("decodeText", () => {
   });
 
   it("refuses invalid UTF-8 and decoded binary controls", () => {
-    expect(inspectText({ inputPath: "bad.txt", bytes: Uint8Array.from([0xc3, 0x28]), cwd: CWD }).outcome).toBe(
-      "unsupported-encoding",
-    );
-    expect(inspectText({ inputPath: "binary.txt", bytes: Uint8Array.from([0x61, 0x00, 0x62]), cwd: CWD }).outcome).toBe(
-      "invalid-text",
-    );
+    expect(
+      inspectText({ inputPath: "bad.txt", bytes: Uint8Array.from([0xc3, 0x28]), cwd: CWD }).outcome,
+    ).toBe("unsupported-encoding");
+    expect(
+      inspectText({ inputPath: "binary.txt", bytes: Uint8Array.from([0x61, 0x00, 0x62]), cwd: CWD })
+        .outcome,
+    ).toBe("invalid-text");
   });
 });
 
@@ -30,8 +37,16 @@ describe("structured formats", () => {
   // A file that breaks its own declared structure keeps the failure visible. It also keeps its
   // contents: decoding succeeded, so the text is still readable evidence the caller asked for.
   it("records a declared structure failure without discarding the decoded text", () => {
-    const badJson = inspectText({ inputPath: "claim.json", bytes: new TextEncoder().encode("not JSON"), cwd: CWD });
-    const badCsv = inspectText({ inputPath: "claim.csv", bytes: new TextEncoder().encode("a,b\n1"), cwd: CWD });
+    const badJson = inspectText({
+      inputPath: "claim.json",
+      bytes: new TextEncoder().encode("not JSON"),
+      cwd: CWD,
+    });
+    const badCsv = inspectText({
+      inputPath: "claim.csv",
+      bytes: new TextEncoder().encode("a,b\n1"),
+      cwd: CWD,
+    });
 
     expect(badJson).toMatchObject({
       outcome: "parse-failed",
@@ -42,7 +57,8 @@ describe("structured formats", () => {
       outcome: "parse-failed",
       structure: { kind: "parse-failed", reason: expect.stringContaining("row 2") },
     });
-    if (badJson.outcome !== "parse-failed") throw new Error("expected a parse failure with decoded text");
+    if (badJson.outcome !== "parse-failed")
+      throw new Error("expected a parse failure with decoded text");
     expect(badJson.sections.map((section) => section.text).join("")).toBe("not JSON");
     expect(badJson.coverage.totalCharacters).toBe(8);
   });
@@ -52,12 +68,19 @@ describe("structured formats", () => {
   it("keeps an inferred structure failure separate from a declared one", () => {
     const prose = inspectText({
       inputPath: "notes.log",
-      bytes: new TextEncoder().encode("a, b\nc, d\ne, f\nthis line, has, three commas\nmore text\n"),
+      bytes: new TextEncoder().encode(
+        "a, b\nc, d\ne, f\nthis line, has, three commas\nmore text\n",
+      ),
       cwd: CWD,
     });
 
-    expect(prose).toMatchObject({ outcome: "parse-failed", format: "csv", formatClassification: "inferred" });
-    if (prose.outcome !== "parse-failed") throw new Error("expected a parse failure with decoded text");
+    expect(prose).toMatchObject({
+      outcome: "parse-failed",
+      format: "csv",
+      formatClassification: "inferred",
+    });
+    if (prose.outcome !== "parse-failed")
+      throw new Error("expected a parse failure with decoded text");
     expect(prose.sections.map((section) => section.text).join("")).toContain("more text");
   });
 
@@ -71,11 +94,26 @@ describe("structured formats", () => {
   });
 
   it("sniffs obvious JSON, XML, Markdown, and CSV when no useful extension exists", () => {
-    expect(detectTextFormat("data", '{"ok":true}')).toEqual({ format: "json", classification: "inferred" });
-    expect(detectTextFormat("data", "<report><ok/></report>")).toEqual({ format: "xml", classification: "inferred" });
-    expect(detectTextFormat("data", "# Heading\ntext")).toEqual({ format: "markdown", classification: "inferred" });
-    expect(detectTextFormat("data", "a,b\n1,2\n")).toEqual({ format: "csv", classification: "inferred" });
-    expect(detectTextFormat("data.json", "{}")).toEqual({ format: "json", classification: "declared" });
+    expect(detectTextFormat("data", '{"ok":true}')).toEqual({
+      format: "json",
+      classification: "inferred",
+    });
+    expect(detectTextFormat("data", "<report><ok/></report>")).toEqual({
+      format: "xml",
+      classification: "inferred",
+    });
+    expect(detectTextFormat("data", "# Heading\ntext")).toEqual({
+      format: "markdown",
+      classification: "inferred",
+    });
+    expect(detectTextFormat("data", "a,b\n1,2\n")).toEqual({
+      format: "csv",
+      classification: "inferred",
+    });
+    expect(detectTextFormat("data.json", "{}")).toEqual({
+      format: "json",
+      classification: "declared",
+    });
   });
 });
 
@@ -83,7 +121,11 @@ describe("bounded coverage", () => {
   it("retains the complete decoded file when it fits the character bound", () => {
     const selected = selectTextSections("one\ntwo\n", 100);
 
-    expect(selected.coverage).toMatchObject({ totalCharacters: 8, totalLines: 2, boundedBy: "complete" });
+    expect(selected.coverage).toMatchObject({
+      totalCharacters: 8,
+      totalLines: 2,
+      boundedBy: "complete",
+    });
     expect(selected.sections).toEqual([
       { startCharacter: 0, endCharacter: 8, startLine: 1, endLine: 2, text: "one\ntwo\n" },
     ]);

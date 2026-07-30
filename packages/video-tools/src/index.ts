@@ -21,7 +21,13 @@ export {
   frameFilename,
   type ExtractFramesOptions,
 } from "./extract-frames.ts";
-export { FFPROBE_COMMAND, buildProbeArgs, parseProbeOutput, probeVideo, type ProbeVideoOptions } from "./probe-video.ts";
+export {
+  FFPROBE_COMMAND,
+  buildProbeArgs,
+  parseProbeOutput,
+  probeVideo,
+  type ProbeVideoOptions,
+} from "./probe-video.ts";
 export {
   DEFAULT_TIMEOUT_MS,
   type DiscardOutputBoundary,

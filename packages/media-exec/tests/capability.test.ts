@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import {
   readToolVersions,
   resolveLocalContainerImage,
@@ -7,14 +7,18 @@ import {
 } from "../src/index.ts";
 
 const CWD = "/fixture/run";
-const PINNED = "dpokidov/imagemagick@sha256:87998ec1b8127b2f73f626f74f7b05e8827f9d7605fa52da5370588f7e53cee1";
+const PINNED =
+  "dpokidov/imagemagick@sha256:87998ec1b8127b2f73f626f74f7b05e8827f9d7605fa52da5370588f7e53cee1";
 
 function exec(handler: (command: string) => ExecResult | Promise<ExecResult>): ExecBoundary {
   return async (request) => handler(request.command);
 }
 
 function missing(command: string): Error {
-  return Object.assign(new Error(`spawn ${command} ENOENT`), { code: "ENOENT", syscall: `spawn ${command}` });
+  return Object.assign(new Error(`spawn ${command} ENOENT`), {
+    code: "ENOENT",
+    syscall: `spawn ${command}`,
+  });
 }
 
 // A boundary that outlives its deadline and then settles, the way execWithBun does when it kills a
@@ -29,7 +33,10 @@ function neverSettles(): ExecBoundary {
 function hangsUntilKilled(): ExecBoundary {
   return async ({ timeoutMs }) =>
     new Promise<ExecResult>((settle) => {
-      setTimeout(() => settle({ exitCode: 137, stdout: "", stderr: "killed" }), (timeoutMs ?? 0) + 10);
+      setTimeout(
+        () => settle({ exitCode: 137, stdout: "", stderr: "killed" }),
+        (timeoutMs ?? 0) + 10,
+      );
     });
 }
 
@@ -40,7 +47,9 @@ describe("capability discovery keeps its stages distinct", () => {
   it("reports an absent docker client as a container-runtime tool-unavailable", async () => {
     const result = await resolveLocalContainerImage({
       requestedImage: PINNED,
-      dockerExec: async () => { throw missing("docker"); },
+      dockerExec: async () => {
+        throw missing("docker");
+      },
       cwd: CWD,
     });
 
@@ -50,7 +59,11 @@ describe("capability discovery keeps its stages distinct", () => {
   it("reports a refusing daemon as access-denied rather than absent", async () => {
     const result = await resolveLocalContainerImage({
       requestedImage: PINNED,
-      dockerExec: exec(() => ({ exitCode: 1, stdout: "", stderr: "Got permission denied while trying to connect to the Docker daemon socket" })),
+      dockerExec: exec(() => ({
+        exitCode: 1,
+        stdout: "",
+        stderr: "Got permission denied while trying to connect to the Docker daemon socket",
+      })),
       cwd: CWD,
     });
 
@@ -62,7 +75,12 @@ describe("capability discovery keeps its stages distinct", () => {
   it("separates an unreachable daemon from an absent image", async () => {
     const unreachable = await resolveLocalContainerImage({
       requestedImage: PINNED,
-      dockerExec: exec(() => ({ exitCode: 1, stdout: "", stderr: "Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?" })),
+      dockerExec: exec(() => ({
+        exitCode: 1,
+        stdout: "",
+        stderr:
+          "Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?",
+      })),
       cwd: CWD,
     });
 
@@ -71,7 +89,9 @@ describe("capability discovery keeps its stages distinct", () => {
 
   it("attributes a tool missing inside a caller-supplied image to that image, not the host", async () => {
     const result = await readToolVersions({
-      exec: async () => { throw missing("identify"); },
+      exec: async () => {
+        throw missing("identify");
+      },
       commands: ["identify"],
       cwd: CWD,
       toolStage: "container-tool",
@@ -83,7 +103,11 @@ describe("capability discovery keeps its stages distinct", () => {
   it("reports an absent local image as image-unavailable, not a missing runtime", async () => {
     const result = await resolveLocalContainerImage({
       requestedImage: PINNED,
-      dockerExec: exec(() => ({ exitCode: 1, stdout: "", stderr: "Error response from daemon: No such image: example" })),
+      dockerExec: exec(() => ({
+        exitCode: 1,
+        stdout: "",
+        stderr: "Error response from daemon: No such image: example",
+      })),
       cwd: CWD,
     });
 
@@ -102,7 +126,12 @@ describe("capability discovery keeps its stages distinct", () => {
   });
 
   it("reports an image-inspection deadline even when the executor never settles", async () => {
-    const result = await resolveLocalContainerImage({ requestedImage: PINNED, dockerExec: neverSettles(), cwd: CWD, timeoutMs: 20 });
+    const result = await resolveLocalContainerImage({
+      requestedImage: PINNED,
+      dockerExec: neverSettles(),
+      cwd: CWD,
+      timeoutMs: 20,
+    });
 
     expect(result).toMatchObject({ outcome: "timeout", stage: "container-image" });
   });
@@ -132,7 +161,12 @@ describe("version discovery is metadata, not a capability gate", () => {
   });
 
   it("reports the deadline even when the executor never settles", async () => {
-    const result = await readToolVersions({ exec: neverSettles(), commands: ["ffprobe"], cwd: CWD, timeoutMs: 20 });
+    const result = await readToolVersions({
+      exec: neverSettles(),
+      commands: ["ffprobe"],
+      cwd: CWD,
+      timeoutMs: 20,
+    });
 
     expect(result).toMatchObject({ outcome: "timeout", stage: "version-query" });
   });
@@ -144,7 +178,9 @@ describe("version discovery is metadata, not a capability gate", () => {
       cwd: CWD,
     });
     const absent = await readToolVersions({
-      exec: async () => { throw missing("ffprobe"); },
+      exec: async () => {
+        throw missing("ffprobe");
+      },
       commands: ["ffprobe"],
       cwd: CWD,
     });
@@ -155,14 +191,21 @@ describe("version discovery is metadata, not a capability gate", () => {
 
   it("returns one version per requested command", async () => {
     const result = await readToolVersions({
-      exec: exec((command) => ({ exitCode: 0, stdout: `${command} 7.1\nbuild details\n`, stderr: "" })),
+      exec: exec((command) => ({
+        exitCode: 0,
+        stdout: `${command} 7.1\nbuild details\n`,
+        stderr: "",
+      })),
       commands: ["ffmpeg", "ffprobe"],
       cwd: CWD,
     });
 
     expect(result).toEqual({
       outcome: "ok",
-      versions: [{ command: "ffmpeg", version: "ffmpeg 7.1" }, { command: "ffprobe", version: "ffprobe 7.1" }],
+      versions: [
+        { command: "ffmpeg", version: "ffmpeg 7.1" },
+        { command: "ffprobe", version: "ffprobe 7.1" },
+      ],
     });
   });
 });

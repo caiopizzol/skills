@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import {
   buildExtractAudioArgs,
   buildExtractFrameArgs,
@@ -45,7 +45,11 @@ describe("argument vector safety", () => {
 
   it("keeps a hostile filename as exactly one ffmpeg argument in both extract operations", () => {
     const audioArgs = buildExtractAudioArgs(HOSTILE_PATH, `${ARTIFACTS_DIRECTORY}/audio.wav`);
-    const frameArgs = buildExtractFrameArgs(HOSTILE_PATH, `${ARTIFACTS_DIRECTORY}/frames/frame-001-0_000s.png`, 0);
+    const frameArgs = buildExtractFrameArgs(
+      HOSTILE_PATH,
+      `${ARTIFACTS_DIRECTORY}/frames/frame-001-0_000s.png`,
+      0,
+    );
 
     expect(argumentAfter(audioArgs, "-i")).toBe(HOSTILE_PATH);
     expect(argumentAfter(frameArgs, "-i")).toBe(HOSTILE_PATH);
@@ -66,7 +70,9 @@ describe("argument vector safety", () => {
     if (!request) throw new Error("expected one exec request");
     expect(request.command).toBe("ffprobe");
     expect(request.args).toContain(HOSTILE_PATH);
-    expect(request.args.some((argument) => argument !== HOSTILE_PATH && /[;$'"]/.test(argument))).toBe(false);
+    expect(
+      request.args.some((argument) => argument !== HOSTILE_PATH && /[;$'"]/.test(argument)),
+    ).toBe(false);
     expect(request).not.toHaveProperty("shell");
   });
 });
@@ -108,7 +114,9 @@ describe("original preservation", () => {
     });
 
     const outputPaths = boundary.requests.map((request) => request.args.at(-1));
-    expect(outputPaths.every((path) => path?.startsWith(`${ARTIFACTS_DIRECTORY}/frames/`) === true)).toBe(true);
+    expect(
+      outputPaths.every((path) => path?.startsWith(`${ARTIFACTS_DIRECTORY}/frames/`) === true),
+    ).toBe(true);
     expect(outputPaths).not.toContain(HOSTILE_PATH);
     expect(outputs.prepared).not.toContain(HOSTILE_PATH);
     expect(outputs.read).not.toContain(HOSTILE_PATH);

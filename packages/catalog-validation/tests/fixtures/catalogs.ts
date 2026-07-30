@@ -17,7 +17,9 @@ export function skill(name: string, body = "", overrides: Partial<SkillSource> =
 }
 
 export function catalog(skills: SkillSource[], readmeOverride?: string): CatalogSource {
-  const rows = skills.map((s) => `| [\`${s.name}\`](${s.path}/SKILL.md) | Interpretation | Reads one thing |`).join("\n");
+  const rows = skills
+    .map((s) => `| [\`${s.name}\`](${s.path}/SKILL.md) | Interpretation | Reads one thing |`)
+    .join("\n");
   const readme = `# Repository\n\n## Skill catalog\n\n| Skill | Layer | Responsibility |\n| --- | --- | --- |\n${rows}\n\n## Quick start\n\nRun the tests.\n`;
   return { skills, readme: readmeOverride ?? readme };
 }

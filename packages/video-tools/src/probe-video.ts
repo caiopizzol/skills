@@ -20,7 +20,17 @@ export const FFPROBE_COMMAND = "ffprobe";
 // The path travels as the value of -i so a filename beginning with a hyphen is read as a filename
 // rather than as an option, and the vector is always argv so no shell ever sees it.
 export function buildProbeArgs(inputPath: string): string[] {
-  return ["-hide_banner", "-loglevel", "error", "-print_format", "json", "-show_format", "-show_streams", "-i", inputPath];
+  return [
+    "-hide_banner",
+    "-loglevel",
+    "error",
+    "-print_format",
+    "json",
+    "-show_format",
+    "-show_streams",
+    "-i",
+    inputPath,
+  ];
 }
 
 export function parseProbeOutput(output: string): VideoProbe {
@@ -30,21 +40,29 @@ export function parseProbeOutput(output: string): VideoProbe {
   try {
     parsed = JSON.parse(trimmed) as unknown;
   } catch (error) {
-    throw new Error(`ffprobe returned invalid JSON: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(
+      `ffprobe returned invalid JSON: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
   if (!isRecord(parsed)) throw new Error("ffprobe output must be an object");
   const format = parsed.format;
   if (!isRecord(format)) throw new Error("ffprobe output is missing the format object");
   const formatName = typeof format.format_name === "string" ? format.format_name : null;
-  if (formatName === null || formatName === "") throw new Error("ffprobe output is missing format_name");
+  if (formatName === null || formatName === "")
+    throw new Error("ffprobe output is missing format_name");
   const durationSeconds = parseNumber(format.duration);
-  if (durationSeconds === null || durationSeconds <= 0) throw new Error("ffprobe output is missing a positive duration");
-  if (!Array.isArray(parsed.streams)) throw new Error("ffprobe output is missing the streams array");
+  if (durationSeconds === null || durationSeconds <= 0)
+    throw new Error("ffprobe output is missing a positive duration");
+  if (!Array.isArray(parsed.streams))
+    throw new Error("ffprobe output is missing the streams array");
   const streams = parsed.streams.map((stream, index) => parseStream(stream, index));
   return {
     formatVersion: VIDEO_TOOLS_FORMAT_VERSION,
     formatName,
-    containers: formatName.split(",").map((name) => name.trim()).filter((name) => name !== ""),
+    containers: formatName
+      .split(",")
+      .map((name) => name.trim())
+      .filter((name) => name !== ""),
     durationSeconds,
     streams,
     hasVideoStream: streams.some((stream) => stream.codecType === "video"),
@@ -65,8 +83,10 @@ export async function probeVideo(options: ProbeVideoOptions): Promise<ProbeVideo
   if (run.kind === "tool-unavailable") {
     return { outcome: "tool-unavailable", operation: "probe", inputPath, message: run.message };
   }
-  if (run.kind === "timeout") return { outcome: "timeout", operation: "probe", inputPath, message: run.message };
-  if (run.kind === "error") return { outcome: "probe-failed", operation: "probe", inputPath, message: run.message };
+  if (run.kind === "timeout")
+    return { outcome: "timeout", operation: "probe", inputPath, message: run.message };
+  if (run.kind === "error")
+    return { outcome: "probe-failed", operation: "probe", inputPath, message: run.message };
   if (run.result.exitCode !== 0) {
     return {
       outcome: "probe-failed",

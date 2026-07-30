@@ -38,7 +38,9 @@ export interface VideoFixtureManifest {
 }
 
 export function readVideoManifest(): VideoFixtureManifest {
-  return JSON.parse(readFileSync(join(VIDEO_FIXTURE_DIRECTORY, "manifest.json"), "utf8")) as VideoFixtureManifest;
+  return JSON.parse(
+    readFileSync(join(VIDEO_FIXTURE_DIRECTORY, "manifest.json"), "utf8"),
+  ) as VideoFixtureManifest;
 }
 
 export type ExecHandler = (request: ExecRequest) => ExecResult | Promise<ExecResult>;

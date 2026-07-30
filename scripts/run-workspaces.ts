@@ -20,7 +20,11 @@ if (targets.length === 0) {
 }
 
 for (const target of targets) {
-  const result = Bun.spawnSync(["bun", "run", "--cwd", target, scriptName], { cwd: root, stdout: "inherit", stderr: "inherit" });
+  const result = Bun.spawnSync(["bun", "run", "--cwd", target, scriptName], {
+    cwd: root,
+    stdout: "inherit",
+    stderr: "inherit",
+  });
   if (result.exitCode !== 0) {
     console.error(`\n${scriptName} failed in ${target}`);
     process.exit(result.exitCode ?? 1);

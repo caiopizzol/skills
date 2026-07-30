@@ -31,7 +31,16 @@ export const IMAGE_COMMANDS = ["magick", "identify"] as const;
 export const CONTAINER_TMPFS_MEGABYTES = 64;
 
 const CONVERTED_FORMATS = new Set(["AVIF", "HEIC", "HEIF", "BMP", "SVG"]);
-const SUPPORTED_FORMATS = new Set(["PNG", "JPEG", "JPG", "WEBP", "TIFF", "TIF", "GIF", ...CONVERTED_FORMATS]);
+const SUPPORTED_FORMATS = new Set([
+  "PNG",
+  "JPEG",
+  "JPG",
+  "WEBP",
+  "TIFF",
+  "TIF",
+  "GIF",
+  ...CONVERTED_FORMATS,
+]);
 
 // Formats an SVG-family coder can produce. An identification landing on one of these is the trigger
 // for the invariant below, whatever the filename said and whatever the classifier concluded.
@@ -63,7 +72,8 @@ export async function prepareImage(
   const cwd = options.cwd ?? process.cwd();
   const inputPath = resolve(cwd, args.inputPath);
   const artifactsDirectory = resolve(cwd, args.artifactsDirectory);
-  if (inputPath === artifactsDirectory) throw new Error("the input and artifacts directory must differ");
+  if (inputPath === artifactsDirectory)
+    throw new Error("the input and artifacts directory must differ");
   const inputStats = await stat(inputPath);
   if (!inputStats.isFile()) throw new Error(`input is not a regular file: ${inputPath}`);
   const { identity, bytes } = await readSourceIdentity(inputPath);
@@ -118,10 +128,13 @@ export async function prepareImage(
           verdict: {
             formatVersion: 1,
             selfContained: false,
-            reasons: [{
-              code: "undecodable-candidate",
-              detail: "the input looks like an SVG document but is not valid UTF-8, so its safety cannot be established",
-            }],
+            reasons: [
+              {
+                code: "undecodable-candidate",
+                detail:
+                  "the input looks like an SVG document but is not valid UTF-8, so its safety cannot be established",
+              },
+            ],
           },
         },
       };
@@ -154,11 +167,20 @@ export async function prepareImage(
   // Identify first. It reads headers with -ping rather than decoding pixels, and its structured
   // outcome already separates an absent binary from a broken run, so it decides capability instead
   // of a version string doing it. A static PNG therefore never needs `magick` to be present.
-  const toolStage = image === undefined ? "host-tool" as const : "container-tool" as const;
-  const identify = await identifyImage({ inputPath, cwd, exec, ...(args.timeoutMs === undefined ? {} : { timeoutMs: args.timeoutMs }) });
+  const toolStage = image === undefined ? ("host-tool" as const) : ("container-tool" as const);
+  const identify = await identifyImage({
+    inputPath,
+    cwd,
+    exec,
+    ...(args.timeoutMs === undefined ? {} : { timeoutMs: args.timeoutMs }),
+  });
   if (identify.outcome === "tool-unavailable") {
     // A tool missing from a caller-supplied image is a fact about that image, not about the host.
-    return { ...base, svgSafety, capabilityGap: { outcome: "tool-unavailable", stage: toolStage, message: identify.message } };
+    return {
+      ...base,
+      svgSafety,
+      capabilityGap: { outcome: "tool-unavailable", stage: toolStage, message: identify.message },
+    };
   }
 
   const versions = await readToolVersions({
@@ -191,10 +213,12 @@ export async function prepareImage(
         verdict: {
           formatVersion: 1,
           selfContained: false,
-          reasons: [{
-            code: "unverified-svg",
-            detail: `the file was identified as ${format} but no safety inspection had established it as self-contained, so it was refused rather than rasterized`,
-          }],
+          reasons: [
+            {
+              code: "unverified-svg",
+              detail: `the file was identified as ${format} but no safety inspection had established it as self-contained, so it was refused rather than rasterized`,
+            },
+          ],
         },
       },
       capability,
@@ -224,16 +248,31 @@ export async function prepareImage(
     exec,
     ...(args.timeoutMs === undefined ? {} : { timeoutMs: args.timeoutMs }),
   };
-  const derivative = identify.identity.frameCount > 1
-    ? await expandGifFrames({ ...shared, frameCount: identify.identity.frameCount, ...(args.maxFrames === undefined ? {} : { maxFrames: args.maxFrames }) })
-    : CONVERTED_FORMATS.has(format)
-    ? await convertImage(shared)
-    : null;
+  const derivative =
+    identify.identity.frameCount > 1
+      ? await expandGifFrames({
+          ...shared,
+          frameCount: identify.identity.frameCount,
+          ...(args.maxFrames === undefined ? {} : { maxFrames: args.maxFrames }),
+        })
+      : CONVERTED_FORMATS.has(format)
+        ? await convertImage(shared)
+        : null;
 
   const written = derivativePaths(derivative);
   const inputChanged = await detectInputChange({ identity, writtenPaths: written });
   if (inputChanged) return { ...base, svgSafety, capability, identify, inputChanged };
-  return { formatVersion: 1, file, classification, capability, capabilityGap: null, svgSafety, identify, derivative, inputChanged: null };
+  return {
+    formatVersion: 1,
+    file,
+    classification,
+    capability,
+    capabilityGap: null,
+    svgSafety,
+    identify,
+    derivative,
+    inputChanged: null,
+  };
 }
 
 function derivativePaths(derivative: ConvertImageResult | ExpandGifFramesResult | null): string[] {

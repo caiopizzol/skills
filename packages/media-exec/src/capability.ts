@@ -1,4 +1,9 @@
-import { errorMessage, isPermissionDeniedResult, type ExecBoundary, type ExecResult } from "./exec.ts";
+import {
+  errorMessage,
+  isPermissionDeniedResult,
+  type ExecBoundary,
+  type ExecResult,
+} from "./exec.ts";
 import { DEFAULT_TIMEOUT_MS, runTool } from "./run-tool.ts";
 
 // Capability discovery is the stage that decides whether any work can happen at all. It reports a
@@ -10,9 +15,20 @@ import { DEFAULT_TIMEOUT_MS, runTool } from "./run-tool.ts";
 // `host-tool` and `container-tool` are the same missing binary in two different places: one is
 // fixed by installing something, the other by choosing an image that carries the tool.
 
-export type CapabilityStage = "host-tool" | "container-tool" | "container-runtime" | "container-image" | "version-query";
+export type CapabilityStage =
+  | "host-tool"
+  | "container-tool"
+  | "container-runtime"
+  | "container-image"
+  | "version-query";
 
-export type CapabilityOutcome = "ok" | "tool-unavailable" | "access-denied" | "image-unavailable" | "failed" | "timeout";
+export type CapabilityOutcome =
+  | "ok"
+  | "tool-unavailable"
+  | "access-denied"
+  | "image-unavailable"
+  | "failed"
+  | "timeout";
 
 export interface CapabilityUnavailable {
   outcome: Exclude<CapabilityOutcome, "ok">;
@@ -33,12 +49,20 @@ export async function resolveLocalContainerImage(options: {
 }): Promise<ContainerIdentity | CapabilityUnavailable> {
   const run = await runTool(
     options.dockerExec,
-    { command: "docker", args: ["image", "inspect", "--format", "{{.Id}}", options.requestedImage], cwd: options.cwd },
+    {
+      command: "docker",
+      args: ["image", "inspect", "--format", "{{.Id}}", options.requestedImage],
+      cwd: options.cwd,
+    },
     options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
     { writesOutput: false },
   );
   if (run.kind === "tool-unavailable") {
-    return { outcome: "tool-unavailable", stage: "container-runtime", message: "docker is not available in this runtime" };
+    return {
+      outcome: "tool-unavailable",
+      stage: "container-runtime",
+      message: "docker is not available in this runtime",
+    };
   }
   if (run.kind === "timeout") {
     return { outcome: "timeout", stage: "container-image", message: run.message };
@@ -84,7 +108,9 @@ export async function resolveLocalContainerImage(options: {
 // Docker says "No such image" when it looked and found nothing. Anything else non-zero means the
 // question could not be answered, which is a different fact and a different fix.
 export function isMissingImageResult(result: ExecResult): boolean {
-  return /no such image|no such object|reference does not exist|manifest unknown/i.test(result.stderr);
+  return /no such image|no such object|reference does not exist|manifest unknown/i.test(
+    result.stderr,
+  );
 }
 
 export interface ToolVersion {
@@ -92,9 +118,7 @@ export interface ToolVersion {
   version: string;
 }
 
-export type ReadVersionsResult =
-  | { outcome: "ok"; versions: ToolVersion[] }
-  | CapabilityUnavailable;
+export type ReadVersionsResult = { outcome: "ok"; versions: ToolVersion[] } | CapabilityUnavailable;
 
 // Version strings are metadata about a tool that is already known to work, never the gate that
 // decides whether it does. Callers run their first real operation first, so a static image is not
@@ -117,10 +141,16 @@ export async function readToolVersions(options: {
       { writesOutput: false },
     );
     if (run.kind === "tool-unavailable") {
-      return { outcome: "tool-unavailable", stage: options.toolStage ?? "host-tool", message: run.message };
+      return {
+        outcome: "tool-unavailable",
+        stage: options.toolStage ?? "host-tool",
+        message: run.message,
+      };
     }
-    if (run.kind === "timeout") return { outcome: "timeout", stage: "version-query", message: run.message };
-    if (run.kind === "error") return { outcome: "failed", stage: "version-query", message: run.message };
+    if (run.kind === "timeout")
+      return { outcome: "timeout", stage: "version-query", message: run.message };
+    if (run.kind === "error")
+      return { outcome: "failed", stage: "version-query", message: run.message };
     if (run.result.exitCode !== 0) {
       return {
         outcome: "failed",

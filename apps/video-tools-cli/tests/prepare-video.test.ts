@@ -1,14 +1,16 @@
 import { mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, relative, sep } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vite-plus/test";
 import type { ExecBoundary, ExecRequest } from "@caiopizzol/media-exec";
 import { isComplete, prepareVideo } from "../src/prepare-video.ts";
 
 const directories: string[] = [];
 
 afterEach(async () => {
-  await Promise.all(directories.splice(0).map((path) => rm(path, { recursive: true, force: true })));
+  await Promise.all(
+    directories.splice(0).map((path) => rm(path, { recursive: true, force: true })),
+  );
 });
 
 async function temporaryDirectory(): Promise<string> {
@@ -24,7 +26,8 @@ const PROBE_JSON = JSON.stringify({
 
 function workingExec(onWrite?: () => void): ExecBoundary {
   return async (request) => {
-    if (request.args.includes("-version")) return { exitCode: 0, stdout: `${request.command} 7.1\n`, stderr: "" };
+    if (request.args.includes("-version"))
+      return { exitCode: 0, stdout: `${request.command} 7.1\n`, stderr: "" };
     if (request.command === "ffprobe") return { exitCode: 0, stdout: PROBE_JSON, stderr: "" };
     const target = request.args.at(-1);
     if (target !== undefined) await writeFile(target, "frame bytes");
@@ -34,7 +37,10 @@ function workingExec(onWrite?: () => void): ExecBoundary {
 }
 
 function missing(command: string): Error {
-  return Object.assign(new Error(`spawn ${command} ENOENT`), { code: "ENOENT", syscall: `spawn ${command}` });
+  return Object.assign(new Error(`spawn ${command} ENOENT`), {
+    code: "ENOENT",
+    syscall: `spawn ${command}`,
+  });
 }
 
 describe("prepareVideo capability reporting", () => {
@@ -53,8 +59,11 @@ describe("prepareVideo capability reporting", () => {
     expect(result.artifacts.directory).not.toBe(directory);
     expect(result.frames?.outcome).toBe("ok");
     if (result.frames?.outcome !== "ok") throw new Error("expected prepared frames");
-    expect(result.frames.frames.map((frame) => relative(result.artifacts.directory, frame.derivative.path).split(sep)[0]))
-      .toEqual(["frames", "frames", "frames"]);
+    expect(
+      result.frames.frames.map(
+        (frame) => relative(result.artifacts.directory, frame.derivative.path).split(sep)[0],
+      ),
+    ).toEqual(["frames", "frames", "frames"]);
   });
 
   it("reports a caller-provided artifacts directory", async () => {
@@ -80,7 +89,12 @@ describe("prepareVideo capability reporting", () => {
 
     const result = await prepareVideo(
       { command: "prepare", inputPath, artifactsDirectory: join(directory, "artifacts") },
-      { cwd: directory, hostExec: async () => { throw missing("ffprobe"); } },
+      {
+        cwd: directory,
+        hostExec: async () => {
+          throw missing("ffprobe");
+        },
+      },
     );
 
     expect(result.capabilityGap).toMatchObject({ outcome: "tool-unavailable", stage: "host-tool" });
@@ -103,12 +117,20 @@ describe("prepareVideo capability reporting", () => {
       },
       {
         cwd: directory,
-        hostExec: async (request: ExecRequest) => { attempted.push(request.command); return { exitCode: 0, stdout: "", stderr: "" }; },
-        dockerExec: async () => { throw missing("docker"); },
+        hostExec: async (request: ExecRequest) => {
+          attempted.push(request.command);
+          return { exitCode: 0, stdout: "", stderr: "" };
+        },
+        dockerExec: async () => {
+          throw missing("docker");
+        },
       },
     );
 
-    expect(result.capabilityGap).toMatchObject({ outcome: "tool-unavailable", stage: "container-runtime" });
+    expect(result.capabilityGap).toMatchObject({
+      outcome: "tool-unavailable",
+      stage: "container-runtime",
+    });
     expect(attempted).toEqual([]);
   });
 
@@ -124,7 +146,8 @@ describe("prepareVideo capability reporting", () => {
       {
         cwd: directory,
         hostExec: async (request) => {
-          if (request.args.includes("-version")) return { exitCode: 1, stdout: "", stderr: "unrecognized option" };
+          if (request.args.includes("-version"))
+            return { exitCode: 1, stdout: "", stderr: "unrecognized option" };
           if (request.command === "ffprobe") return { exitCode: 0, stdout: PROBE_JSON, stderr: "" };
           const target = request.args.at(-1);
           if (target !== undefined) await writeFile(target, "frame bytes");
@@ -134,7 +157,10 @@ describe("prepareVideo capability reporting", () => {
     );
 
     expect(result.capability?.versions).toBeNull();
-    expect(result.capability?.versionGap).toMatchObject({ outcome: "failed", stage: "version-query" });
+    expect(result.capability?.versionGap).toMatchObject({
+      outcome: "failed",
+      stage: "version-query",
+    });
     expect(result.probe?.outcome).toBe("ok");
     expect(isComplete(result)).toBe(true);
   });
@@ -161,7 +187,8 @@ describe("prepareVideo audio coverage", () => {
       {
         cwd: directory,
         hostExec: async (request) => {
-          if (request.args.includes("-version")) return { exitCode: 0, stdout: `${request.command} 7.1\n`, stderr: "" };
+          if (request.args.includes("-version"))
+            return { exitCode: 0, stdout: `${request.command} 7.1\n`, stderr: "" };
           if (request.command === "ffprobe") return { exitCode: 0, stdout: multiAudio, stderr: "" };
           const target = request.args.at(-1);
           if (target !== undefined) await writeFile(target, "media bytes");
@@ -194,8 +221,10 @@ describe("prepareVideo audio coverage", () => {
       {
         cwd: directory,
         hostExec: async (request) => {
-          if (request.args.includes("-version")) return { exitCode: 0, stdout: `${request.command} 7.1\n`, stderr: "" };
-          if (request.command === "ffprobe") return { exitCode: 0, stdout: singleAudio, stderr: "" };
+          if (request.args.includes("-version"))
+            return { exitCode: 0, stdout: `${request.command} 7.1\n`, stderr: "" };
+          if (request.command === "ffprobe")
+            return { exitCode: 0, stdout: singleAudio, stderr: "" };
           const target = request.args.at(-1);
           if (target !== undefined) await writeFile(target, "media bytes");
           return { exitCode: 0, stdout: "", stderr: "" };
@@ -218,14 +247,20 @@ describe("prepareVideo source identity", () => {
 
     const result = await prepareVideo(
       { command: "prepare", inputPath, artifactsDirectory: join(directory, "artifacts") },
-      { cwd: directory, hostExec: workingExec(() => {
+      {
+        cwd: directory,
+        hostExec: workingExec(() => {
           if (swapped) return;
           swapped = true;
           void writeFile(inputPath, "different video bytes entirely");
-        }), },
+        }),
+      },
     );
 
-    expect(result.inputChanged).toMatchObject({ outcome: "input-changed", initialSha256: result.file.sha256 });
+    expect(result.inputChanged).toMatchObject({
+      outcome: "input-changed",
+      initialSha256: result.file.sha256,
+    });
     expect(result.frames).toBeNull();
     expect(result.audio).toBeNull();
     expect(isComplete(result)).toBe(false);
