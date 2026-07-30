@@ -1,6 +1,6 @@
 ---
 name: setup-gh-checks
-description: Add or reconcile a minimal GitHub Actions validation workflow and require its successful status on the default branch. Use when a GitHub repository already has one local non-writing check command covering formatting, linting, and type checking.
+description: Add or reconcile a minimal GitHub Actions validation workflow for a repository with one existing local check command. Use to run formatting, linting, and type checking in CI, not to configure merge protection.
 ---
 
 # Set up GitHub checks
@@ -9,16 +9,9 @@ Run the repository's existing validation in GitHub. Do not choose or install qua
 
 ## Workflow
 
-1. Inspect the default branch, package manager, root scripts, workflows, and existing merge protection.
-   Confirm `gh` can administer the repository.
-2. Confirm one root, non-writing check command covers formatting, linting, and type checking, then run it.
-3. Create or reconcile `.github/workflows/check.yml` for pull requests and default-branch pushes. Use
-   `contents: read`, one `ubuntu-latest` job, readable action versions, a frozen install, and the root
-   check command. Never use `pull_request_target`, secrets, write permissions, or automatic fixes.
-4. With permission, open or update a pull request. Wait for GitHub to report the job before requiring its
-   exact status context.
-5. Preserve existing protections. Require pull requests, the observed check, and resolved conversations;
-   block force pushes and deletion. Add approvals or strict updates only when requested.
-6. Read the settings back and confirm the pull-request head passed and the required check blocks merging.
+1. Inspect the default branch, package manager, root scripts, and existing workflows.
+2. Confirm one root, non-writing check command covers formatting, linting, and type checking, then run it locally.
+3. Work on a non-default branch. Create or reconcile `.github/workflows/check.yml` for pull requests and default-branch pushes. Give the workflow and job stable names unique among existing workflows. Use `contents: read`, one `ubuntu-latest` job, readable action versions, a frozen install, and the root check command. Never use `pull_request_target`, secrets, write permissions, or automatic fixes.
+4. When invoked alone, open or update a pull request with permission; under a composite, return the prepared change to its parent. After the pull request exists, wait for GitHub to report the job and record its exact successful status context.
 
-Do not add or configure other quality, release, deployment, or repository-management tools.
+Do not configure merge protection or add unrelated repository tooling.

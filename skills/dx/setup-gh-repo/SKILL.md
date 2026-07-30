@@ -1,24 +1,17 @@
 ---
 name: setup-gh-repo
-description: Create a GitHub repository from an existing local Git repository and apply minimal safe repository settings. Use when publishing or connecting a local project to a new GitHub repository, not when adding CI or required checks to an existing remote.
+description: Set up a GitHub repository with CI, Cubic code review, and safe merge protection. Use for the complete GitHub setup; use a child skill directly for only one capability.
 ---
 
 # Set up a GitHub repository
 
-Keep the local repository as the source of truth.
+Compose the GitHub setup without recreating any child's procedure.
 
 ## Workflow
 
-1. Inspect the commits, working tree, remotes, and authenticated GitHub owner. Require at least one commit
-   and a free remote name.
-2. Confirm the owner, repository name, and visibility. Treat creating the repository, making it public,
-   and pushing as separate actions unless already authorized.
-3. Audit the exact history and refs that will be pushed for private material, credentials, author
-   identity, and licensing.
-4. Create the remote without pushing. Use `origin` and `main` unless the caller chose otherwise. Enable
-   deletion of merged branches, read-only workflow permissions, and secret scanning when supported.
-5. With explicit permission, push only the selected default branch. Verify the remote settings and
-   commit match the intended local state.
+1. Use `$create-gh-repo` when the local project is not connected to GitHub.
+2. Create or reuse one non-default bootstrap branch, then use `$setup-gh-checks` and `$setup-cubic` on it. The composite owns the shared branch and pull request.
+3. With permission, push and open one draft pull request. Wait for CI. When Cubic is available but does not review drafts, get separate permission to mark the pull request ready before waiting for its review.
+4. Use `$protect-gh-repo` with the successful CI context and reviewer paths observed on GitHub. Cubic is optional and is not a required status by default.
 
-Do not rewrite project files or add CI, releases, dependency automation, or templates. Leave checks and
-merge enforcement to `setup-gh-checks`.
+Honor each child's permission boundaries. If a child is unavailable or cannot verify its result, stop that capability and report the gap.

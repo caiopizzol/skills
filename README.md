@@ -6,12 +6,15 @@ Reusable agent skills for inspecting files and setting up repositories.
 
 | Skill | Purpose |
 | --- | --- |
+| [`create-gh-repo`](skills/dx/create-gh-repo/SKILL.md) | Create and connect a GitHub repository |
+| [`protect-gh-repo`](skills/dx/protect-gh-repo/SKILL.md) | Protect merges using observed checks and reviewers |
 | [`read-image`](skills/files/read-image/SKILL.md) | Inspect raster images, animations, and safe SVGs |
 | [`read-text-file`](skills/files/read-text-file/SKILL.md) | Read bounded text and structured-data files |
 | [`read-video`](skills/files/read-video/SKILL.md) | Inspect a video's visual and audio lanes |
 | [`transcribe-audio`](skills/files/transcribe-audio/SKILL.md) | Transcribe audio with explicit temporal coverage |
-| [`setup-gh-checks`](skills/dx/setup-gh-checks/SKILL.md) | Run local checks in GitHub and require them before merge |
-| [`setup-gh-repo`](skills/dx/setup-gh-repo/SKILL.md) | Create a GitHub repository with safe defaults |
+| [`setup-gh-checks`](skills/dx/setup-gh-checks/SKILL.md) | Run an existing local check in GitHub Actions |
+| [`setup-cubic`](skills/dx/setup-cubic/SKILL.md) | Configure focused Cubic code review |
+| [`setup-gh-repo`](skills/dx/setup-gh-repo/SKILL.md) | Set up GitHub checks, review, and merge protection |
 | [`setup-typescript`](skills/dx/setup-typescript/SKILL.md) | Set up strict TypeScript configuration |
 | [`setup-vite-plus`](skills/dx/setup-vite-plus/SKILL.md) | Set up the Vite+ toolchain |
 

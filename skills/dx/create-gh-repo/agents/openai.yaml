@@ -1,0 +1,4 @@
+interface:
+  display_name: "Create GitHub repository"
+  short_description: "Create and connect a GitHub repository"
+  default_prompt: "Use $create-gh-repo to create and connect a GitHub repository for this local project."
