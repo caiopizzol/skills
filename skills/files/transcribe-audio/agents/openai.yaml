@@ -1,0 +1,4 @@
+interface:
+  display_name: "Transcribe Audio"
+  short_description: "Transcribe one exact local audio file"
+  default_prompt: "Use $transcribe-audio to transcribe this exact local audio file and report coverage, capability, provenance, and explicit gaps."

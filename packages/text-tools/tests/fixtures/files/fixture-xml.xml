@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<report token="XML-104">
+  <environment>test</environment>
+  <result status="failed">
+    <message>Fixture validation stopped at step two.</message>
+  </result>
+</report>

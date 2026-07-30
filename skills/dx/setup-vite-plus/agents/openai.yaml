@@ -1,0 +1,4 @@
+interface:
+  display_name: "Set Up Vite+"
+  short_description: "Create a minimal pnpm and Vite+ toolchain"
+  default_prompt: "Use $setup-vite-plus to establish a minimal Vite+ toolchain, preserving the existing package manager or using pnpm for a new project."

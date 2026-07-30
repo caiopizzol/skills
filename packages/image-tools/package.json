@@ -1,0 +1,21 @@
+{
+  "name": "@caiopizzol/image-tools",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@caiopizzol/media-exec": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.0",
+    "typescript": "^7.0.0",
+    "vitest": "^3.2.4"
+  }
+}

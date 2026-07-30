@@ -1,0 +1,21 @@
+{
+  "name": "@caiopizzol/catalog-validation-cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "validate-catalog": "src/cli.ts"
+  },
+  "scripts": {
+    "validate-catalog": "bun run src/cli.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test tests/"
+  },
+  "dependencies": {
+    "@caiopizzol/catalog-validation": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.0",
+    "typescript": "^7.0.0"
+  }
+}

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Read Video"
+  short_description: "Interpret one exact local video file"
+  default_prompt: "Use $read-video to interpret this exact local video file, then report the metadata, frame, and audio lanes separately with sampled timestamps, omitted duration, and evidence gaps."

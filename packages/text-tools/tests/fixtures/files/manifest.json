@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "fixtures": [
+    {
+      "filename": "fixture-text.txt",
+      "mediaType": "text/plain",
+      "token": "TXT-101",
+      "bytes": 116,
+      "sha256": "55c07bcaa2f369738193798337c3b5a6dc152d02f54ba2a602db702232600306"
+    },
+    {
+      "filename": "fixture-markdown.md",
+      "mediaType": "text/markdown",
+      "token": "MD-102",
+      "bytes": 197,
+      "sha256": "bf838dca961272dac138f0650c102322ef133373d4580a81e6da0eaf177b8c60"
+    },
+    {
+      "filename": "fixture-json.json",
+      "mediaType": "application/json",
+      "token": "JSON-103",
+      "bytes": 201,
+      "sha256": "3414778ab52111a305be2cf624b66627524d095be8f8f567623ce8bfbf9c9dd3"
+    },
+    {
+      "filename": "fixture-xml.xml",
+      "mediaType": "application/xml",
+      "token": "XML-104",
+      "bytes": 210,
+      "sha256": "22ba0ed87f860a1172a5d7462752125f1dfdbb25f23bd19bc8dd4c474b5331c7"
+    },
+    {
+      "filename": "fixture-csv.csv",
+      "mediaType": "text/csv",
+      "token": "CSV-105",
+      "bytes": 114,
+      "sha256": "b79abf25acdf1bd3f3d761f39989c31c7a7101021bdc7fb94c1163a6ad6aa46a"
+    }
+  ]
+}

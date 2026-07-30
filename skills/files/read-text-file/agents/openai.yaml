@@ -1,0 +1,4 @@
+interface:
+  display_name: "Read Text File"
+  short_description: "Interpret one exact local text file"
+  default_prompt: "Use $read-text-file to interpret this exact local text file and report its encoding, structure, retained ranges, omitted ranges, and explicit gaps."

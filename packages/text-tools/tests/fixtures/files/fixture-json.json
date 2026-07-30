@@ -1,0 +1,15 @@
+{
+  "token": "JSON-103",
+  "environment": "test",
+  "events": [
+    {
+      "step": 1,
+      "status": "started"
+    },
+    {
+      "step": 2,
+      "status": "failed"
+    }
+  ],
+  "retryable": true
+}

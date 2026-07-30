@@ -1,0 +1,23 @@
+{
+  "name": "@caiopizzol/image-tools-cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "image-tools": "src/cli.ts"
+  },
+  "scripts": {
+    "image-tools": "bun run src/cli.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@caiopizzol/image-tools": "workspace:*",
+    "@caiopizzol/media-exec": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.0",
+    "typescript": "^7.0.0",
+    "vitest": "^3.2.4"
+  }
+}

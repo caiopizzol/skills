@@ -1,0 +1,166 @@
+{
+  "schemaVersion": 1,
+  "fixtures": [
+    {
+      "filename": "fixture-png.png",
+      "mediaType": "image/png",
+      "frameCount": 1,
+      "expectedText": [
+        "PNG FIXTURE",
+        "PNG-17"
+      ],
+      "expectedColors": [
+        "#ef4444"
+      ],
+      "expectedShapes": [
+        "red circle"
+      ],
+      "bytes": 22602,
+      "sha256": "0204ddf4691efd453c03d3c590749e988068caa3b2af98400f4659681d70ae34"
+    },
+    {
+      "filename": "fixture-jpeg.jpg",
+      "mediaType": "image/jpeg",
+      "frameCount": 1,
+      "expectedText": [
+        "JPEG FIXTURE",
+        "JPEG-23"
+      ],
+      "expectedColors": [
+        "#2563eb"
+      ],
+      "expectedShapes": [
+        "blue triangle"
+      ],
+      "bytes": 18765,
+      "sha256": "f318bffbdf7136760582cdcbd4f1fa3a212e1ab3837c7b6b4a5b68baac919289"
+    },
+    {
+      "filename": "fixture-webp.webp",
+      "mediaType": "image/webp",
+      "frameCount": 1,
+      "expectedText": [
+        "WEBP FIXTURE",
+        "WEBP-31"
+      ],
+      "expectedColors": [
+        "#16a34a"
+      ],
+      "expectedShapes": [
+        "green square"
+      ],
+      "bytes": 3964,
+      "sha256": "b4eaa28c1f88607abc74bf88bed64e1b498e90b34818897f639d8bef3bccccc0"
+    },
+    {
+      "filename": "fixture-avif.avif",
+      "mediaType": "image/avif",
+      "frameCount": 1,
+      "expectedText": [
+        "AVIF FIXTURE",
+        "AVIF-41"
+      ],
+      "expectedColors": [
+        "#9333ea"
+      ],
+      "expectedShapes": [
+        "purple star"
+      ],
+      "bytes": 2967,
+      "sha256": "db5859b87e6bff2e377fd45f061b7d3b9fe99a1f55b5aa0b9ef651063ccaa655"
+    },
+    {
+      "filename": "fixture-heic.heic",
+      "mediaType": "image/heic",
+      "frameCount": 1,
+      "expectedText": [
+        "HEIC FIXTURE",
+        "HEIC-47"
+      ],
+      "expectedColors": [
+        "#f97316"
+      ],
+      "expectedShapes": [
+        "orange diamond"
+      ],
+      "bytes": 5607,
+      "sha256": "001d8a7805853c1c2ab36a44c205ed7f24801576a4fbd4bb871d70df2e6de788"
+    },
+    {
+      "filename": "fixture-tiff.tiff",
+      "mediaType": "image/tiff",
+      "frameCount": 1,
+      "expectedText": [
+        "TIFF FIXTURE",
+        "TIFF-53"
+      ],
+      "expectedColors": [
+        "#111827"
+      ],
+      "expectedShapes": [
+        "black ring"
+      ],
+      "bytes": 31738,
+      "sha256": "bd699536cff2ac79d91ac03e63417cdaea453dadf1a2a70603155a4a5a153e7e"
+    },
+    {
+      "filename": "fixture-bmp.bmp",
+      "mediaType": "image/bmp",
+      "frameCount": 1,
+      "expectedText": [
+        "BMP FIXTURE",
+        "BMP-59"
+      ],
+      "expectedColors": [
+        "#0891b2"
+      ],
+      "expectedShapes": [
+        "cyan cross"
+      ],
+      "bytes": 691338,
+      "sha256": "a25491e21291f4a087190f2b948268a25d6c9c40cd72b90f88df53a05aeff188"
+    },
+    {
+      "filename": "fixture-svg.svg",
+      "mediaType": "image/svg+xml",
+      "frameCount": 1,
+      "expectedText": [
+        "SVG FIXTURE",
+        "SVG-61"
+      ],
+      "expectedColors": [
+        "#db2777"
+      ],
+      "expectedShapes": [
+        "pink hexagon"
+      ],
+      "bytes": 578,
+      "sha256": "4f40457be5962deae6eb32de5b2a50254d809201ed9631e695c980a5dca659b4"
+    },
+    {
+      "filename": "fixture-animated.gif",
+      "mediaType": "image/gif",
+      "frameCount": 3,
+      "expectedText": [
+        "GIF FRAME ONE",
+        "GIF-1",
+        "GIF FRAME TWO",
+        "GIF-2",
+        "GIF FRAME THREE",
+        "GIF-3"
+      ],
+      "expectedColors": [
+        "#ef4444",
+        "#16a34a",
+        "#2563eb"
+      ],
+      "expectedShapes": [
+        "red circle",
+        "green square",
+        "blue triangle"
+      ],
+      "bytes": 18186,
+      "sha256": "c57b1c8f129ca011237f6f67aa0c6f77b39eb7834427cfaaa27fbb32754845dc"
+    }
+  ]
+}

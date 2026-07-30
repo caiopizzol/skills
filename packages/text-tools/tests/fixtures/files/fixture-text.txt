@@ -1,0 +1,5 @@
+Support summary
+
+Token: TXT-101
+The export stops after the second step.
+Expected outcome: all three steps complete.

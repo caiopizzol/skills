@@ -1,0 +1,4 @@
+interface:
+  display_name: "Read Image"
+  short_description: "Interpret one exact local image file"
+  default_prompt: "Use $read-image to interpret this exact local image file, then report the format, what was observed, and whether the inspection was of the original or of a derivative, with inspected and omitted frame indexes and evidence gaps."
