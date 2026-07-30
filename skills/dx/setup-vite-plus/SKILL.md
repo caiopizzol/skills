@@ -42,6 +42,8 @@ vp test
 vp build
 ```
 
-Run only applicable commands. Use `vp pack` for a library. Exercise one existing behavior after a
-migration, and verify `vp staged` in a scratch repository when hooks are enabled. Report only deviations
-from generated defaults and anything left unverified.
+Run only applicable commands and use `vp pack` for a library. Run the final root check and every existing
+test suite, retaining separate runners when needed. Do not disable formatting, linting, or type checking
+merely to make migration pass. Verify `vp staged` in a scratch repository when hooks are enabled, and
+keep hook lifecycle setup safe when development dependencies are omitted. Report only deviations from
+generated defaults and anything left unverified.
