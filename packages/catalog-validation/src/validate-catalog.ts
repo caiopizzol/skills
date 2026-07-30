@@ -47,10 +47,16 @@ export interface CatalogEntry {
  * a broken promise about where to read.
  */
 export function readmeCatalogEntries(readme: string): CatalogEntry[] {
-  const rows = [...catalogSection(readme).matchAll(/\[`([a-z0-9-]+)`\]\((skills\/(?:[a-z0-9-]+\/)*([a-z0-9-]+))\/SKILL\.md\)/g)]
+  const rows = [
+    ...catalogSection(readme).matchAll(
+      /\[`([a-z0-9-]+)`\]\((skills\/(?:[a-z0-9-]+\/)*([a-z0-9-]+))\/SKILL\.md\)/g,
+    ),
+  ]
     .filter((match) => match[1] === match[3])
     .map((match) => ({ name: match[1] ?? "", path: match[2] ?? "" }));
-  return [...new Map(rows.map((row) => [row.name, row])).values()].sort((a, b) => a.name.localeCompare(b.name));
+  return [...new Map(rows.map((row) => [row.name, row])).values()].sort((a, b) =>
+    a.name.localeCompare(b.name),
+  );
 }
 
 // Membership means a row in the catalog table, not a link anywhere in the file. Counting a passing
@@ -65,16 +71,23 @@ export function catalogSection(readme: string): string {
 
 export function validateCatalog(source: CatalogSource): CatalogViolation[] {
   const violations: CatalogViolation[] = [];
-  const add = (rule: CatalogViolation["rule"], skill: string, detail: string) => violations.push({ rule, skill, detail });
+  const add = (rule: CatalogViolation["rule"], skill: string, detail: string) =>
+    violations.push({ rule, skill, detail });
   const installed = new Set(source.skills.map((skill) => skill.name));
 
   // A name is a skill's identity: it is what `$name` resolves to and what the installed folder is
   // called. Two folders claiming one name make both ambiguous, and filing them under different
   // categories does not separate them.
   const byName = new Map<string, string[]>();
-  for (const skill of source.skills) byName.set(skill.name, [...(byName.get(skill.name) ?? []), skill.path]);
+  for (const skill of source.skills)
+    byName.set(skill.name, [...(byName.get(skill.name) ?? []), skill.path]);
   for (const [name, paths] of [...byName].sort(([a], [b]) => a.localeCompare(b))) {
-    if (paths.length > 1) add("skill-name-duplicate", name, `provided by ${paths.sort().join(" and ")}; a skill name must be unique`);
+    if (paths.length > 1)
+      add(
+        "skill-name-duplicate",
+        name,
+        `provided by ${paths.sort().join(" and ")}; a skill name must be unique`,
+      );
   }
 
   for (const skill of source.skills) validateSkill(skill, installed, add);
@@ -84,15 +97,25 @@ export function validateCatalog(source: CatalogSource): CatalogViolation[] {
   const listed = new Map(readmeCatalogEntries(source.readme).map((entry) => [entry.name, entry]));
   for (const skill of source.skills) {
     const entry = listed.get(skill.name);
-    if (entry === undefined) add("readme-entry-missing", skill.name, "the README catalog does not list this skill");
+    if (entry === undefined)
+      add("readme-entry-missing", skill.name, "the README catalog does not list this skill");
     // A row that links somewhere the skill is not sends a reader to a missing file, and moving a
     // skill between categories is exactly when this drifts.
     else if (entry.path !== skill.path) {
-      add("readme-path-mismatch", skill.name, `the README catalog links to ${entry.path} but the skill is at ${skill.path}`);
+      add(
+        "readme-path-mismatch",
+        skill.name,
+        `the README catalog links to ${entry.path} but the skill is at ${skill.path}`,
+      );
     }
   }
   for (const name of [...listed.keys()].sort()) {
-    if (!installed.has(name)) add("readme-entry-unknown", name, "the README catalog lists a skill this repository does not provide");
+    if (!installed.has(name))
+      add(
+        "readme-entry-unknown",
+        name,
+        "the README catalog lists a skill this repository does not provide",
+      );
   }
   return violations;
 }
@@ -107,7 +130,11 @@ function validateSkill(
     return;
   }
   if (!SKILL_NAME.test(skill.name) || skill.name.length >= MAXIMUM_SKILL_NAME_LENGTH) {
-    add("skill-name-invalid", skill.name, "a skill name must be lowercase kebab-case and shorter than 64 characters");
+    add(
+      "skill-name-invalid",
+      skill.name,
+      "a skill name must be lowercase kebab-case and shorter than 64 characters",
+    );
   }
   const fields = parseFrontmatter(skill.entry);
   if (fields === null) {
@@ -121,17 +148,25 @@ function validateSkill(
     add("description-missing", skill.name, "frontmatter has no description");
   }
   for (const key of [...fields.keys()].sort()) {
-    if (!SUPPORTED_FRONTMATTER.has(key)) add("frontmatter-unsupported-field", skill.name, `unsupported frontmatter field: ${key}`);
+    if (!SUPPORTED_FRONTMATTER.has(key))
+      add("frontmatter-unsupported-field", skill.name, `unsupported frontmatter field: ${key}`);
   }
 
   // Every `$child` names a skill this catalog owns, wherever it is written. A reference to
   // something installed separately reads as a promise the repository cannot keep, so it is a
   // violation rather than a warning.
-  const owned: Array<[string, string]> = [["SKILL.md", skill.entry], ...Object.entries(skill.references ?? {})];
+  const owned: Array<[string, string]> = [
+    ["SKILL.md", skill.entry],
+    ...Object.entries(skill.references ?? {}),
+  ];
   for (const [where, markdown] of owned.sort(([a], [b]) => a.localeCompare(b))) {
     for (const reference of childReferences(markdown)) {
       if (!installed.has(reference)) {
-        add("child-skill-unknown", skill.name, `${where} references $${reference}, which this catalog does not provide`);
+        add(
+          "child-skill-unknown",
+          skill.name,
+          `${where} references $${reference}, which this catalog does not provide`,
+        );
       }
     }
   }
@@ -141,12 +176,20 @@ function validateSkill(
     return;
   }
   if ("error" in skill.agentMetadata) {
-    add("agent-metadata-invalid", skill.name, `agents/openai.yaml is not valid YAML: ${skill.agentMetadata.error}`);
+    add(
+      "agent-metadata-invalid",
+      skill.name,
+      `agents/openai.yaml is not valid YAML: ${skill.agentMetadata.error}`,
+    );
     return;
   }
   const prompt = defaultPrompt(skill.agentMetadata.document);
   if (prompt === null) {
-    add("agent-metadata-invalid", skill.name, "agents/openai.yaml has no interface.default_prompt string");
+    add(
+      "agent-metadata-invalid",
+      skill.name,
+      "agents/openai.yaml has no interface.default_prompt string",
+    );
   } else if (!prompt.includes(`$${skill.name}`)) {
     add("agent-metadata-mismatch", skill.name, `default_prompt does not name $${skill.name}`);
   }

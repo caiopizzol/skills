@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import type { ExecResult } from "../src/index.ts";
 import { FFMPEG_COMMAND, extractAudio, parseProbeOutput } from "../src/index.ts";
 import {
@@ -87,9 +87,9 @@ describe("extractAudio", () => {
   it("refuses to record a derivative without a parent hash", async () => {
     const boundary = fakeExec(() => ok());
 
-    await expect(extractAudio(options({ parentSha256: "", exec: boundary.exec, ...fakeOutputs() }))).rejects.toThrow(
-      /parent SHA-256/,
-    );
+    await expect(
+      extractAudio(options({ parentSha256: "", exec: boundary.exec, ...fakeOutputs() })),
+    ).rejects.toThrow(/parent SHA-256/);
     expect(boundary.requests).toHaveLength(0);
   });
 
@@ -97,7 +97,9 @@ describe("extractAudio", () => {
     const boundary = fakeExec(() => ok());
     const outputs = fakeOutputs();
 
-    const result = await extractAudio(options({ probe: silentProbe, exec: boundary.exec, ...outputs }));
+    const result = await extractAudio(
+      options({ probe: silentProbe, exec: boundary.exec, ...outputs }),
+    );
 
     expect(result).toMatchObject({ outcome: "unsupported-input", operation: "extract-audio" });
     expect(boundary.requests).toHaveLength(0);
@@ -123,7 +125,10 @@ describe("extractAudio", () => {
 
     const result = await extractAudio(options({ exec: boundary.exec, ...outputs }));
 
-    expect(result).toMatchObject({ outcome: "extract-failed", message: expect.stringContaining("matches no streams") });
+    expect(result).toMatchObject({
+      outcome: "extract-failed",
+      message: expect.stringContaining("matches no streams"),
+    });
     expect(outputs.discarded).toEqual([`${ARTIFACTS_DIRECTORY}/audio.wav`]);
   });
 
@@ -151,7 +156,10 @@ describe("extractAudio", () => {
 
     const result = await extractAudio(options({ exec: boundary.exec, ...outputs }));
 
-    expect(result).toMatchObject({ outcome: "extract-failed", message: expect.stringContaining("empty file") });
+    expect(result).toMatchObject({
+      outcome: "extract-failed",
+      message: expect.stringContaining("empty file"),
+    });
     expect(outputs.discarded).toEqual([`${ARTIFACTS_DIRECTORY}/audio.wav`]);
   });
 });

@@ -10,7 +10,12 @@ export {
   type ReadVersionsResult,
   type ToolVersion,
 } from "./capability.ts";
-export { buildBindMount, createContainerExec, mountField, type ContainerExecOptions } from "./container.ts";
+export {
+  buildBindMount,
+  createContainerExec,
+  mountField,
+  type ContainerExecOptions,
+} from "./container.ts";
 export {
   errorMessage,
   execWithBun,
@@ -37,5 +42,10 @@ export {
   type RunToolOptions,
   type ToolRun,
 } from "./run-tool.ts";
-export { detectInputChange, readSourceIdentity, type InputChanged, type SourceIdentity } from "./source-identity.ts";
+export {
+  detectInputChange,
+  readSourceIdentity,
+  type InputChanged,
+  type SourceIdentity,
+} from "./source-identity.ts";
 export { resolveWriteTarget } from "./write-target.ts";

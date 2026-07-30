@@ -1,5 +1,10 @@
-import { describe, expect, it } from "vitest";
-import { DEFAULT_MAX_GIF_FRAMES, MAGICK_COMMAND, expandGifFrames, planGifFrames } from "../src/index.ts";
+import { describe, expect, it } from "vite-plus/test";
+import {
+  DEFAULT_MAX_GIF_FRAMES,
+  MAGICK_COMMAND,
+  expandGifFrames,
+  planGifFrames,
+} from "../src/index.ts";
 import {
   ARTIFACTS_DIRECTORY,
   CWD,
@@ -51,9 +56,9 @@ describe("planGifFrames", () => {
 
     expect(plan.selectedIndexes).toEqual([0, 3, 6, 9]);
     expect(plan.omittedIndexes).toEqual([1, 2, 4, 5, 7, 8]);
-    expect([...plan.selectedIndexes, ...plan.omittedIndexes].sort((left, right) => left - right)).toEqual(
-      Array.from({ length: 10 }, (_unused, index) => index),
-    );
+    expect(
+      [...plan.selectedIndexes, ...plan.omittedIndexes].sort((left, right) => left - right),
+    ).toEqual(Array.from({ length: 10 }, (_unused, index) => index));
   });
 
   it("selects only the first frame when the bound is one", () => {
@@ -105,7 +110,9 @@ describe("expandGifFrames", () => {
 
     if (result.outcome !== "ok") throw new Error(`expected ok, received ${result.outcome}`);
     expect(result.frames.map((frame) => frame.frameIndex)).toEqual(result.sampling.selectedIndexes);
-    expect(result.frames.every((frame) => frame.derivative.parentSha256 === PARENT_SHA256)).toBe(true);
+    expect(result.frames.every((frame) => frame.derivative.parentSha256 === PARENT_SHA256)).toBe(
+      true,
+    );
     expect(result.frames.every((frame) => frame.derivative.operation === "expand-gif")).toBe(true);
     expect(result.frames.every((frame) => frame.derivative.bytes === 96)).toBe(true);
   });
@@ -114,7 +121,9 @@ describe("expandGifFrames", () => {
     const boundary = fakeExec(() => ok());
     const outputs = fakeOutputs();
 
-    const result = await expandGifFrames(options({ frameCount: 10, maxFrames: 4, exec: boundary.exec, ...outputs }));
+    const result = await expandGifFrames(
+      options({ frameCount: 10, maxFrames: 4, exec: boundary.exec, ...outputs }),
+    );
 
     if (result.outcome !== "ok") throw new Error(`expected ok, received ${result.outcome}`);
     expect(result.sampling.boundedBy).toBe("max-frames");
@@ -127,7 +136,9 @@ describe("expandGifFrames", () => {
     const boundary = fakeExec(() => ok());
 
     await expect(
-      expandGifFrames(options({ parentSha256: "not-a-hash", exec: boundary.exec, ...fakeOutputs() })),
+      expandGifFrames(
+        options({ parentSha256: "not-a-hash", exec: boundary.exec, ...fakeOutputs() }),
+      ),
     ).rejects.toThrow(/parent SHA-256/);
     expect(boundary.requests).toHaveLength(0);
   });
@@ -135,7 +146,9 @@ describe("expandGifFrames", () => {
   it("classifies an unusable frame count as unsupported-input without running magick", async () => {
     const boundary = fakeExec(() => ok());
 
-    const result = await expandGifFrames(options({ frameCount: 0, exec: boundary.exec, ...fakeOutputs() }));
+    const result = await expandGifFrames(
+      options({ frameCount: 0, exec: boundary.exec, ...fakeOutputs() }),
+    );
 
     expect(result).toMatchObject({ outcome: "unsupported-input" });
     expect(boundary.requests).toHaveLength(0);
@@ -148,7 +161,10 @@ describe("expandGifFrames", () => {
       options({ frameCount: 8, maxFrames: 1, exec: boundary.exec, ...fakeOutputs() }),
     );
 
-    expect(result).toMatchObject({ outcome: "unsupported-input", message: expect.stringContaining("at least 2") });
+    expect(result).toMatchObject({
+      outcome: "unsupported-input",
+      message: expect.stringContaining("at least 2"),
+    });
     expect(boundary.requests).toHaveLength(0);
   });
 
@@ -183,7 +199,10 @@ describe("expandGifFrames", () => {
 
     const result = await expandGifFrames(options({ exec: boundary.exec, ...outputs }));
 
-    expect(result).toMatchObject({ outcome: "convert-failed", message: expect.stringContaining("frame 1") });
+    expect(result).toMatchObject({
+      outcome: "convert-failed",
+      message: expect.stringContaining("frame 1"),
+    });
     expect(outputs.discarded).toEqual([
       `${ARTIFACTS_DIRECTORY}/frames/frame-000.png`,
       `${ARTIFACTS_DIRECTORY}/frames/frame-001.png`,
@@ -191,7 +210,9 @@ describe("expandGifFrames", () => {
   });
 
   it("classifies a missing decode delegate as unsupported-input rather than a failure", async () => {
-    const boundary = fakeExec(() => failed("magick: no decode delegate for this image format `GIF'"));
+    const boundary = fakeExec(() =>
+      failed("magick: no decode delegate for this image format `GIF'"),
+    );
 
     const result = await expandGifFrames(options({ exec: boundary.exec, ...fakeOutputs() }));
 
@@ -204,7 +225,9 @@ describe("expandGifFrames", () => {
     );
     const outputs = fakeOutputs();
 
-    const result = await expandGifFrames(options({ timeoutMs: 40, exec: boundary.exec, ...outputs }));
+    const result = await expandGifFrames(
+      options({ timeoutMs: 40, exec: boundary.exec, ...outputs }),
+    );
 
     expect(result).toMatchObject({ outcome: "timeout" });
     expect(result).not.toHaveProperty("frames");
@@ -217,6 +240,9 @@ describe("expandGifFrames", () => {
 
     const result = await expandGifFrames(options({ exec: boundary.exec, ...outputs }));
 
-    expect(result).toMatchObject({ outcome: "convert-failed", message: expect.stringContaining("empty file") });
+    expect(result).toMatchObject({
+      outcome: "convert-failed",
+      message: expect.stringContaining("empty file"),
+    });
   });
 });

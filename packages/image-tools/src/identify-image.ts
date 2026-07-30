@@ -1,6 +1,10 @@
 import { execWithBun, type ExecBoundary } from "@caiopizzol/media-exec";
 import { DEFAULT_TIMEOUT_MS, resolvePath, runTool } from "@caiopizzol/media-exec";
-import { IMAGE_TOOLS_FORMAT_VERSION, type IdentifyImageResult, type ImageIdentity } from "./types.ts";
+import {
+  IMAGE_TOOLS_FORMAT_VERSION,
+  type IdentifyImageResult,
+  type ImageIdentity,
+} from "./types.ts";
 
 export interface IdentifyImageOptions {
   inputPath: string;
@@ -27,7 +31,10 @@ export function buildIdentifyArgs(inputPath: string): string[] {
 }
 
 export function parseIdentifyOutput(output: string): ImageIdentity {
-  const lines = output.split("\n").map((line) => line.trim()).filter((line) => line !== "");
+  const lines = output
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line !== "");
   if (lines.length === 0) throw new Error("identify returned no output");
   // Every line is a counted frame, so every line is validated. Trusting only the first would let a
   // malformed tail inflate the frame count, and the frame count is what decides GIF routing.
@@ -50,7 +57,8 @@ function parseFrameLine(line: string): { format: string; width: number; height: 
   if (format === undefined || format === "") throw new Error("identify returned no format");
   const width = parseDimension(rawWidth);
   const height = parseDimension(rawHeight);
-  if (width === null || height === null) throw new Error(`identify returned unusable dimensions: ${line}`);
+  if (width === null || height === null)
+    throw new Error(`identify returned unusable dimensions: ${line}`);
   return { format, width, height };
 }
 
@@ -67,8 +75,10 @@ export async function identifyImage(options: IdentifyImageOptions): Promise<Iden
   if (run.kind === "tool-unavailable") {
     return { outcome: "tool-unavailable", operation: "identify", inputPath, message: run.message };
   }
-  if (run.kind === "timeout") return { outcome: "timeout", operation: "identify", inputPath, message: run.message };
-  if (run.kind === "error") return { outcome: "identify-failed", operation: "identify", inputPath, message: run.message };
+  if (run.kind === "timeout")
+    return { outcome: "timeout", operation: "identify", inputPath, message: run.message };
+  if (run.kind === "error")
+    return { outcome: "identify-failed", operation: "identify", inputPath, message: run.message };
   if (run.result.exitCode !== 0) {
     const stderr = run.result.stderr.trim();
     return {
@@ -79,7 +89,12 @@ export async function identifyImage(options: IdentifyImageOptions): Promise<Iden
     };
   }
   try {
-    return { outcome: "ok", operation: "identify", inputPath, identity: parseIdentifyOutput(run.result.stdout) };
+    return {
+      outcome: "ok",
+      operation: "identify",
+      inputPath,
+      identity: parseIdentifyOutput(run.result.stdout),
+    };
   } catch (error) {
     return {
       outcome: "identify-failed",

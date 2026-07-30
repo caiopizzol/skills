@@ -1,6 +1,16 @@
 import { createHash } from "node:crypto";
 import { extname, resolve } from "node:path";
-import { TEXT_TOOLS_FORMAT_VERSION, type FormatClassification, type TextCoverage, type TextEncoding, type TextFormat, type TextInspectionResult, type TextRange, type TextSection, type TextStructure } from "./types.ts";
+import {
+  TEXT_TOOLS_FORMAT_VERSION,
+  type FormatClassification,
+  type TextCoverage,
+  type TextEncoding,
+  type TextFormat,
+  type TextInspectionResult,
+  type TextRange,
+  type TextSection,
+  type TextStructure,
+} from "./types.ts";
 
 export const DEFAULT_MAXIMUM_CHARACTERS = 100_000;
 
@@ -82,10 +92,14 @@ export function decodeText(bytes: Uint8Array): { encoding: TextEncoding; text: s
   }
   let text: string;
   try {
-    text = new TextDecoder(encoding === "utf-8" ? "utf-8" : "utf-16le", { fatal: true }).decode(body);
+    text = new TextDecoder(encoding === "utf-8" ? "utf-8" : "utf-16le", { fatal: true }).decode(
+      body,
+    );
   } catch {
     throw new Error(`unsupported encoding: input is not valid ${encoding} text`);
   }
+  // Binary control characters are intentionally rejected before text parsing.
+  // oxlint-disable-next-line no-control-regex
   if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(text)) {
     throw new Error("invalid text: decoded input contains binary control characters");
   }
@@ -102,16 +116,23 @@ export function detectTextFormat(
   if (extension === ".json") return { format: "json", classification: "declared" };
   if (extension === ".xml") return { format: "xml", classification: "declared" };
   if (extension === ".csv") return { format: "csv", classification: "declared" };
-  if (extension === ".md" || extension === ".markdown") return { format: "markdown", classification: "declared" };
+  if (extension === ".md" || extension === ".markdown")
+    return { format: "markdown", classification: "declared" };
   const trimmed = text.trimStart();
-  if (trimmed.startsWith("{") || trimmed.startsWith("[")) return { format: "json", classification: "inferred" };
-  if (/^<\?xml\b|^<[a-z_][\w:.-]*(?:\s|>)/i.test(trimmed)) return { format: "xml", classification: "inferred" };
-  if (/^(?:#{1,6}\s|[-*+]\s|\d+[.)]\s|```)/m.test(text)) return { format: "markdown", classification: "inferred" };
+  if (trimmed.startsWith("{") || trimmed.startsWith("["))
+    return { format: "json", classification: "inferred" };
+  if (/^<\?xml\b|^<[a-z_][\w:.-]*(?:\s|>)/i.test(trimmed))
+    return { format: "xml", classification: "inferred" };
+  if (/^(?:#{1,6}\s|[-*+]\s|\d+[.)]\s|```)/m.test(text))
+    return { format: "markdown", classification: "inferred" };
   if (looksLikeCsv(text)) return { format: "csv", classification: "inferred" };
   return { format: "plain", classification: "inferred" };
 }
 
-export function selectTextSections(text: string, maximumCharacters: number): {
+export function selectTextSections(
+  text: string,
+  maximumCharacters: number,
+): {
   coverage: TextCoverage;
   sections: TextSection[];
 } {
@@ -121,11 +142,12 @@ export function selectTextSections(text: string, maximumCharacters: number): {
   const characters = Array.from(text);
   const totalCharacters = characters.length;
   const totalLines = countLines(text);
-  const retainedRanges: TextRange[] = totalCharacters === 0
-    ? []
-    : totalCharacters <= maximumCharacters
-    ? [{ startCharacter: 0, endCharacter: totalCharacters }]
-    : splitRanges(totalCharacters, maximumCharacters);
+  const retainedRanges: TextRange[] =
+    totalCharacters === 0
+      ? []
+      : totalCharacters <= maximumCharacters
+        ? [{ startCharacter: 0, endCharacter: totalCharacters }]
+        : splitRanges(totalCharacters, maximumCharacters);
   const omittedRanges = invertRanges(totalCharacters, retainedRanges);
   const sections = retainedRanges.map((range) => {
     const prefix = characters.slice(0, range.startCharacter).join("");
@@ -157,7 +179,9 @@ function inspectStructure(format: TextFormat, text: string): TextStructure {
     try {
       value = JSON.parse(text) as unknown;
     } catch (error) {
-      throw new Error(`JSON parsing failed: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(
+        `JSON parsing failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
     if (Array.isArray(value)) return { kind: "json", rootType: "array", topLevelKeys: [] };
     if (typeof value === "object" && value !== null) {
@@ -168,18 +192,28 @@ function inspectStructure(format: TextFormat, text: string): TextStructure {
   if (format === "csv") {
     const rows = parseCsv(text);
     const headers = rows[0];
-    if (headers === undefined || headers.length === 0 || headers.every((header) => header === "")) {
+    if (headers === undefined || headers.every((header) => header === "")) {
       throw new Error("CSV parsing failed: missing header row");
     }
     for (const [index, row] of rows.entries()) {
       if (row.length !== headers.length) {
-        throw new Error(`CSV parsing failed: row ${index + 1} has ${row.length} columns, expected ${headers.length}`);
+        throw new Error(
+          `CSV parsing failed: row ${index + 1} has ${row.length} columns, expected ${headers.length}`,
+        );
       }
     }
-    return { kind: "csv", headers, rowCount: Math.max(0, rows.length - 1), columnCount: headers.length };
+    return {
+      kind: "csv",
+      headers,
+      rowCount: Math.max(0, rows.length - 1),
+      columnCount: headers.length,
+    };
   }
   if (format === "xml") {
-    return { kind: "unvalidated", reason: "XML was identified but no XML parser validated its structure" };
+    return {
+      kind: "unvalidated",
+      reason: "XML was identified but no XML parser validated its structure",
+    };
   }
   return null;
 }
@@ -218,7 +252,8 @@ export function parseCsv(text: string): string[][] {
         throw new Error("CSV parsing failed: unexpected content after a closing quote");
       }
     } else if (character === '"') {
-      if (field !== "") throw new Error("CSV parsing failed: quote begins inside an unquoted field");
+      if (field !== "")
+        throw new Error("CSV parsing failed: quote begins inside an unquoted field");
       inQuotes = true;
     } else if (character === ",") {
       row.push(field);
@@ -243,7 +278,11 @@ export function parseCsv(text: string): string[][] {
 function looksLikeCsv(text: string): boolean {
   try {
     const rows = parseCsv(text).slice(0, 3);
-    return rows.length >= 2 && (rows[0]?.length ?? 0) > 1 && rows.every((row) => row.length === rows[0]?.length);
+    return (
+      rows.length >= 2 &&
+      (rows[0]?.length ?? 0) > 1 &&
+      rows.every((row) => row.length === rows[0]?.length)
+    );
   } catch {
     return false;
   }
@@ -263,10 +302,12 @@ function invertRanges(totalCharacters: number, retained: readonly TextRange[]): 
   const omitted: TextRange[] = [];
   let cursor = 0;
   for (const range of retained) {
-    if (range.startCharacter > cursor) omitted.push({ startCharacter: cursor, endCharacter: range.startCharacter });
+    if (range.startCharacter > cursor)
+      omitted.push({ startCharacter: cursor, endCharacter: range.startCharacter });
     cursor = range.endCharacter;
   }
-  if (cursor < totalCharacters) omitted.push({ startCharacter: cursor, endCharacter: totalCharacters });
+  if (cursor < totalCharacters)
+    omitted.push({ startCharacter: cursor, endCharacter: totalCharacters });
   return omitted;
 }
 

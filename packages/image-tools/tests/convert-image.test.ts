@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import type { ExecResult } from "../src/index.ts";
 import { MAGICK_COMMAND, convertImage } from "../src/index.ts";
 import {
@@ -64,9 +64,9 @@ describe("convertImage", () => {
   it("refuses to record a derivative without a parent hash", async () => {
     const boundary = fakeExec(() => ok());
 
-    await expect(convertImage(options({ parentSha256: "", exec: boundary.exec, ...fakeOutputs() }))).rejects.toThrow(
-      /parent SHA-256/,
-    );
+    await expect(
+      convertImage(options({ parentSha256: "", exec: boundary.exec, ...fakeOutputs() })),
+    ).rejects.toThrow(/parent SHA-256/);
     expect(boundary.requests).toHaveLength(0);
   });
 
@@ -97,12 +97,17 @@ describe("convertImage", () => {
 
     const result = await convertImage(options({ exec: boundary.exec, ...outputs }));
 
-    expect(result).toMatchObject({ outcome: "convert-failed", message: expect.stringContaining("unable to open image") });
+    expect(result).toMatchObject({
+      outcome: "convert-failed",
+      message: expect.stringContaining("unable to open image"),
+    });
     expect(outputs.discarded).toEqual([`${ARTIFACTS_DIRECTORY}/converted.png`]);
   });
 
   it("classifies a missing decode delegate as unsupported-input rather than a failure", async () => {
-    const boundary = fakeExec(() => failed("magick: no decode delegate for this image format `HEIC'"));
+    const boundary = fakeExec(() =>
+      failed("magick: no decode delegate for this image format `HEIC'"),
+    );
 
     const result = await convertImage(options({ exec: boundary.exec, ...fakeOutputs() }));
 
@@ -133,7 +138,10 @@ describe("convertImage", () => {
 
     const result = await convertImage(options({ exec: boundary.exec, ...outputs }));
 
-    expect(result).toMatchObject({ outcome: "convert-failed", message: expect.stringContaining("empty file") });
+    expect(result).toMatchObject({
+      outcome: "convert-failed",
+      message: expect.stringContaining("empty file"),
+    });
     expect(outputs.discarded).toEqual([`${ARTIFACTS_DIRECTORY}/converted.png`]);
   });
 });

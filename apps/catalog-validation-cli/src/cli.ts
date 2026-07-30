@@ -16,13 +16,16 @@ for (const markdownPath of markdownFiles(root)) {
   for (const link of localLinks(readFileSync(markdownPath, "utf8"))) {
     const where = relative(root, markdownPath);
     if (link.target === null) errors.push(`${where} has an invalid encoded link: ${link.raw}`);
-    else if (!existsSync(resolve(dirname(markdownPath), link.target))) errors.push(`${where} links to missing ${link.target}`);
+    else if (!existsSync(resolve(dirname(markdownPath), link.target)))
+      errors.push(`${where} links to missing ${link.target}`);
   }
 }
 
 if (errors.length > 0) {
   for (const error of errors) console.error(`- ${error}`);
-  console.error(`Skill validation failed with ${errors.length} error${errors.length === 1 ? "" : "s"}.`);
+  console.error(
+    `Skill validation failed with ${errors.length} error${errors.length === 1 ? "" : "s"}.`,
+  );
   process.exit(1);
 }
 

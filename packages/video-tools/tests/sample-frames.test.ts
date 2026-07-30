@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { DEFAULT_MAX_FRAMES, planFrameSampling } from "../src/index.ts";
 
 describe("planFrameSampling", () => {
@@ -21,7 +21,9 @@ describe("planFrameSampling", () => {
   it("never places a timestamp at or beyond the duration", () => {
     for (const durationSeconds of [1, 2.5, 6, 6.008, 121.75]) {
       const plan = planFrameSampling({ durationSeconds, frameCount: 12 });
-      expect(plan.timestampsSeconds.every((timestamp) => timestamp >= 0 && timestamp < durationSeconds)).toBe(true);
+      expect(
+        plan.timestampsSeconds.every((timestamp) => timestamp >= 0 && timestamp < durationSeconds),
+      ).toBe(true);
     }
   });
 
@@ -72,7 +74,11 @@ describe("planFrameSampling", () => {
   });
 
   it("bounds explicit timestamps by maxFrames and records the discarded ones", () => {
-    const plan = planFrameSampling({ durationSeconds: 6, timestampsSeconds: [1, 2, 3, 4], maxFrames: 2 });
+    const plan = planFrameSampling({
+      durationSeconds: 6,
+      timestampsSeconds: [1, 2, 3, 4],
+      maxFrames: 2,
+    });
 
     expect(plan.timestampsSeconds).toEqual([1, 2]);
     expect(plan.rejectedTimestampsSeconds).toEqual([3, 4]);
@@ -80,9 +86,17 @@ describe("planFrameSampling", () => {
   });
 
   it("rejects an unusable duration and an explicit list with nothing inside it", () => {
-    expect(() => planFrameSampling({ durationSeconds: 0, frameCount: 3 })).toThrow(/positive duration/);
-    expect(() => planFrameSampling({ durationSeconds: 6, timestampsSeconds: [7, 8] })).toThrow(/inside the video duration/);
-    expect(() => planFrameSampling({ durationSeconds: 6, maxFrames: 0 })).toThrow(/positive integer/);
-    expect(() => planFrameSampling({ durationSeconds: 6, frameCount: 1.5 })).toThrow(/positive integer/);
+    expect(() => planFrameSampling({ durationSeconds: 0, frameCount: 3 })).toThrow(
+      /positive duration/,
+    );
+    expect(() => planFrameSampling({ durationSeconds: 6, timestampsSeconds: [7, 8] })).toThrow(
+      /inside the video duration/,
+    );
+    expect(() => planFrameSampling({ durationSeconds: 6, maxFrames: 0 })).toThrow(
+      /positive integer/,
+    );
+    expect(() => planFrameSampling({ durationSeconds: 6, frameCount: 1.5 })).toThrow(
+      /positive integer/,
+    );
   });
 });

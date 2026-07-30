@@ -53,7 +53,8 @@ export function classifyInput(inputPath: string, bytes: Uint8Array): InputClassi
     return {
       formatVersion: IMAGE_TOOLS_FORMAT_VERSION,
       kind: "compressed-input",
-      reason: "the input is gzip-compressed, so its contents cannot be inspected before rasterization",
+      reason:
+        "the input is gzip-compressed, so its contents cannot be inspected before rasterization",
     };
   }
   if (extension === ".svgz" || inputPath.toLowerCase().endsWith(".svg.gz")) {
@@ -66,7 +67,11 @@ export function classifyInput(inputPath: string, bytes: Uint8Array): InputClassi
 
   for (const signature of RASTER_SIGNATURES) {
     if (startsWith(bytes, signature.bytes)) {
-      return { formatVersion: IMAGE_TOOLS_FORMAT_VERSION, kind: "known-raster", reason: `${signature.label} signature` };
+      return {
+        formatVersion: IMAGE_TOOLS_FORMAT_VERSION,
+        kind: "known-raster",
+        reason: `${signature.label} signature`,
+      };
     }
   }
 
@@ -95,7 +100,11 @@ export function classifyInput(inputPath: string, bytes: Uint8Array): InputClassi
   // The whole buffer, not a prefix. A document can carry an arbitrarily long preamble, comment, or
   // DOCTYPE before its root element, and a window large enough today is one an author can pad past.
   if (/<svg[\s>/]/i.test(text)) {
-    return { formatVersion: IMAGE_TOOLS_FORMAT_VERSION, kind: "textual-svg-candidate", reason: "the content contains an svg element" };
+    return {
+      formatVersion: IMAGE_TOOLS_FORMAT_VERSION,
+      kind: "textual-svg-candidate",
+      reason: "the content contains an svg element",
+    };
   }
   if (/^\s*(?:<\?xml|<!DOCTYPE|<!--|<\?)/i.test(text)) {
     return {
@@ -104,7 +113,11 @@ export function classifyInput(inputPath: string, bytes: Uint8Array): InputClassi
       reason: "the content opens as an XML document, which a renderer may route to its SVG coder",
     };
   }
-  return { formatVersion: IMAGE_TOOLS_FORMAT_VERSION, kind: "unknown", reason: "no raster signature and no XML or SVG indicator" };
+  return {
+    formatVersion: IMAGE_TOOLS_FORMAT_VERSION,
+    kind: "unknown",
+    reason: "no raster signature and no XML or SVG indicator",
+  };
 }
 
 export function isSvgCandidate(kind: InputKind): boolean {

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { FFMPEG_COMMAND, extractFrames } from "../src/index.ts";
 import {
   ARTIFACTS_DIRECTORY,
@@ -67,9 +67,15 @@ describe("extractFrames", () => {
     const result = await extractFrames(options({ exec: boundary.exec, ...outputs }));
 
     if (result.outcome !== "ok") throw new Error(`expected ok, received ${result.outcome}`);
-    expect(result.frames.map((frame) => frame.timestampSeconds)).toEqual(result.sampling.timestampsSeconds);
-    expect(result.frames.every((frame) => frame.derivative.parentSha256 === PARENT_SHA256)).toBe(true);
-    expect(result.frames.every((frame) => frame.derivative.operation === "extract-frames")).toBe(true);
+    expect(result.frames.map((frame) => frame.timestampSeconds)).toEqual(
+      result.sampling.timestampsSeconds,
+    );
+    expect(result.frames.every((frame) => frame.derivative.parentSha256 === PARENT_SHA256)).toBe(
+      true,
+    );
+    expect(result.frames.every((frame) => frame.derivative.operation === "extract-frames")).toBe(
+      true,
+    );
     expect(result.frames.every((frame) => frame.derivative.bytes === 96)).toBe(true);
     expect(result.sampling.omittedIntervalsSeconds).toEqual([
       { startSeconds: 0, endSeconds: 2.95 },
@@ -81,9 +87,9 @@ describe("extractFrames", () => {
   it("refuses to record a derivative without a parent hash", async () => {
     const boundary = fakeExec(() => ok());
 
-    await expect(extractFrames(options({ parentSha256: "not-a-hash", exec: boundary.exec, ...fakeOutputs() }))).rejects.toThrow(
-      /parent SHA-256/,
-    );
+    await expect(
+      extractFrames(options({ parentSha256: "not-a-hash", exec: boundary.exec, ...fakeOutputs() })),
+    ).rejects.toThrow(/parent SHA-256/);
     expect(boundary.requests).toHaveLength(0);
   });
 
@@ -110,7 +116,10 @@ describe("extractFrames", () => {
 
     const result = await extractFrames(options({ exec: boundary.exec, ...outputs }));
 
-    expect(result).toMatchObject({ outcome: "extract-failed", message: expect.stringContaining("2.95s") });
+    expect(result).toMatchObject({
+      outcome: "extract-failed",
+      message: expect.stringContaining("2.95s"),
+    });
     expect(outputs.discarded).toEqual([
       `${ARTIFACTS_DIRECTORY}/frames/frame-001-0_000s.png`,
       `${ARTIFACTS_DIRECTORY}/frames/frame-002-2_950s.png`,
@@ -136,13 +145,18 @@ describe("extractFrames", () => {
 
     const result = await extractFrames(options({ exec: boundary.exec, ...outputs }));
 
-    expect(result).toMatchObject({ outcome: "extract-failed", message: expect.stringContaining("empty file") });
+    expect(result).toMatchObject({
+      outcome: "extract-failed",
+      message: expect.stringContaining("empty file"),
+    });
   });
 
   it("classifies an unusable duration as unsupported-input without running ffmpeg", async () => {
     const boundary = fakeExec(() => ok());
 
-    const result = await extractFrames(options({ durationSeconds: 0, exec: boundary.exec, ...fakeOutputs() }));
+    const result = await extractFrames(
+      options({ durationSeconds: 0, exec: boundary.exec, ...fakeOutputs() }),
+    );
 
     expect(result).toMatchObject({ outcome: "unsupported-input" });
     expect(boundary.requests).toHaveLength(0);
@@ -153,7 +167,13 @@ describe("extractFrames", () => {
     const outputs = fakeOutputs();
 
     const result = await extractFrames(
-      options({ frameCount: undefined, timestampsSeconds: [5, 1, 3], maxFrames: 2, exec: boundary.exec, ...outputs }),
+      options({
+        frameCount: undefined,
+        timestampsSeconds: [5, 1, 3],
+        maxFrames: 2,
+        exec: boundary.exec,
+        ...outputs,
+      }),
     );
 
     if (result.outcome !== "ok") throw new Error(`expected ok, received ${result.outcome}`);

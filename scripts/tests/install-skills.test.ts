@@ -4,7 +4,16 @@
 // silently smaller closure, a half-finished install, an overwritten destination — are all filesystem
 // outcomes.
 
-import { mkdtemp, mkdir, readdir, readlink, realpath, rm, symlink, writeFile } from "node:fs/promises";
+import {
+  mkdtemp,
+  mkdir,
+  readdir,
+  readlink,
+  realpath,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { afterEach, describe, expect, it } from "bun:test";
@@ -27,7 +36,10 @@ async function writeSkill(catalogRoot: string, path: string, body = ""): Promise
   const directory = join(catalogRoot, "skills", path);
   const name = basename(path);
   await mkdir(directory, { recursive: true });
-  await writeFile(join(directory, "SKILL.md"), `---\nname: ${name}\ndescription: Reads one thing.\n---\n\n# ${name}\n\n${body}`);
+  await writeFile(
+    join(directory, "SKILL.md"),
+    `---\nname: ${name}\ndescription: Reads one thing.\n---\n\n# ${name}\n\n${body}`,
+  );
 }
 
 // The installer resolves its catalog relative to its own location, so a fixture catalog is a copy of
@@ -40,24 +52,41 @@ async function catalog(): Promise<string> {
   await Bun.write(join(root, "scripts", "install-skills.ts"), Bun.file(INSTALLER));
   await Bun.write(
     join(root, "apps", "catalog-validation-cli", "src", "read-catalog.ts"),
-    Bun.file(resolve(import.meta.dirname, "..", "..", "apps", "catalog-validation-cli", "src", "read-catalog.ts")),
+    Bun.file(
+      resolve(
+        import.meta.dirname,
+        "..",
+        "..",
+        "apps",
+        "catalog-validation-cli",
+        "src",
+        "read-catalog.ts",
+      ),
+    ),
   );
   await Bun.write(join(root, "package.json"), JSON.stringify({ name: "fixture", private: true }));
   // The copied installer imports `@caiopizzol/catalog-validation` for the reference grammar, so the
   // fixture borrows this repository's resolved modules rather than running its own install.
-  await symlink(resolve(import.meta.dirname, "..", "..", "node_modules"), join(root, "node_modules"), "dir");
+  await symlink(
+    resolve(import.meta.dirname, "..", "..", "node_modules"),
+    join(root, "node_modules"),
+    "dir",
+  );
   return root;
 }
 
 /** Runs the installer that belongs to `root`, which is how it finds the catalog to install from. */
 async function installFrom(root: string, destination: string, ...names: string[]) {
-  const child = Bun.spawn(["bun", join(root, "scripts", "install-skills.ts"), destination, ...names], {
-    cwd: root,
-    env: { ...process.env },
-    stdout: "pipe",
-    stderr: "pipe",
-    stdin: "ignore",
-  });
+  const child = Bun.spawn(
+    ["bun", join(root, "scripts", "install-skills.ts"), destination, ...names],
+    {
+      cwd: root,
+      env: { ...process.env },
+      stdout: "pipe",
+      stderr: "pipe",
+      stdin: "ignore",
+    },
+  );
   const [stdout, stderr, exitCode] = await Promise.all([
     new Response(child.stdout).text(),
     new Response(child.stderr).text(),
@@ -71,7 +100,11 @@ describe("resolving the closure", () => {
   // the children. Installing one skill where three were required is the failure this guards.
   it("installs a parent's transitive children", async () => {
     const root = await catalog();
-    await writeSkill(root, "files/read-video", "Frames go to `$read-image`; audio goes to `$transcribe-audio`.");
+    await writeSkill(
+      root,
+      "files/read-video",
+      "Frames go to `$read-image`; audio goes to `$transcribe-audio`.",
+    );
     await writeSkill(root, "files/read-image");
     await writeSkill(root, "files/transcribe-audio");
     await writeSkill(root, "files/read-text-file");
@@ -80,13 +113,20 @@ describe("resolving the closure", () => {
     const run = await installFrom(root, destination, "read-video");
 
     expect(run.exitCode).toBe(0);
-    expect((await readdir(destination)).sort()).toEqual(["read-image", "read-video", "transcribe-audio"]);
+    expect((await readdir(destination)).sort()).toEqual([
+      "read-image",
+      "read-video",
+      "transcribe-audio",
+    ]);
   });
 
   it("follows a reference written in a file other than the entry point", async () => {
     const root = await catalog();
     await writeSkill(root, "files/read-video");
-    await writeFile(join(root, "skills", "files", "read-video", "sampling.md"), "Each frame goes to `$read-image`.\n");
+    await writeFile(
+      join(root, "skills", "files", "read-video", "sampling.md"),
+      "Each frame goes to `$read-image`.\n",
+    );
     await writeSkill(root, "files/read-image");
     const destination = join(await scratch(), "skills");
 
@@ -130,8 +170,9 @@ describe("category filing", () => {
     await installFrom(root, destination, "read-image");
 
     expect(await readdir(destination)).toEqual(["read-image"]);
-    expect(await realpath(await readlink(join(destination, "read-image"))))
-      .toBe(await realpath(join(root, "skills", "files", "raster", "deep", "read-image")));
+    expect(await realpath(await readlink(join(destination, "read-image")))).toBe(
+      await realpath(join(root, "skills", "files", "raster", "deep", "read-image")),
+    );
   });
 
   it("refuses one name claimed by two folders", async () => {
@@ -210,16 +251,19 @@ describe("refusals", () => {
     expect(await readdir(destination)).toEqual(["read-image"]);
   });
 
-  it.each(["the filesystem root", "the catalog root"])("refuses %s as a destination", async (which) => {
-    const root = await catalog();
-    await writeSkill(root, "files/read-image");
+  it.each(["the filesystem root", "the catalog root"])(
+    "refuses %s as a destination",
+    async (which) => {
+      const root = await catalog();
+      await writeSkill(root, "files/read-image");
 
-    const destination = which === "the filesystem root" ? "/" : root;
-    const run = await installFrom(root, destination, "read-image");
+      const destination = which === "the filesystem root" ? "/" : root;
+      const run = await installFrom(root, destination, "read-image");
 
-    expect(run.exitCode).toBe(1);
-    expect(run.stderr).toContain("refusing unsafe skills destination");
-  });
+      expect(run.exitCode).toBe(1);
+      expect(run.stderr).toContain("refusing unsafe skills destination");
+    },
+  );
 
   it("refuses the catalog's own skills directory as a destination", async () => {
     const root = await catalog();
@@ -251,8 +295,14 @@ describe("refusals", () => {
   // directly — so the guard resolves through the nearest existing ancestor. Each case below installed
   // successfully before that change.
   it.each([
-    { label: "a direct descendant of the catalog", destination: (root: string) => join(root, "skills", "inside") },
-    { label: "a deep descendant of the catalog", destination: (root: string) => join(root, "skills", "a", "b", "c") },
+    {
+      label: "a direct descendant of the catalog",
+      destination: (root: string) => join(root, "skills", "inside"),
+    },
+    {
+      label: "a deep descendant of the catalog",
+      destination: (root: string) => join(root, "skills", "a", "b", "c"),
+    },
   ])("refuses $label", async ({ destination }) => {
     const root = await catalog();
     await writeSkill(root, "files/read-image");
@@ -280,16 +330,19 @@ describe("refusals", () => {
 
   // The guard protects the source catalog, not the whole working tree. A project-scoped destination is a
   // legitimate thing to want, and none of these writes anywhere near `skills/`.
-  it.each([".agents/skills", ".claude/skills", "..installed"])("accepts the repository-local %s", async (relativeDestination) => {
-    const root = await catalog();
-    await writeSkill(root, "files/read-image");
+  it.each([".agents/skills", ".claude/skills", "..installed"])(
+    "accepts the repository-local %s",
+    async (relativeDestination) => {
+      const root = await catalog();
+      await writeSkill(root, "files/read-image");
 
-    const run = await installFrom(root, join(root, relativeDestination), "read-image");
+      const run = await installFrom(root, join(root, relativeDestination), "read-image");
 
-    expect(run.exitCode).toBe(0);
-    expect(await readdir(join(root, relativeDestination))).toEqual(["read-image"]);
-    expect((await readdir(join(root, "skills"))).sort()).toEqual(["files"]);
-  });
+      expect(run.exitCode).toBe(0);
+      expect(await readdir(join(root, relativeDestination))).toEqual(["read-image"]);
+      expect((await readdir(join(root, "skills"))).sort()).toEqual(["files"]);
+    },
+  );
 
   it("accepts a two-dot name outside the catalog", async () => {
     const root = await catalog();
@@ -332,7 +385,12 @@ describe("refusals", () => {
     const root = await catalog();
     await writeSkill(root, "files/read-image");
 
-    const child = Bun.spawn(["bun", join(root, "scripts", "install-skills.ts")], { cwd: root, stdout: "pipe", stderr: "pipe", stdin: "ignore" });
+    const child = Bun.spawn(["bun", join(root, "scripts", "install-skills.ts")], {
+      cwd: root,
+      stdout: "pipe",
+      stderr: "pipe",
+      stdin: "ignore",
+    });
     const [stderr, exitCode] = await Promise.all([new Response(child.stderr).text(), child.exited]);
 
     expect(exitCode).toBe(2);
@@ -355,24 +413,33 @@ describe("agreeing with the validator about what a skill owns", () => {
   // Two different answers to "which files does this skill own" is worse than either answer alone: an
   // ignored file carrying a dangling reference passed a green `validate:skills` and then broke
   // installation. Validation passing while users cannot install is the shape to avoid.
-  it.each(["artifacts", "tmp", "node_modules"])("ignores a reference inside %s, as validation does", async (ignored) => {
-    const root = await catalog();
-    await writeSkill(root, "files/read-image");
-    await mkdir(join(root, "skills", "files", "read-image", ignored), { recursive: true });
-    await writeFile(join(root, "skills", "files", "read-image", ignored, "note.md"), "Mentions `$read-pdf`.\n");
-    const destination = join(await scratch(), "skills");
+  it.each(["artifacts", "tmp", "node_modules"])(
+    "ignores a reference inside %s, as validation does",
+    async (ignored) => {
+      const root = await catalog();
+      await writeSkill(root, "files/read-image");
+      await mkdir(join(root, "skills", "files", "read-image", ignored), { recursive: true });
+      await writeFile(
+        join(root, "skills", "files", "read-image", ignored, "note.md"),
+        "Mentions `$read-pdf`.\n",
+      );
+      const destination = join(await scratch(), "skills");
 
-    const run = await installFrom(root, destination, "read-image");
+      const run = await installFrom(root, destination, "read-image");
 
-    expect(run.exitCode).toBe(0);
-    expect(await readdir(destination)).toEqual(["read-image"]);
-  });
+      expect(run.exitCode).toBe(0);
+      expect(await readdir(destination)).toEqual(["read-image"]);
+    },
+  );
 
   // The counterpart: a reference in a file the skill really does own still binds.
   it("still resolves a reference in a file the skill owns", async () => {
     const root = await catalog();
     await writeSkill(root, "files/read-image");
-    await writeFile(join(root, "skills", "files", "read-image", "formats.md"), "Mentions `$read-pdf`.\n");
+    await writeFile(
+      join(root, "skills", "files", "read-image", "formats.md"),
+      "Mentions `$read-pdf`.\n",
+    );
     const destination = join(await scratch(), "skills");
 
     const run = await installFrom(root, destination, "read-image");
@@ -388,9 +455,17 @@ describe("this repository's own catalog", () => {
   it("installs read-video and its two children", async () => {
     const destination = join(await scratch(), "skills");
 
-    const run = await installFrom(resolve(import.meta.dirname, "..", ".."), destination, "read-video");
+    const run = await installFrom(
+      resolve(import.meta.dirname, "..", ".."),
+      destination,
+      "read-video",
+    );
 
     expect(run.exitCode).toBe(0);
-    expect((await readdir(destination)).sort()).toEqual(["read-image", "read-video", "transcribe-audio"]);
+    expect((await readdir(destination)).sort()).toEqual([
+      "read-image",
+      "read-video",
+      "transcribe-audio",
+    ]);
   });
 });

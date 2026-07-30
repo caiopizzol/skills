@@ -4,16 +4,16 @@ Reusable agent skills for inspecting files and setting up repositories.
 
 ## Skill catalog
 
-| Skill | Purpose |
-| --- | --- |
-| [`read-image`](skills/files/read-image/SKILL.md) | Inspect raster images, animations, and safe SVGs |
-| [`read-text-file`](skills/files/read-text-file/SKILL.md) | Read bounded text and structured-data files |
-| [`read-video`](skills/files/read-video/SKILL.md) | Inspect a video's visual and audio lanes |
-| [`transcribe-audio`](skills/files/transcribe-audio/SKILL.md) | Transcribe audio with explicit temporal coverage |
-| [`setup-gh-checks`](skills/dx/setup-gh-checks/SKILL.md) | Run local checks in GitHub and require them before merge |
-| [`setup-gh-repo`](skills/dx/setup-gh-repo/SKILL.md) | Create a GitHub repository with safe defaults |
-| [`setup-typescript`](skills/dx/setup-typescript/SKILL.md) | Set up strict TypeScript configuration |
-| [`setup-vite-plus`](skills/dx/setup-vite-plus/SKILL.md) | Set up the Vite+ toolchain |
+| Skill                                                        | Purpose                                                  |
+| ------------------------------------------------------------ | -------------------------------------------------------- |
+| [`read-image`](skills/files/read-image/SKILL.md)             | Inspect raster images, animations, and safe SVGs         |
+| [`read-text-file`](skills/files/read-text-file/SKILL.md)     | Read bounded text and structured-data files              |
+| [`read-video`](skills/files/read-video/SKILL.md)             | Inspect a video's visual and audio lanes                 |
+| [`transcribe-audio`](skills/files/transcribe-audio/SKILL.md) | Transcribe audio with explicit temporal coverage         |
+| [`setup-gh-checks`](skills/dx/setup-gh-checks/SKILL.md)      | Run local checks in GitHub and require them before merge |
+| [`setup-gh-repo`](skills/dx/setup-gh-repo/SKILL.md)          | Create a GitHub repository with safe defaults            |
+| [`setup-typescript`](skills/dx/setup-typescript/SKILL.md)    | Set up strict TypeScript configuration                   |
+| [`setup-vite-plus`](skills/dx/setup-vite-plus/SKILL.md)      | Set up the Vite+ toolchain                               |
 
 ## Install
 

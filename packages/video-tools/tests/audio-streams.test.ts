@@ -1,8 +1,20 @@
-import { describe, expect, it } from "vitest";
-import { VIDEO_TOOLS_FORMAT_VERSION, planAudioStreams, type VideoProbe, type VideoStream } from "../src/index.ts";
+import { describe, expect, it } from "vite-plus/test";
+import {
+  VIDEO_TOOLS_FORMAT_VERSION,
+  planAudioStreams,
+  type VideoProbe,
+  type VideoStream,
+} from "../src/index.ts";
 
 function stream(index: number, codecType: VideoStream["codecType"]): VideoStream {
-  return { index, codecType, codecName: codecType === "audio" ? "aac" : "h264", width: null, height: null, channels: null };
+  return {
+    index,
+    codecType,
+    codecName: codecType === "audio" ? "aac" : "h264",
+    width: null,
+    height: null,
+    channels: null,
+  };
 }
 
 function probe(streams: VideoStream[]): VideoProbe {
@@ -30,7 +42,11 @@ describe("audio stream selection", () => {
   });
 
   it("names every omitted stream when a source carries several", () => {
-    expect(planAudioStreams(probe([stream(0, "video"), stream(1, "audio"), stream(2, "audio"), stream(3, "audio")]))).toEqual({
+    expect(
+      planAudioStreams(
+        probe([stream(0, "video"), stream(1, "audio"), stream(2, "audio"), stream(3, "audio")]),
+      ),
+    ).toEqual({
       availableStreamIndexes: [1, 2, 3],
       selectedStreamIndexes: [1],
       omittedStreamIndexes: [2, 3],
@@ -39,12 +55,17 @@ describe("audio stream selection", () => {
 
   it("uses the real stream index rather than a position", () => {
     // ffprobe numbers streams across the whole file, so the first audio stream is rarely index 0.
-    expect(planAudioStreams(probe([stream(0, "video"), stream(1, "other"), stream(2, "audio")])).selectedStreamIndexes)
-      .toEqual([2]);
+    expect(
+      planAudioStreams(probe([stream(0, "video"), stream(1, "other"), stream(2, "audio")]))
+        .selectedStreamIndexes,
+    ).toEqual([2]);
   });
 
   it("honors an explicit stream choice", () => {
-    const selection = planAudioStreams(probe([stream(0, "video"), stream(1, "audio"), stream(2, "audio")]), 2);
+    const selection = planAudioStreams(
+      probe([stream(0, "video"), stream(1, "audio"), stream(2, "audio")]),
+      2,
+    );
 
     expect(selection.selectedStreamIndexes).toEqual([2]);
     expect(selection.omittedStreamIndexes).toEqual([1]);

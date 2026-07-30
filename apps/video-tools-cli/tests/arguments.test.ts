@@ -1,24 +1,26 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { parseArguments, parsePinnedImage } from "../src/arguments.ts";
 
 const digest = "a".repeat(64);
 
 describe("parseArguments", () => {
   it("parses a bounded container preparation", () => {
-    expect(parseArguments([
-      "prepare",
-      "fixture.mp4",
-      "--artifacts-dir",
-      "artifacts",
-      "--max-frames",
-      "4",
-      "--frame-count",
-      "6",
-      "--timeout-ms",
-      "5000",
-      "--container-image",
-      `example/ffmpeg@sha256:${digest}`,
-    ])).toEqual({
+    expect(
+      parseArguments([
+        "prepare",
+        "fixture.mp4",
+        "--artifacts-dir",
+        "artifacts",
+        "--max-frames",
+        "4",
+        "--frame-count",
+        "6",
+        "--timeout-ms",
+        "5000",
+        "--container-image",
+        `example/ffmpeg@sha256:${digest}`,
+      ]),
+    ).toEqual({
       command: "prepare",
       inputPath: "fixture.mp4",
       artifactsDirectory: "artifacts",
