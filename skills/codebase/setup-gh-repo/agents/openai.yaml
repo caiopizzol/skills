@@ -1,4 +1,4 @@
 interface:
   display_name: "Set up GitHub repository"
-  short_description: "Set up GitHub checks, review, and protection"
-  default_prompt: "Use $setup-gh-repo to set up this project on GitHub with CI, Cubic review, and safe merge protection."
+  short_description: "Set up GitHub settings, checks, and protection"
+  default_prompt: "Use $setup-gh-repo to set up this project on GitHub with merge settings, CI, Cubic review, and safe protection."
