@@ -1,0 +1,4 @@
+interface:
+  display_name: "Set up GitHub repository"
+  short_description: "Create a GitHub repository with safe defaults"
+  default_prompt: "Use $setup-gh-repo to create and configure the GitHub repository for this local project."
