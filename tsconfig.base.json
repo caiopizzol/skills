@@ -1,16 +1,8 @@
 {
   "compilerOptions": {
-    "target": "ESNext",
-    "module": "Preserve",
-    "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
-    "verbatimModuleSyntax": true,
-    "noEmit": true,
     "strict": true,
-    "noUncheckedIndexedAccess": true,
+    "allowImportingTsExtensions": true,
     "skipLibCheck": true,
-    "types": [
-      "bun"
-    ]
+    "types": ["bun"]
   }
 }
