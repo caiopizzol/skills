@@ -62,10 +62,11 @@ export function readmeCatalogEntries(readme: string): CatalogEntry[] {
 // Membership means a row in the catalog table, not a link anywhere in the file. Counting a passing
 // mention elsewhere would let a skill drop out of the catalog while a footnote kept the check green.
 export function catalogSection(readme: string): string {
-  const heading = /^##+\s+Skill catalog\s*$/m.exec(readme);
+  const heading = /^##\s+Skill catalog\s*$/m.exec(readme);
   if (!heading) return "";
   const rest = readme.slice(heading.index + heading[0].length);
-  const next = /^##+\s+/m.exec(rest);
+  // Category subheadings belong to the catalog; only its next sibling section ends it.
+  const next = /^##\s+/m.exec(rest);
   return next ? rest.slice(0, next.index) : rest;
 }
 
