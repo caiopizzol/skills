@@ -224,6 +224,14 @@ describe("README catalog parsing", () => {
     ).toEqual([]);
   });
 
+  it("keeps category subheadings inside the catalog section", () => {
+    const readme =
+      "## Skill catalog\n\n### Files\n\n[`read-image`](skills/files/read-image/SKILL.md)\n\n## Install\n\n[`read-video`](skills/files/read-video/SKILL.md)";
+    expect(readmeCatalogEntries(readme)).toEqual([
+      { name: "read-image", path: "skills/files/read-image" },
+    ]);
+  });
+
   // Membership means a catalog row. A passing mention elsewhere would let a skill drop out of the
   // catalog while a footnote kept the check green.
   it("ignores a skill link outside the catalog section", () => {

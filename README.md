@@ -1,22 +1,52 @@
 # Skills
 
-Reusable agent skills for inspecting files and setting up repositories.
+Composable agent skills for inspecting files and setting up repositories.
+
+## How skills compose
+
+A skill is one callable capability. It can invoke another skill with a `$name` reference, and that
+child can invoke children of its own. Composite skills coordinate several capabilities; focused skills
+do one job.
+
+This is closer to functions calling functions than a fixed level hierarchy. Categories organize the
+source tree only. Installing a composite resolves its full dependency graph automatically.
+
+```text
+setup-gh-repo
+├── create-gh-repo
+├── setup-gh-checks
+├── setup-cubic
+└── protect-gh-repo
+
+read-video
+├── read-image
+└── transcribe-audio
+```
 
 ## Skill catalog
 
-| Skill                                                           | Purpose                                            |
-| --------------------------------------------------------------- | -------------------------------------------------- |
-| [`create-gh-repo`](skills/codebase/create-gh-repo/SKILL.md)     | Create and connect a GitHub repository             |
-| [`protect-gh-repo`](skills/codebase/protect-gh-repo/SKILL.md)   | Protect merges using observed checks and reviewers |
-| [`read-image`](skills/files/read-image/SKILL.md)                | Inspect raster images, animations, and safe SVGs   |
-| [`read-text-file`](skills/files/read-text-file/SKILL.md)        | Read bounded text and structured-data files        |
-| [`read-video`](skills/files/read-video/SKILL.md)                | Inspect a video's visual and audio lanes           |
-| [`transcribe-audio`](skills/files/transcribe-audio/SKILL.md)    | Transcribe audio with explicit temporal coverage   |
-| [`setup-cubic`](skills/codebase/setup-cubic/SKILL.md)           | Configure focused Cubic code review                |
-| [`setup-gh-checks`](skills/codebase/setup-gh-checks/SKILL.md)   | Run an existing local check in GitHub Actions      |
-| [`setup-gh-repo`](skills/codebase/setup-gh-repo/SKILL.md)       | Set up GitHub checks, review, and merge protection |
-| [`setup-typescript`](skills/codebase/setup-typescript/SKILL.md) | Set up strict TypeScript configuration             |
-| [`setup-vite-plus`](skills/codebase/setup-vite-plus/SKILL.md)   | Set up the Vite+ toolchain                         |
+Start with a composite for an end-to-end outcome, or choose a focused skill for one capability.
+
+### Codebase
+
+| Skill                                                           | Type      | Purpose                                            |
+| --------------------------------------------------------------- | --------- | -------------------------------------------------- |
+| [`create-gh-repo`](skills/codebase/create-gh-repo/SKILL.md)     | Focused   | Create and connect a GitHub repository             |
+| [`protect-gh-repo`](skills/codebase/protect-gh-repo/SKILL.md)   | Focused   | Protect merges using observed checks and reviewers |
+| [`setup-cubic`](skills/codebase/setup-cubic/SKILL.md)           | Focused   | Configure focused Cubic code review                |
+| [`setup-gh-checks`](skills/codebase/setup-gh-checks/SKILL.md)   | Focused   | Run an existing local check in GitHub Actions      |
+| [`setup-gh-repo`](skills/codebase/setup-gh-repo/SKILL.md)       | Composite | Set up GitHub checks, review, and merge protection |
+| [`setup-typescript`](skills/codebase/setup-typescript/SKILL.md) | Focused   | Set up strict TypeScript configuration             |
+| [`setup-vite-plus`](skills/codebase/setup-vite-plus/SKILL.md)   | Focused   | Set up the Vite+ toolchain                         |
+
+### Files
+
+| Skill                                                        | Type      | Purpose                                          |
+| ------------------------------------------------------------ | --------- | ------------------------------------------------ |
+| [`read-image`](skills/files/read-image/SKILL.md)             | Focused   | Inspect raster images, animations, and safe SVGs |
+| [`read-text-file`](skills/files/read-text-file/SKILL.md)     | Focused   | Read bounded text and structured-data files      |
+| [`read-video`](skills/files/read-video/SKILL.md)             | Composite | Inspect a video's visual and audio lanes         |
+| [`transcribe-audio`](skills/files/transcribe-audio/SKILL.md) | Focused   | Transcribe audio with explicit temporal coverage |
 
 ## Install
 
