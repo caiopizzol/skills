@@ -5,35 +5,20 @@ description: Create a GitHub repository from an existing local Git repository an
 
 # Set up a GitHub repository
 
-Keep the local repository as the source of truth. Do not generate or rewrite project files.
+Keep the local repository as the source of truth.
 
-## Create
+## Workflow
 
-1. Inspect the current branch, commits, working tree, and remotes. Confirm `gh` is authenticated as the
-   intended owner. Stop if the requested repository already exists or `origin` points elsewhere.
-2. Require an explicit owner, repository name, and visibility. Treat creating the remote, pushing, and
-   making it public as separate external actions; proceed only when the request authorizes each one.
-3. Before public creation or visibility, audit the exact tree, every commit and ref that will be pushed,
-   and their metadata for credentials and private material. Confirm the license and intended author
-   identity. Do not treat `.gitignore` or a clean working tree as proof.
-4. Require an existing local Git repository with at least one commit. Do not invent a README, license,
-   `.gitignore`, initial commit, or project description.
-5. Read the installed `gh repo create --help` and `gh repo edit --help`, then create the remote from the
-   current repository without `--push`. Use `origin` unless the caller chose another remote name.
-6. Use `main` for a new repository. If the local branch has another name, ask before renaming it.
-7. Apply only these defaults when supported:
-   - Delete head branches after merge.
-   - Give workflow tokens read-only permissions and prevent them from approving pull requests.
-   - Enable secret scanning, verify it, then enable push protection.
-8. Push only the intended default branch when explicitly authorized. Do not push tags or other refs
-   without separate authorization. Verify the remote URL, visibility, default branch, settings, and
-   local-to-remote commit identity through GitHub after the push.
+1. Inspect the commits, working tree, remotes, and authenticated GitHub owner. Require at least one commit
+   and a free remote name.
+2. Confirm the owner, repository name, and visibility. Treat creating the repository, making it public,
+   and pushing as separate actions unless already authorized.
+3. Audit the exact history and refs that will be pushed for private material, credentials, author
+   identity, and licensing.
+4. Create the remote without pushing. Use `origin` and `main` unless the caller chose otherwise. Enable
+   deletion of merged branches, read-only workflow permissions, and secret scanning when supported.
+5. With explicit permission, push only the selected default branch. Verify the remote settings and
+   commit match the intended local state.
 
-Report every setting GitHub or the current plan does not support. Do not report the repository ready
-when the remote is empty or differs from the intended local commit.
-
-## Boundaries
-
-Do not change an existing repository's visibility, merge methods, features, topics, or collaborators.
-Do not add workflows, branch protection, releases, dependency automation, or repository templates.
-Leave CI and merge enforcement to `setup-gh-checks`.
+Do not rewrite project files or add CI, releases, dependency automation, or templates. Leave checks and
+merge enforcement to `setup-gh-checks`.
