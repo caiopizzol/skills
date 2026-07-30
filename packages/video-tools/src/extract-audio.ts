@@ -39,15 +39,23 @@ export interface ExtractAudioOptions {
 // Which audio streams exist, and which this run will read. Extraction currently reads one stream,
 // because a source with many tracks would otherwise multiply derivative bytes without being asked.
 // The omitted indexes are what keep that bound honest.
-export function planAudioStreams(probe: VideoProbe, selectedStreamIndex?: number): AudioStreamSelection {
-  const availableStreamIndexes = probe.streams.filter((s) => s.codecType === "audio").map((s) => s.index);
+export function planAudioStreams(
+  probe: VideoProbe,
+  selectedStreamIndex?: number,
+): AudioStreamSelection {
+  const availableStreamIndexes = probe.streams
+    .filter((s) => s.codecType === "audio")
+    .map((s) => s.index);
   const first = availableStreamIndexes[0];
   const selected = selectedStreamIndex ?? first;
-  const selectedStreamIndexes = selected === undefined || !availableStreamIndexes.includes(selected) ? [] : [selected];
+  const selectedStreamIndexes =
+    selected === undefined || !availableStreamIndexes.includes(selected) ? [] : [selected];
   return {
     availableStreamIndexes,
     selectedStreamIndexes,
-    omittedStreamIndexes: availableStreamIndexes.filter((index) => !selectedStreamIndexes.includes(index)),
+    omittedStreamIndexes: availableStreamIndexes.filter(
+      (index) => !selectedStreamIndexes.includes(index),
+    ),
   };
 }
 
@@ -100,24 +108,39 @@ export async function extractAudio(options: ExtractAudioOptions): Promise<Extrac
   await prepareOutput(outputPath);
   const run = await runTool(
     exec,
-    { command: FFMPEG_COMMAND, args: buildExtractAudioArgs(inputPath, outputPath), cwd: options.cwd },
+    {
+      command: FFMPEG_COMMAND,
+      args: buildExtractAudioArgs(inputPath, outputPath),
+      cwd: options.cwd,
+    },
     options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
   );
   if (run.kind !== "result" || run.result.exitCode !== 0) {
     await discardOutput(outputPath);
     if (run.kind === "tool-unavailable") {
-      return { outcome: "tool-unavailable", operation: "extract-audio", inputPath, message: run.message };
+      return {
+        outcome: "tool-unavailable",
+        operation: "extract-audio",
+        inputPath,
+        message: run.message,
+      };
     }
     if (run.kind === "timeout") {
       return { outcome: "timeout", operation: "extract-audio", inputPath, message: run.message };
     }
-    const message = run.kind === "result"
-      ? `ffmpeg exited with code ${run.result.exitCode}: ${run.result.stderr.trim() || "no stderr"}`
-      : run.message;
+    const message =
+      run.kind === "result"
+        ? `ffmpeg exited with code ${run.result.exitCode}: ${run.result.stderr.trim() || "no stderr"}`
+        : run.message;
     return { outcome: "extract-failed", operation: "extract-audio", inputPath, message };
   }
   try {
-    const derivative = await describeDerivative(outputPath, "extract-audio", options.parentSha256, readOutput);
+    const derivative = await describeDerivative(
+      outputPath,
+      "extract-audio",
+      options.parentSha256,
+      readOutput,
+    );
     return {
       outcome: "ok",
       operation: "extract-audio",

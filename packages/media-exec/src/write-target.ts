@@ -30,9 +30,12 @@ export function resolveWriteTarget(options: {
   const outputPath = resolve(artifactsDirectory, options.relativePath);
   const containment = relative(artifactsDirectory, outputPath);
   if (containment === "" || containment.startsWith("..") || containment.split(sep).includes("..")) {
-    throw new Error(`a derivative must be written beneath the artifacts directory: ${options.relativePath}`);
+    throw new Error(
+      `a derivative must be written beneath the artifacts directory: ${options.relativePath}`,
+    );
   }
-  if (outputPath === inputPath) throw new Error("a derivative must never be written onto the original file");
+  if (outputPath === inputPath)
+    throw new Error("a derivative must never be written onto the original file");
   if (realOrLexical(outputPath) === realOrLexical(inputPath)) {
     throw new Error("a derivative must never be written onto the original file");
   }

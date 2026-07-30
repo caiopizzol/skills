@@ -14,7 +14,10 @@
 import { existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, symlinkSync } from "node:fs";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { childReferences } from "@caiopizzol/catalog-validation";
-import { markdownFiles, skillDirectories } from "../apps/catalog-validation-cli/src/read-catalog.ts";
+import {
+  markdownFiles,
+  skillDirectories,
+} from "../apps/catalog-validation-cli/src/read-catalog.ts";
 
 const [destinationArgument, ...requested] = process.argv.slice(2);
 if (!destinationArgument) {
@@ -81,7 +84,8 @@ const selected = closure(requested.length === 0 ? [...available.keys()] : [...ne
 // Every target is checked before anything is created. The closure is larger than what the caller
 // named, so a partway install would leave symlinks they never asked for and no clean way back.
 for (const name of selected) {
-  if (pathExists(join(destination, name))) fail(`destination already exists: ${join(destination, name)}`);
+  if (pathExists(join(destination, name)))
+    fail(`destination already exists: ${join(destination, name)}`);
 }
 
 mkdirSync(destination, { recursive: true });
@@ -100,7 +104,9 @@ function index(): Map<string, string> {
     // Two folders make `$name` ambiguous for this installer and for the runtime that resolves it.
     // Filing them under different categories does not make them different skills.
     if (existing) {
-      fail(`${name} is provided by both ${relative(root, existing)} and ${relative(root, directory)}; a skill name must be unique`);
+      fail(
+        `${name} is provided by both ${relative(root, existing)} and ${relative(root, directory)}; a skill name must be unique`,
+      );
     }
     owners.set(name, directory);
   }
@@ -119,7 +125,8 @@ function closure(seeds: string[]): string[] {
     resolved.add(name);
     for (const [where, markdown] of ownedMarkdown(name)) {
       for (const reference of childReferences(markdown)) {
-        if (!available.has(reference)) fail(`${where} references $${reference}, which this catalog does not provide`);
+        if (!available.has(reference))
+          fail(`${where} references $${reference}, which this catalog does not provide`);
         queue.push(reference);
       }
     }

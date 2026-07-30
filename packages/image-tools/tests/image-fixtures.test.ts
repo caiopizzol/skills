@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { readImageFixture, readImageManifest } from "./fixtures/image-scenarios.ts";
 
 const manifest = readImageManifest();
@@ -17,9 +17,13 @@ const expectedMatrix = [
 
 describe("image fixtures", () => {
   it("keeps the complete image matrix and structural expectations explicit", () => {
-    expect(manifest.fixtures.map(({ filename, mediaType, frameCount }) => [filename, mediaType, frameCount])).toEqual(
-      expectedMatrix,
-    );
+    expect(
+      manifest.fixtures.map(({ filename, mediaType, frameCount }) => [
+        filename,
+        mediaType,
+        frameCount,
+      ]),
+    ).toEqual(expectedMatrix);
     for (const fixture of manifest.fixtures) {
       expect(fixture.expectedText.length).toBeGreaterThan(0);
       expect(fixture.expectedColors.length).toBeGreaterThan(0);
@@ -27,11 +31,14 @@ describe("image fixtures", () => {
     }
   });
 
-  it.each(manifest.fixtures)("recognizes $filename from canonical bytes", ({ filename, mediaType, bytes, sha256 }) => {
-    const fixture = readImageFixture(filename);
-    expect(fixture.byteLength).toBe(bytes);
-    expect(createHash("sha256").update(fixture).digest("hex")).toBe(sha256);
-  });
+  it.each(manifest.fixtures)(
+    "recognizes $filename from canonical bytes",
+    ({ filename, bytes, sha256 }) => {
+      const fixture = readImageFixture(filename);
+      expect(fixture.byteLength).toBe(bytes);
+      expect(createHash("sha256").update(fixture).digest("hex")).toBe(sha256);
+    },
+  );
 
   it("contains a static WebP and a three-frame GIF", () => {
     const webp = readImageFixture("fixture-webp.webp");
@@ -42,7 +49,8 @@ describe("image fixtures", () => {
 });
 
 function countGifFrames(bytes: Uint8Array): number {
-  if (!new TextDecoder().decode(bytes.slice(0, 6)).startsWith("GIF8")) throw new Error("Invalid GIF header");
+  if (!new TextDecoder().decode(bytes.slice(0, 6)).startsWith("GIF8"))
+    throw new Error("Invalid GIF header");
   let offset = 13;
   const globalColorTable = bytes[10] ?? 0;
   if ((globalColorTable & 0x80) !== 0) offset += 3 * (1 << ((globalColorTable & 0x07) + 1));

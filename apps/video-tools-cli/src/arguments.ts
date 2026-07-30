@@ -65,13 +65,16 @@ export function parseArguments(argv: readonly string[]): CliArguments {
 
 export function parsePinnedImage(value: string): string {
   if (!/@sha256:[a-f0-9]{64}$/i.test(value)) {
-    throw new Error("--container-image requires a digest-pinned image reference ending in @sha256:<64 hex characters>");
+    throw new Error(
+      "--container-image requires a digest-pinned image reference ending in @sha256:<64 hex characters>",
+    );
   }
   return value;
 }
 
 function positiveInteger(value: string, option: string): number {
   const parsed = Number(value);
-  if (!Number.isSafeInteger(parsed) || parsed <= 0) throw new Error(`${option} requires a positive integer`);
+  if (!Number.isSafeInteger(parsed) || parsed <= 0)
+    throw new Error(`${option} requires a positive integer`);
   return parsed;
 }

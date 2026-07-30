@@ -17,7 +17,10 @@ export function parseAgentMetadata(source: string): AgentMetadataSource {
   try {
     return { document: Bun.YAML.parse(source) };
   } catch (error) {
-    return { error: error instanceof Error ? (error.message.split("\n", 1)[0] ?? "unreadable") : String(error) };
+    return {
+      error:
+        error instanceof Error ? (error.message.split("\n", 1)[0] ?? "unreadable") : String(error),
+    };
   }
 }
 

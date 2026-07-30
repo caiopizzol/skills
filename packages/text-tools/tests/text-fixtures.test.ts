@@ -1,16 +1,24 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { inspectText, type TextFormat } from "../src/index.ts";
 
 interface TextFixtureManifest {
   schemaVersion: number;
-  fixtures: Array<{ filename: string; mediaType: string; token: string; bytes: number; sha256: string }>;
+  fixtures: Array<{
+    filename: string;
+    mediaType: string;
+    token: string;
+    bytes: number;
+    sha256: string;
+  }>;
 }
 
 const fixtureDirectory = join(import.meta.dirname, "fixtures", "files");
-const manifest = JSON.parse(readFileSync(join(fixtureDirectory, "manifest.json"), "utf8")) as TextFixtureManifest;
+const manifest = JSON.parse(
+  readFileSync(join(fixtureDirectory, "manifest.json"), "utf8"),
+) as TextFixtureManifest;
 const expectedMatrix: ReadonlyArray<[string, string, TextFormat]> = [
   ["fixture-text.txt", "text/plain", "plain"],
   ["fixture-markdown.md", "text/markdown", "markdown"],
@@ -33,7 +41,12 @@ describe("text fixture ownership", () => {
 
     expect(bytes.byteLength).toBe(fixture.bytes);
     expect(createHash("sha256").update(bytes).digest("hex")).toBe(fixture.sha256);
-    expect(result).toMatchObject({ outcome: "ok", sha256: fixture.sha256, encoding: "utf-8", format: expectedFormat });
+    expect(result).toMatchObject({
+      outcome: "ok",
+      sha256: fixture.sha256,
+      encoding: "utf-8",
+      format: expectedFormat,
+    });
     if (result.outcome !== "ok") throw new Error(`expected ok, received ${result.outcome}`);
     expect(result.coverage.boundedBy).toBe("complete");
     expect(result.coverage.omittedRanges).toEqual([]);
@@ -56,12 +69,19 @@ describe("text fixture ownership", () => {
       rowCount: 3,
       columnCount: 4,
     });
-    expect(xml.structure).toMatchObject({ kind: "unvalidated", reason: expect.stringContaining("no XML parser") });
+    expect(xml.structure).toMatchObject({
+      kind: "unvalidated",
+      reason: expect.stringContaining("no XML parser"),
+    });
   });
 });
 
 function inspectFixture(filename: string) {
-  const result = inspectText({ inputPath: filename, bytes: readFileSync(join(fixtureDirectory, filename)), cwd: fixtureDirectory });
+  const result = inspectText({
+    inputPath: filename,
+    bytes: readFileSync(join(fixtureDirectory, filename)),
+    cwd: fixtureDirectory,
+  });
   if (result.outcome !== "ok") throw new Error(`expected ${filename} to inspect successfully`);
   return result;
 }

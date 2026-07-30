@@ -68,8 +68,10 @@ export async function convertImage(options: ConvertImageOptions): Promise<Conver
     if (run.kind === "tool-unavailable") {
       return { outcome: "tool-unavailable", operation: "convert", inputPath, message: run.message };
     }
-    if (run.kind === "timeout") return { outcome: "timeout", operation: "convert", inputPath, message: run.message };
-    if (run.kind === "error") return { outcome: "convert-failed", operation: "convert", inputPath, message: run.message };
+    if (run.kind === "timeout")
+      return { outcome: "timeout", operation: "convert", inputPath, message: run.message };
+    if (run.kind === "error")
+      return { outcome: "convert-failed", operation: "convert", inputPath, message: run.message };
     const stderr = run.result.stderr.trim();
     return {
       outcome: isUndecodable(stderr) ? "unsupported-input" : "convert-failed",

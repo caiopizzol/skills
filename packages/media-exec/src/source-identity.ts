@@ -29,10 +29,16 @@ export interface InputChanged {
   finalSha256: string;
 }
 
-export async function readSourceIdentity(path: string): Promise<{ identity: SourceIdentity; bytes: Uint8Array }> {
+export async function readSourceIdentity(
+  path: string,
+): Promise<{ identity: SourceIdentity; bytes: Uint8Array }> {
   const bytes = await readFile(path);
   return {
-    identity: { path, bytes: bytes.byteLength, sha256: createHash("sha256").update(bytes).digest("hex") },
+    identity: {
+      path,
+      bytes: bytes.byteLength,
+      sha256: createHash("sha256").update(bytes).digest("hex"),
+    },
     bytes,
   };
 }
@@ -44,7 +50,9 @@ export async function detectInputChange(options: {
 }): Promise<InputChanged | null> {
   let finalSha256: string;
   try {
-    finalSha256 = createHash("sha256").update(await readFile(options.identity.path)).digest("hex");
+    finalSha256 = createHash("sha256")
+      .update(await readFile(options.identity.path))
+      .digest("hex");
   } catch (error) {
     finalSha256 = "";
     // A source that vanished mid-run is a changed source. Fall through to invalidation rather than

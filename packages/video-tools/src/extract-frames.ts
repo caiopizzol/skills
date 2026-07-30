@@ -38,7 +38,11 @@ export interface ExtractFramesOptions {
 // -y overwrites a destination the caller already owns. One invocation per timestamp keeps each
 // frame independently attributable. Overwriting is safe because resolveWriteTarget has already
 // refused any destination outside the artifacts directory or onto the input.
-export function buildExtractFrameArgs(inputPath: string, outputPath: string, timestampSeconds: number): string[] {
+export function buildExtractFrameArgs(
+  inputPath: string,
+  outputPath: string,
+  timestampSeconds: number,
+): string[] {
   return [
     "-hide_banner",
     "-loglevel",
@@ -113,26 +117,41 @@ export async function extractFrames(options: ExtractFramesOptions): Promise<Extr
     await prepareOutput(outputPath);
     const run = await runTool(
       exec,
-      { command: FFMPEG_COMMAND, args: buildExtractFrameArgs(inputPath, outputPath, timestampSeconds), cwd: options.cwd },
+      {
+        command: FFMPEG_COMMAND,
+        args: buildExtractFrameArgs(inputPath, outputPath, timestampSeconds),
+        cwd: options.cwd,
+      },
       remainingMs,
     );
     if (run.kind !== "result" || run.result.exitCode !== 0) {
       await discardAll(discardOutput, written);
       if (run.kind === "tool-unavailable") {
-        return { outcome: "tool-unavailable", operation: "extract-frames", inputPath, message: run.message };
+        return {
+          outcome: "tool-unavailable",
+          operation: "extract-frames",
+          inputPath,
+          message: run.message,
+        };
       }
       if (run.kind === "timeout") {
         return { outcome: "timeout", operation: "extract-frames", inputPath, message: run.message };
       }
-      const message = run.kind === "result"
-        ? `ffmpeg exited with code ${run.result.exitCode} at ${timestampSeconds}s: ${run.result.stderr.trim() || "no stderr"}`
-        : run.message;
+      const message =
+        run.kind === "result"
+          ? `ffmpeg exited with code ${run.result.exitCode} at ${timestampSeconds}s: ${run.result.stderr.trim() || "no stderr"}`
+          : run.message;
       return { outcome: "extract-failed", operation: "extract-frames", inputPath, message };
     }
     try {
       frames.push({
         timestampSeconds,
-        derivative: await describeDerivative(outputPath, "extract-frames", options.parentSha256, readOutput),
+        derivative: await describeDerivative(
+          outputPath,
+          "extract-frames",
+          options.parentSha256,
+          readOutput,
+        ),
       });
     } catch (error) {
       await discardAll(discardOutput, written);
@@ -147,7 +166,10 @@ export async function extractFrames(options: ExtractFramesOptions): Promise<Extr
   return { outcome: "ok", operation: "extract-frames", inputPath, sampling, frames };
 }
 
-async function discardAll(discardOutput: DiscardOutputBoundary, paths: readonly string[]): Promise<void> {
+async function discardAll(
+  discardOutput: DiscardOutputBoundary,
+  paths: readonly string[],
+): Promise<void> {
   for (const path of paths) await discardOutput(path);
 }
 

@@ -1,7 +1,20 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import type { ExecResult } from "../src/index.ts";
-import { IDENTIFY_COMMAND, buildIdentifyArgs, identifyImage, parseIdentifyOutput } from "../src/index.ts";
-import { CWD, INPUT_PATH, fakeExec, failed, missingBinary, ok, readImageManifest } from "./fixtures/image-scenarios.ts";
+import {
+  IDENTIFY_COMMAND,
+  buildIdentifyArgs,
+  identifyImage,
+  parseIdentifyOutput,
+} from "../src/index.ts";
+import {
+  CWD,
+  INPUT_PATH,
+  fakeExec,
+  failed,
+  missingBinary,
+  ok,
+  readImageManifest,
+} from "./fixtures/image-scenarios.ts";
 
 const manifest = readImageManifest();
 
@@ -15,7 +28,13 @@ describe("parseIdentifyOutput", () => {
   it("reads a single-frame raster as one frame with its format and dimensions", () => {
     const identity = parseIdentifyOutput("PNG 640 360\n");
 
-    expect(identity).toEqual({ formatVersion: 1, format: "PNG", width: 640, height: 360, frameCount: 1 });
+    expect(identity).toEqual({
+      formatVersion: 1,
+      format: "PNG",
+      width: 640,
+      height: 360,
+      frameCount: 1,
+    });
   });
 
   it("counts one line per frame so an animation reports its real frame count", () => {
@@ -35,7 +54,9 @@ describe("parseIdentifyOutput", () => {
   });
 
   it("rejects a malformed line after the first rather than counting it as a frame", () => {
-    expect(() => parseIdentifyOutput("GIF 640 360\nmalformed\n")).toThrow(/unreadable frame line: malformed/);
+    expect(() => parseIdentifyOutput("GIF 640 360\nmalformed\n")).toThrow(
+      /unreadable frame line: malformed/,
+    );
     expect(() => parseIdentifyOutput("GIF 640 360\nGIF 640 tall\n")).toThrow(/unusable dimensions/);
   });
 });
@@ -48,9 +69,20 @@ describe("identifyImage", () => {
 
     expect(result).toMatchObject({ outcome: "ok", operation: "identify" });
     expect(boundary.requests).toEqual([
-      { command: IDENTIFY_COMMAND, args: buildIdentifyArgs(INPUT_PATH), cwd: CWD, timeoutMs: 60_000 },
+      {
+        command: IDENTIFY_COMMAND,
+        args: buildIdentifyArgs(INPUT_PATH),
+        cwd: CWD,
+        timeoutMs: 60_000,
+      },
     ]);
-    expect(boundary.requests[0]?.args).toEqual(["-quiet", "-ping", "-format", "%m %w %h\\n", INPUT_PATH]);
+    expect(boundary.requests[0]?.args).toEqual([
+      "-quiet",
+      "-ping",
+      "-format",
+      "%m %w %h\\n",
+      INPUT_PATH,
+    ]);
   });
 
   it("reports the frame count on the identity so GIF routing has it", async () => {
@@ -86,11 +118,16 @@ describe("identifyImage", () => {
 
     const result = await identifyImage({ inputPath: INPUT_PATH, cwd: CWD, exec: boundary.exec });
 
-    expect(result).toMatchObject({ outcome: "identify-failed", message: expect.stringContaining("improper image header") });
+    expect(result).toMatchObject({
+      outcome: "identify-failed",
+      message: expect.stringContaining("improper image header"),
+    });
   });
 
   it("classifies a missing decode delegate as unsupported-input rather than a failure", async () => {
-    const boundary = fakeExec(() => failed("identify: no decode delegate for this image format `HEIC'"));
+    const boundary = fakeExec(() =>
+      failed("identify: no decode delegate for this image format `HEIC'"),
+    );
 
     const result = await identifyImage({ inputPath: INPUT_PATH, cwd: CWD, exec: boundary.exec });
 
@@ -102,7 +139,10 @@ describe("identifyImage", () => {
 
     const result = await identifyImage({ inputPath: INPUT_PATH, cwd: CWD, exec: boundary.exec });
 
-    expect(result).toMatchObject({ outcome: "identify-failed", message: expect.stringContaining("unusable dimensions") });
+    expect(result).toMatchObject({
+      outcome: "identify-failed",
+      message: expect.stringContaining("unusable dimensions"),
+    });
   });
 
   it("classifies empty output on a clean exit as identify-failed rather than success", async () => {
@@ -110,7 +150,10 @@ describe("identifyImage", () => {
 
     const result = await identifyImage({ inputPath: INPUT_PATH, cwd: CWD, exec: boundary.exec });
 
-    expect(result).toMatchObject({ outcome: "identify-failed", message: expect.stringContaining("no output") });
+    expect(result).toMatchObject({
+      outcome: "identify-failed",
+      message: expect.stringContaining("no output"),
+    });
   });
 
   it("classifies an exceeded deadline as timeout", async () => {
@@ -123,7 +166,12 @@ describe("identifyImage", () => {
         }),
     );
 
-    const result = await identifyImage({ inputPath: INPUT_PATH, cwd: CWD, timeoutMs: 5, exec: boundary.exec });
+    const result = await identifyImage({
+      inputPath: INPUT_PATH,
+      cwd: CWD,
+      timeoutMs: 5,
+      exec: boundary.exec,
+    });
 
     expect(result.outcome).toBe("timeout");
     expect(result).not.toHaveProperty("identity");

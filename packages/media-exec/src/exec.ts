@@ -26,7 +26,8 @@ export const execWithBun: ExecBoundary = async ({ command, args, cwd, timeoutMs 
   });
   // The caller also enforces the deadline, but the child is killed here so a timed-out run leaves
   // no process behind writing into the caller's artifacts directory.
-  const deadline = timeoutMs === undefined ? undefined : setTimeout(() => process.kill(), timeoutMs);
+  const deadline =
+    timeoutMs === undefined ? undefined : setTimeout(() => process.kill(), timeoutMs);
   try {
     const [stdout, stderr, exitCode] = await Promise.all([
       new Response(process.stdout).text(),
@@ -42,12 +43,21 @@ export const execWithBun: ExecBoundary = async ({ command, args, cwd, timeoutMs 
 // A missing binary is not a failed run. Bun rejects the spawn, and some boundaries report the
 // shell-style exit code 127 instead, so both shapes map to the same tool-unavailable outcome.
 export function isToolUnavailableError(error: unknown): boolean {
-  const record = typeof error === "object" && error !== null ? (error as { code?: unknown; syscall?: unknown; path?: unknown }) : undefined;
+  const record =
+    typeof error === "object" && error !== null
+      ? (error as { code?: unknown; syscall?: unknown; path?: unknown })
+      : undefined;
   // ENOENT means "something in this request does not exist", which is the missing binary only when
   // the spawn itself failed. A missing cwd raises the same code and is a caller error, not an
   // absent tool, so require the spawn syscall before claiming the tool is unavailable.
-  if (record?.code === "ENOENT") return record.syscall === undefined || String(record.syscall).startsWith("spawn");
-  return /\benoent\b|no such file or directory|command not found|executable not found/i.test(errorMessage(error));
+  if (record?.code === "ENOENT") {
+    // Coercion preserves the existing boundary behavior for unknown runtime error shapes.
+    // oxlint-disable-next-line typescript/no-base-to-string
+    return record.syscall === undefined || String(record.syscall).startsWith("spawn");
+  }
+  return /\benoent\b|no such file or directory|command not found|executable not found/i.test(
+    errorMessage(error),
+  );
 }
 
 export function isToolUnavailableResult(result: ExecResult): boolean {
@@ -57,7 +67,10 @@ export function isToolUnavailableResult(result: ExecResult): boolean {
 // A daemon that answers "you may not ask" is not a daemon that is absent. Keeping the two apart is
 // what lets a capability report say access-denied instead of tool-unavailable.
 export function isPermissionDeniedResult(result: ExecResult): boolean {
-  return result.exitCode !== 0 && /permission denied|dial unix .*permission denied|got permission denied/i.test(result.stderr);
+  return (
+    result.exitCode !== 0 &&
+    /permission denied|dial unix .*permission denied|got permission denied/i.test(result.stderr)
+  );
 }
 
 export function errorMessage(error: unknown): string {

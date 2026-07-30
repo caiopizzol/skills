@@ -9,7 +9,9 @@ const CLI = resolve(import.meta.dirname, "..", "src", "cli.ts");
 const directories: string[] = [];
 
 afterEach(async () => {
-  await Promise.all(directories.splice(0).map((path) => rm(path, { recursive: true, force: true })));
+  await Promise.all(
+    directories.splice(0).map((path) => rm(path, { recursive: true, force: true })),
+  );
 });
 
 // A repository laid out the way the real one is, so the boundary is exercised against files on disk
@@ -19,14 +21,20 @@ async function repository(agentMetadata: string): Promise<string> {
   directories.push(root);
   const skill = join(root, "skills", "files", "read-image");
   await mkdir(join(skill, "agents"), { recursive: true });
-  await writeFile(join(skill, "SKILL.md"), "---\nname: read-image\ndescription: Reads an image.\n---\n\n# Read an image\n");
+  await writeFile(
+    join(skill, "SKILL.md"),
+    "---\nname: read-image\ndescription: Reads an image.\n---\n\n# Read an image\n",
+  );
   await writeFile(join(skill, "agents", "openai.yaml"), agentMetadata);
-  await writeFile(join(root, "README.md"),
-    "# Repository\n\n## Skill catalog\n\n| Skill | Layer |\n| --- | --- |\n| [`read-image`](skills/files/read-image/SKILL.md) | Interpretation |\n");
+  await writeFile(
+    join(root, "README.md"),
+    "# Repository\n\n## Skill catalog\n\n| Skill | Layer |\n| --- | --- |\n| [`read-image`](skills/files/read-image/SKILL.md) | Interpretation |\n",
+  );
   return root;
 }
 
-const VALID = 'interface:\n  display_name: "Read image"\n  default_prompt: "Use $read-image on the exact input."\n';
+const VALID =
+  'interface:\n  display_name: "Read image"\n  default_prompt: "Use $read-image on the exact input."\n';
 
 async function runCli(root: string): Promise<{ exitCode: number; stderr: string }> {
   const child = Bun.spawn(["bun", CLI, root], { stdout: "pipe", stderr: "pipe", stdin: "ignore" });
@@ -39,10 +47,22 @@ async function runCli(root: string): Promise<{ exitCode: number; stderr: string 
 // parse with raw-text matching once left every test green while a malformed file validated cleanly.
 describe("the production parse boundary", () => {
   it.each([
-    { label: "an unterminated quoted scalar", source: 'interface:\n  default_prompt: "Use $read-image\n' },
-    { label: "inconsistent indentation", source: 'interface:\n  display_name: "A"\n     default_prompt: "Use $read-image"\n' },
-    { label: "unescaped internal double quotes", source: 'interface:\n  default_prompt: "Use "$read-image" now"\n' },
-    { label: "an illegal colon in a plain scalar", source: "interface:\n  default_prompt: Use $read-image: now\n" },
+    {
+      label: "an unterminated quoted scalar",
+      source: 'interface:\n  default_prompt: "Use $read-image\n',
+    },
+    {
+      label: "inconsistent indentation",
+      source: 'interface:\n  display_name: "A"\n     default_prompt: "Use $read-image"\n',
+    },
+    {
+      label: "unescaped internal double quotes",
+      source: 'interface:\n  default_prompt: "Use "$read-image" now"\n',
+    },
+    {
+      label: "an illegal colon in a plain scalar",
+      source: "interface:\n  default_prompt: Use $read-image: now\n",
+    },
   ])("rejects $label as unparseable", ({ source }) => {
     expect(parseAgentMetadata(source)).toMatchObject({ error: expect.any(String) });
   });
@@ -51,14 +71,22 @@ describe("the production parse boundary", () => {
   it("accepts well-formed metadata and yields the parsed document", () => {
     const parsed = parseAgentMetadata(VALID);
 
-    expect(parsed).toEqual({ document: { interface: { display_name: "Read image", default_prompt: "Use $read-image on the exact input." } } });
+    expect(parsed).toEqual({
+      document: {
+        interface: {
+          display_name: "Read image",
+          default_prompt: "Use $read-image on the exact input.",
+        },
+      },
+    });
   });
 
   // Valid YAML carrying the wrong type is what a text search cannot see. The parser accepts it and
   // the shape check in the pure package rejects it.
   it("parses a null prompt so the shape check can reject it", () => {
-    expect(parseAgentMetadata("interface:\n  default_prompt: null # Use $read-image\n"))
-      .toEqual({ document: { interface: { default_prompt: null } } });
+    expect(parseAgentMetadata("interface:\n  default_prompt: null # Use $read-image\n")).toEqual({
+      document: { interface: { default_prompt: null } },
+    });
   });
 });
 
@@ -71,7 +99,11 @@ describe("reading a repository", () => {
     const root = await repository('interface:\n  default_prompt: "Use $read-image\n');
 
     expect(validateCatalog(readCatalog(root))).toEqual([
-      { rule: "agent-metadata-invalid", skill: "read-image", detail: expect.stringContaining("not valid YAML") },
+      {
+        rule: "agent-metadata-invalid",
+        skill: "read-image",
+        detail: expect.stringContaining("not valid YAML"),
+      },
     ]);
   });
 
@@ -79,7 +111,11 @@ describe("reading a repository", () => {
     const root = await repository("interface:\n  default_prompt: null # Use $read-image\n");
 
     expect(validateCatalog(readCatalog(root))).toEqual([
-      { rule: "agent-metadata-invalid", skill: "read-image", detail: expect.stringContaining("interface.default_prompt") },
+      {
+        rule: "agent-metadata-invalid",
+        skill: "read-image",
+        detail: expect.stringContaining("interface.default_prompt"),
+      },
     ]);
   });
 });
@@ -102,18 +138,25 @@ describe("finding skills under categories", () => {
     const root = await repository(VALID);
     const deep = join(root, "skills", "files", "raster", "read-png");
     await mkdir(join(deep, "agents"), { recursive: true });
-    await writeFile(join(deep, "SKILL.md"), "---\nname: read-png\ndescription: Reads a PNG.\n---\n\n# Read a PNG\n");
+    await writeFile(
+      join(deep, "SKILL.md"),
+      "---\nname: read-png\ndescription: Reads a PNG.\n---\n\n# Read a PNG\n",
+    );
 
     const found = skillDirectories(join(root, "skills"));
 
-    expect(found.map((path) => relative(root, path)).sort())
-      .toEqual(["skills/files/raster/read-png", "skills/files/read-image"]);
+    expect(found.map((path) => relative(root, path)).sort()).toEqual([
+      "skills/files/raster/read-png",
+      "skills/files/read-image",
+    ]);
   });
 
   it("records each skill's folder so a catalog row can be checked against it", async () => {
     const root = await repository(VALID);
 
-    expect(readCatalog(root).skills).toMatchObject([{ name: "read-image", path: "skills/files/read-image" }]);
+    expect(readCatalog(root).skills).toMatchObject([
+      { name: "read-image", path: "skills/files/read-image" },
+    ]);
   });
 
   // A skill may ship an example that happens to contain a SKILL.md. Descending past a leaf would turn
@@ -122,9 +165,14 @@ describe("finding skills under categories", () => {
     const root = await repository(VALID);
     const nested = join(root, "skills", "files", "read-image", "examples", "nested");
     await mkdir(nested, { recursive: true });
-    await writeFile(join(nested, "SKILL.md"), "---\nname: nested\ndescription: An example.\n---\n\n# nested\n");
+    await writeFile(
+      join(nested, "SKILL.md"),
+      "---\nname: nested\ndescription: An example.\n---\n\n# nested\n",
+    );
 
-    expect(skillDirectories(join(root, "skills")).map((path) => relative(root, path))).toEqual(["skills/files/read-image"]);
+    expect(skillDirectories(join(root, "skills")).map((path) => relative(root, path))).toEqual([
+      "skills/files/read-image",
+    ]);
   });
 
   it("finds nothing when there is no skills directory at all", async () => {
