@@ -1,0 +1,4 @@
+interface:
+  display_name: "Set up GitHub checks"
+  short_description: "Require local checks in GitHub"
+  default_prompt: "Use $setup-gh-checks to run this repository’s local checks in GitHub Actions and require them before merge."
