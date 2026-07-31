@@ -11,9 +11,11 @@ description: Download one public YouTube video as an exact local artifact with p
    controls.
 3. Read only necessary metadata fields. Never emit full downloader metadata because it may contain
    signed URLs.
-4. Download one playable video file, including audio when present, without overwriting anything. Hash
+4. Prefer 720p or lower unless the objective needs more. Check duration and estimated size, and ask
+   before a large transfer.
+5. Download one playable video file, including audio when present, without overwriting anything. Hash
    the completed file.
-5. Report the canonical video ID, downloader version, path, bytes, SHA-256, title, duration, and gaps.
+6. Report the canonical video ID, downloader version, path, bytes, SHA-256, title, duration, and gaps.
 
 Remove incomplete files. Preserve `retrieved`, `not_found`, `access_denied`, `unsupported`, and
 `failed`. Report a missing downloader explicitly.
