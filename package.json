@@ -1,5 +1,6 @@
 {
   "name": "skills",
+  "version": "0.0.0",
   "private": true,
   "workspaces": [
     "apps/*",
@@ -7,9 +8,6 @@
   ],
   "type": "module",
   "scripts": {
-    "changeset": "changeset",
-    "version:packages": "changeset version",
-    "release": "changeset publish",
     "image-tools": "bun apps/image-tools-cli/src/cli.ts",
     "text-tools": "bun apps/text-tools-cli/src/cli.ts",
     "video-tools": "bun apps/video-tools-cli/src/cli.ts",
@@ -26,7 +24,6 @@
     "@caiopizzol/catalog-validation": "workspace:*"
   },
   "devDependencies": {
-    "@changesets/cli": "2.31.1",
     "@types/bun": "^1.3.0",
     "typescript": "7.0.2",
     "vite": "catalog:",
