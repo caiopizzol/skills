@@ -57,6 +57,9 @@ Start with a composite for an end-to-end outcome, or choose a focused skill for 
 
 ### Files
 
+`read-image` does not teach the model to see. It makes that ability dependable for composition by
+verifying the source, routing formats safely, covering animations, and reporting gaps.
+
 | Skill                                                        | Type      | Purpose                                          |
 | ------------------------------------------------------------ | --------- | ------------------------------------------------ |
 | [`read-image`](skills/files/read-image/SKILL.md)             | Focused   | Inspect raster images, animations, and safe SVGs |
