@@ -18,7 +18,8 @@ Establish one reliable test path without choosing architecture the repository do
 4. Do not let an intended test target pass when it discovers zero tests. Report projects that still lack
    a testable behavior or test lane.
 5. Include `test` in the root `check` command without removing formatting, linting, or type checking.
-6. Run `test` and `check`. In an isolated copy, break the tested behavior and confirm the test fails.
+6. Run `test` and `check`. In an isolated copy, break the tested behavior and confirm the root `test`
+   command fails.
 
 Do not add coverage thresholds, browser or end-to-end testing, mocking libraries, or extra test layers
 without a concrete need.
