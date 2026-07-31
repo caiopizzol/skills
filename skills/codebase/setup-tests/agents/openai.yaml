@@ -1,0 +1,4 @@
+interface:
+  display_name: "Set Up Tests"
+  short_description: "Establish one reliable local test path"
+  default_prompt: "Use $setup-tests to establish one meaningful, deterministic test path and include it in the root check."
