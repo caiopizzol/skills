@@ -65,6 +65,12 @@ Start with a composite for an end-to-end outcome, or choose a focused skill for 
 | [`download-youtube-video`](skills/media/download-youtube-video/SKILL.md) | Focused   | Download one public video as an exact local file  |
 | [`summarize-youtube`](skills/media/summarize-youtube/SKILL.md)           | Composite | Summarize spoken and visual evidence from YouTube |
 
+### Slack
+
+| Skill                                                          | Type    | Purpose                             |
+| -------------------------------------------------------------- | ------- | ----------------------------------- |
+| [`read-slack-thread`](skills/slack/read-slack-thread/SKILL.md) | Focused | Read one exact Slack thread via MCP |
+
 ## Install
 
 Requires [Bun](https://bun.sh/).
