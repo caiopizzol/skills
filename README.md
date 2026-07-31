@@ -35,6 +35,7 @@ Start with a composite for an end-to-end outcome, or choose a focused skill for 
 | [`config-gh-repo`](skills/codebase/config-gh-repo/SKILL.md)     | Focused   | Configure merge and pull-request settings          |
 | [`create-gh-repo`](skills/codebase/create-gh-repo/SKILL.md)     | Focused   | Create and connect a GitHub repository             |
 | [`protect-gh-repo`](skills/codebase/protect-gh-repo/SKILL.md)   | Focused   | Protect merges using observed checks and reviewers |
+| [`setup-changesets`](skills/codebase/setup-changesets/SKILL.md) | Focused   | Add reviewed releases from the default branch      |
 | [`setup-cubic`](skills/codebase/setup-cubic/SKILL.md)           | Focused   | Configure focused Cubic code review                |
 | [`setup-gh-checks`](skills/codebase/setup-gh-checks/SKILL.md)   | Focused   | Run an existing local check in GitHub Actions      |
 | [`setup-gh-repo`](skills/codebase/setup-gh-repo/SKILL.md)       | Composite | Set up GitHub settings, checks, and protection     |
