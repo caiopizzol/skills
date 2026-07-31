@@ -26,12 +26,15 @@ Use Vite+ as the integrated development toolchain. Prefer generated defaults ove
      --git --hooks --no-agent --no-editor --no-interactive
    ```
 
-4. For a migration, preview `vp migrate . --no-hooks --no-agent --no-editor --no-interactive` in a
-   detached worktree at `HEAD`. Run the existing checks before it and `vp check` after it, then inspect
-   the complete diff and version changes.
+4. For a migration, report upstream divergence and the declared workspace boundary. Preview
+   `vp migrate . --no-hooks --no-agent --no-editor --no-interactive` in a detached worktree at `HEAD`.
+   Run the existing checks before it and `vp check` after it, then inspect the complete diff and version
+   changes.
 5. Get approval before applying broad formatting, semantic source changes, version changes, downgrades,
-   or lost behavior. Apply an approved migration in the caller with hooks enabled and remove tools that
-   still own the same concern.
+   or lost behavior. Treat declared workspace members as in scope; get approval before excluding them or
+   changing topology. Split prerequisite upgrades or broad formatting when they can be qualified
+   independently. Apply an approved migration in the caller with hooks enabled and remove tools that still
+   own the same concern.
 
 ## Verify
 
