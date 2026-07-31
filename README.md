@@ -2,6 +2,10 @@
 
 Composable agent skills for inspecting files and setting up repositories.
 
+[![Release](https://img.shields.io/github/v/release/caiopizzol/skills)](https://github.com/caiopizzol/skills/releases/latest)
+[![Checks](https://github.com/caiopizzol/skills/actions/workflows/check.yml/badge.svg)](https://github.com/caiopizzol/skills/actions/workflows/check.yml)
+[![License](https://img.shields.io/github/license/caiopizzol/skills)](LICENSE)
+
 ## How skills compose
 
 A skill is one callable capability. It can invoke another skill with a `$name` reference, and that
