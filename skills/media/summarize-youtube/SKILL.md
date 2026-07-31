@@ -9,5 +9,5 @@ description: Summarize one public YouTube video from spoken and visual evidence 
 2. Pass its exact path and SHA-256 to `$read-video`.
 3. Summarize only the evidence `$read-video` returns. Do not invoke its child skills directly.
 
-Return a concise summary, key points, and material coverage gaps. Label a partial inspection as
-partial.
+Return a concise summary, content key points, and material coverage gaps. Label a partial inspection
+as partial. When no content was inspected, report that instead of inventing key points.
