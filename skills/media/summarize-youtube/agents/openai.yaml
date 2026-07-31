@@ -1,0 +1,4 @@
+interface:
+  display_name: "Summarize YouTube"
+  short_description: "Summarize one YouTube video from evidence"
+  default_prompt: "Use $summarize-youtube to summarize this public YouTube video from its spoken and visual evidence."

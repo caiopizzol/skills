@@ -19,9 +19,11 @@ setup-gh-repo
 ├── setup-cubic
 └── protect-gh-repo
 
-read-video
-├── read-image
-└── transcribe-audio
+summarize-youtube
+├── download-youtube-video
+└── read-video
+    ├── read-image
+    └── transcribe-audio
 ```
 
 ## Skill catalog
@@ -51,6 +53,13 @@ Start with a composite for an end-to-end outcome, or choose a focused skill for 
 | [`read-text-file`](skills/files/read-text-file/SKILL.md)     | Focused   | Read bounded text and structured-data files      |
 | [`read-video`](skills/files/read-video/SKILL.md)             | Composite | Inspect a video's visual and audio lanes         |
 | [`transcribe-audio`](skills/files/transcribe-audio/SKILL.md) | Focused   | Transcribe audio with explicit temporal coverage |
+
+### Media
+
+| Skill                                                                    | Type      | Purpose                                           |
+| ------------------------------------------------------------------------ | --------- | ------------------------------------------------- |
+| [`download-youtube-video`](skills/media/download-youtube-video/SKILL.md) | Focused   | Download one public video as an exact local file  |
+| [`summarize-youtube`](skills/media/summarize-youtube/SKILL.md)           | Composite | Summarize spoken and visual evidence from YouTube |
 
 ## Install
 
