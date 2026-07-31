@@ -1,0 +1,4 @@
+interface:
+  display_name: "Configure GitHub repository"
+  short_description: "Configure GitHub merge and branch settings"
+  default_prompt: "Use $configure-gh-repo to apply a minimal merge and pull-request policy to this GitHub repository."
