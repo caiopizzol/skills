@@ -1,0 +1,4 @@
+interface:
+  display_name: "Set Up Changesets"
+  short_description: "Add reviewed package releases from main"
+  default_prompt: "Use $setup-changesets to add a minimal Changesets release workflow to this repository."
