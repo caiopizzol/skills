@@ -20,8 +20,9 @@ Add reviewed package releases without assuming they publish to a registry.
    the default `GITHUB_TOKEN` cannot trigger workflows from its own pull requests. Before requesting
    another credential, query current GitHub documentation and tell the user exactly which repository
    permissions and access levels to select. Stop if unavailable. Add `changesets/action@v1` on
-   default-branch pushes with the publish command; require registry authentication only for registry
-   publication.
+   default-branch pushes with the publish command. Verify inputs against its current `action.yml`; ensure
+   the release credential owns branch updates as well as pull-request creation. Require registry
+   authentication only for registry publication.
 5. Inspect remote tags: the first publish tags every private package version without one. Reproduce the
    first version-and-tag cycle in a disposable repository. Show the exact versions, changelogs, and tags,
    and get approval before committing, pushing, or opening a pull request. Then run the repository check.
