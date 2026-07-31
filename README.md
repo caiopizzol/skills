@@ -14,7 +14,7 @@ source tree only. Installing a composite resolves its full dependency graph auto
 ```text
 setup-gh-repo
 ├── create-gh-repo
-├── configure-gh-repo
+├── config-gh-repo
 ├── setup-gh-checks
 ├── setup-cubic
 └── protect-gh-repo
@@ -30,16 +30,16 @@ Start with a composite for an end-to-end outcome, or choose a focused skill for 
 
 ### Codebase
 
-| Skill                                                             | Type      | Purpose                                            |
-| ----------------------------------------------------------------- | --------- | -------------------------------------------------- |
-| [`configure-gh-repo`](skills/codebase/configure-gh-repo/SKILL.md) | Focused   | Configure merge and pull-request settings          |
-| [`create-gh-repo`](skills/codebase/create-gh-repo/SKILL.md)       | Focused   | Create and connect a GitHub repository             |
-| [`protect-gh-repo`](skills/codebase/protect-gh-repo/SKILL.md)     | Focused   | Protect merges using observed checks and reviewers |
-| [`setup-cubic`](skills/codebase/setup-cubic/SKILL.md)             | Focused   | Configure focused Cubic code review                |
-| [`setup-gh-checks`](skills/codebase/setup-gh-checks/SKILL.md)     | Focused   | Run an existing local check in GitHub Actions      |
-| [`setup-gh-repo`](skills/codebase/setup-gh-repo/SKILL.md)         | Composite | Set up GitHub settings, checks, and protection     |
-| [`setup-typescript`](skills/codebase/setup-typescript/SKILL.md)   | Focused   | Set up strict TypeScript configuration             |
-| [`setup-vite-plus`](skills/codebase/setup-vite-plus/SKILL.md)     | Focused   | Set up the Vite+ toolchain                         |
+| Skill                                                           | Type      | Purpose                                            |
+| --------------------------------------------------------------- | --------- | -------------------------------------------------- |
+| [`config-gh-repo`](skills/codebase/config-gh-repo/SKILL.md)     | Focused   | Configure merge and pull-request settings          |
+| [`create-gh-repo`](skills/codebase/create-gh-repo/SKILL.md)     | Focused   | Create and connect a GitHub repository             |
+| [`protect-gh-repo`](skills/codebase/protect-gh-repo/SKILL.md)   | Focused   | Protect merges using observed checks and reviewers |
+| [`setup-cubic`](skills/codebase/setup-cubic/SKILL.md)           | Focused   | Configure focused Cubic code review                |
+| [`setup-gh-checks`](skills/codebase/setup-gh-checks/SKILL.md)   | Focused   | Run an existing local check in GitHub Actions      |
+| [`setup-gh-repo`](skills/codebase/setup-gh-repo/SKILL.md)       | Composite | Set up GitHub settings, checks, and protection     |
+| [`setup-typescript`](skills/codebase/setup-typescript/SKILL.md) | Focused   | Set up strict TypeScript configuration             |
+| [`setup-vite-plus`](skills/codebase/setup-vite-plus/SKILL.md)   | Focused   | Set up the Vite+ toolchain                         |
 
 ### Files
 
