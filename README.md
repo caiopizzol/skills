@@ -49,6 +49,12 @@ Start with a composite for an end-to-end outcome, or choose a focused skill for 
 | [`setup-typescript`](skills/codebase/setup-typescript/SKILL.md) | Focused   | Set up strict TypeScript configuration             |
 | [`setup-vite-plus`](skills/codebase/setup-vite-plus/SKILL.md)   | Focused   | Set up the Vite+ toolchain                         |
 
+### Context
+
+| Skill                                                            | Type    | Purpose                             |
+| ---------------------------------------------------------------- | ------- | ----------------------------------- |
+| [`read-slack-thread`](skills/context/read-slack-thread/SKILL.md) | Focused | Read one exact Slack thread via MCP |
+
 ### Files
 
 | Skill                                                        | Type      | Purpose                                          |
