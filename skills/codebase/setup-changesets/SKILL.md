@@ -1,19 +1,21 @@
 ---
 name: setup-changesets
-description: Set up Changesets for a publishable package or workspace with release pull requests from the default branch. Use when adding package versioning, changelogs, or automated publishing.
+description: Set up Changesets for public or private packages with release pull requests, changelogs, tags, GitHub Releases, and optional registry publishing. Use when adding package-level release automation.
 ---
 
 # Set up Changesets
 
-Add reviewed releases for packages already intended for publication.
+Add reviewed package releases without assuming they publish to a registry.
 
 ## Workflow
 
-1. Confirm at least one package is publishable. Do not change package visibility or invent entry points.
+1. Identify the release packages and destination: GitHub, a registry, or both. Do not change package
+   visibility. If the caller wants one repository-wide version unrelated to packages, report that
+   Changesets may not fit.
 2. Install stable `@changesets/cli` and run `changeset init`. Keep the generated
-   `.changeset/config.json`, set `baseBranch` to the default branch, and preserve the package's existing
-   access policy.
+   `.changeset/config.json`, set `baseBranch` to the default branch, and preserve registry access. For
+   GitHub-only releases, set `privatePackages.version` and `privatePackages.tag` to `true`.
 3. Add root commands for creating changesets, versioning, and publishing.
-4. Add `changesets/action@v1` on pushes to the default branch. Enable publishing only when registry
-   authentication exists.
-5. Run the repository check and verify the release workflow.
+4. Add `changesets/action@v1` on pushes to the default branch. Use the publish command for tags and
+   GitHub Releases; require registry authentication only for registry publication.
+5. Run the repository check and verify the release pull request, tags, and destinations.
