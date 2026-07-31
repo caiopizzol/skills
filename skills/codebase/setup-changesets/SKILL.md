@@ -16,6 +16,8 @@ Add reviewed package releases without assuming they publish to a registry.
    `.changeset/config.json`, set `baseBranch` to the default branch, and preserve registry access. For
    GitHub-only releases, set `privatePackages.version` and `privatePackages.tag` to `true`.
 3. Add root commands for creating changesets, versioning, and publishing.
-4. Add `changesets/action@v1` on pushes to the default branch. Use the publish command for tags and
-   GitHub Releases; require registry authentication only for registry publication.
-5. Run the repository check and verify the release pull request, tags, and destinations.
+4. Confirm the workflow token can create pull requests. Add `changesets/action@v1` on pushes to the
+   default branch with the publish command for tags and GitHub Releases; require registry authentication
+   only for registry publication.
+5. Inspect remote tags: the first publish tags every private package version without one. Reproduce the
+   first version-and-tag cycle in a disposable repository, then run the repository check.
