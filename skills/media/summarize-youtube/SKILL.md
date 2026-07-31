@@ -5,7 +5,7 @@ description: Summarize one public YouTube video from spoken and visual evidence 
 
 # Summarize a YouTube video
 
-1. Invoke `$download-youtube-video`.
+1. Invoke `$download-youtube-video`. Stop unless it returns `retrieved`.
 2. Pass its exact path and SHA-256 to `$read-video`.
 3. Summarize only the evidence `$read-video` returns. Do not invoke its child skills directly.
 
