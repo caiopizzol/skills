@@ -1,5 +1,5 @@
 ---
-name: configure-gh-repo
+name: config-gh-repo
 description: Configure a GitHub repository's merge strategy and pull-request housekeeping. Use for squash merging, auto-merge, branch updates, and deleting merged branches, not CI or branch protection.
 ---
 
