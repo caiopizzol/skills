@@ -1,0 +1,15 @@
+interface:
+  display_name: "Gather Context"
+  short_description: "Gather the context an objective needs"
+  default_prompt: "Use $gather-context to gather the context this objective needs across its sources and report the gaps."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "linear"
+      description: "Retrieve Linear issues and relationships"
+    - type: "mcp"
+      value: "slack"
+      description: "Retrieve Slack threads"
+    - type: "mcp"
+      value: "discord"
+      description: "Retrieve Discord conversations through an authorized bot"
