@@ -10,7 +10,8 @@ Coordinate the focused setup skills without recreating their procedures.
 ## Workflow
 
 1. Inspect the project and resolve the request: assess only, or apply changes. Treat GitHub as in scope
-   only when the repository has a remote or the caller asks for one.
+   only when a remote points at GitHub or the caller asks for one. Another host's remote is
+   not-applicable, not a gap.
 2. Ask each applicable skill to assess: `$setup-vite-plus`, `$setup-typescript`, `$setup-tests`, and
    `$setup-gh-repo`.
 3. Report each capability's state, the evidence behind it, and what applying it would change. Stop here
