@@ -1,0 +1,4 @@
+interface:
+  display_name: "Set up a project"
+  short_description: "Assess or complete a project's setup"
+  default_prompt: "Use $setup-project to assess this project's toolchain, TypeScript, tests, and GitHub setup, then complete whatever is missing."
