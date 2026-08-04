@@ -49,7 +49,7 @@ Start with a composite for an end-to-end outcome, or choose a focused skill for 
 | [`setup-cubic`](skills/codebase/setup-cubic/SKILL.md)           | Focused   | Configure focused Cubic code review                |
 | [`setup-gh-checks`](skills/codebase/setup-gh-checks/SKILL.md)   | Focused   | Run an existing local check in GitHub Actions      |
 | [`setup-gh-repo`](skills/codebase/setup-gh-repo/SKILL.md)       | Composite | Set up GitHub settings, checks, and protection     |
-| [`setup-project`](skills/codebase/setup-project/SKILL.md)       | Composite | Assess or complete a project's setup               |
+| [`setup-project`](skills/codebase/setup-project/SKILL.md)       | Composite | Create, assess, or complete a project's setup      |
 | [`setup-tests`](skills/codebase/setup-tests/SKILL.md)           | Focused   | Establish one reliable local test path             |
 | [`setup-typescript`](skills/codebase/setup-typescript/SKILL.md) | Focused   | Set up strict TypeScript configuration             |
 | [`setup-vite-plus`](skills/codebase/setup-vite-plus/SKILL.md)   | Focused   | Set up the Vite+ toolchain                         |
