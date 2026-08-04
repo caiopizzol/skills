@@ -1,11 +1,14 @@
 ---
 name: setup-cubic
-description: Set up or simplify Cubic AI code review for a GitHub repository. Use when enabling Cubic or creating the smallest useful repository-owned cubic.yaml from existing project guidance.
+description: Set up, simplify, or assess Cubic AI code review for a GitHub repository. Use when enabling Cubic, auditing whether it reviews this repository, or creating the smallest useful repository-owned cubic.yaml from existing project guidance.
 ---
 
 # Set up Cubic
 
 Start with Cubic's defaults and add only repository-specific review guidance.
+
+When the caller requests an assessment, report this capability as ready, gap, not-applicable, or
+unverified with the evidence for it, then stop before changing anything.
 
 ## Workflow
 

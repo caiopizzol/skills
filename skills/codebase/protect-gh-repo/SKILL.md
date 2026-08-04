@@ -1,11 +1,15 @@
 ---
 name: protect-gh-repo
-description: Protect a GitHub repository's default branch using checks and review paths already observed on real pull requests. Use after CI and review integrations have run successfully, not while creating them.
+description: Protect or assess a GitHub repository's default branch using checks and review paths already observed on real pull requests. Use after CI and review integrations have run successfully, not while creating them.
 ---
 
 # Protect a GitHub repository
 
 Require only controls the repository has proved it can satisfy.
+
+When the caller requests an assessment, report this capability as ready, gap, not-applicable, or
+unverified with the evidence for it, then stop before changing anything. Reading effective protection
+needs administration access, so report an unreadable rule as unverified rather than as absent.
 
 ## Workflow
 

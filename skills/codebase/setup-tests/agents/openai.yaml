@@ -1,4 +1,4 @@
 interface:
-  display_name: "Set Up Tests"
-  short_description: "Establish one reliable local test path"
-  default_prompt: "Use $setup-tests to establish one meaningful, deterministic test path and include it in the root check."
+  display_name: "Set up tests"
+  short_description: "Set up or assess one reliable local test path"
+  default_prompt: "Use $setup-tests to assess this repository's testing foundation, then establish one meaningful, deterministic test path included in the root check."
