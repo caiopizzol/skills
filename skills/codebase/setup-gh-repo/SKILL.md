@@ -1,11 +1,14 @@
 ---
 name: setup-gh-repo
-description: Set up a GitHub repository with merge settings, CI, Cubic code review, and safe merge protection. Use for the complete GitHub setup; use a child skill directly for only one capability.
+description: Set up, reconcile, or assess a GitHub repository with merge settings, CI, Cubic code review, and safe merge protection. Use for the complete GitHub setup or to audit it; use a child skill directly for only one capability.
 ---
 
 # Set up a GitHub repository
 
 Compose the GitHub setup without recreating any child's procedure.
+
+When the caller requests an assessment, ask each applicable child to assess, report this capability as
+ready, gap, not-applicable, or unverified with the evidence for it, then stop before changing anything.
 
 ## Workflow
 

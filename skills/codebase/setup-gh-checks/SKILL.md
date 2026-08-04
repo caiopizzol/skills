@@ -1,11 +1,14 @@
 ---
 name: setup-gh-checks
-description: Add or reconcile a minimal GitHub Actions validation workflow for a repository with one existing local check command. Use to run formatting, linting, type checking, and tests in CI, not to configure merge protection.
+description: Add, reconcile, or assess a minimal GitHub Actions validation workflow for a repository with one existing local check command. Use to run formatting, linting, type checking, and tests in CI, or to audit whether they run, not to configure merge protection.
 ---
 
 # Set up GitHub checks
 
 Run the repository's existing validation in GitHub. Do not choose or install quality tools.
+
+When the caller requests an assessment, report this capability as ready, gap, not-applicable, or
+unverified with the evidence for it, then stop before changing anything.
 
 ## Workflow
 

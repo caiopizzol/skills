@@ -1,4 +1,4 @@
 interface:
-  display_name: "Set Up TypeScript"
-  short_description: "Create minimal strict TypeScript configuration"
-  default_prompt: "Use $setup-typescript to create the smallest strict TypeScript configuration and one working root typecheck command."
+  display_name: "Set up TypeScript"
+  short_description: "Set up or assess strict TypeScript configuration"
+  default_prompt: "Use $setup-typescript to assess this repository's TypeScript configuration, then create or reconcile the smallest strict setup and one working root typecheck command."

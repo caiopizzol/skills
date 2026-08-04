@@ -1,4 +1,4 @@
 interface:
   display_name: "Set up GitHub checks"
-  short_description: "Run local checks in GitHub Actions"
-  default_prompt: "Use $setup-gh-checks to run this repository's existing local check in GitHub Actions."
+  short_description: "Run or assess local checks in GitHub Actions"
+  default_prompt: "Use $setup-gh-checks to assess whether this repository's local check runs in GitHub Actions, then add or reconcile the workflow."

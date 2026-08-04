@@ -1,4 +1,4 @@
 interface:
   display_name: "Set up Cubic"
-  short_description: "Configure focused Cubic code review"
-  default_prompt: "Use $setup-cubic to create the smallest useful Cubic code review configuration for this repository."
+  short_description: "Configure or assess focused Cubic code review"
+  default_prompt: "Use $setup-cubic to assess Cubic code review for this repository, then create the smallest useful configuration."

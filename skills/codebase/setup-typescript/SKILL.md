@@ -1,12 +1,15 @@
 ---
 name: setup-typescript
-description: Set up or simplify a repository's TypeScript configuration with TypeScript 7, minimal strict settings, inherited monorepo configs, and one root typecheck command. Use when creating or reconciling TypeScript configuration in a single package or monorepo.
+description: Set up, reconcile, or assess a repository's TypeScript configuration with TypeScript 7, minimal strict settings, inherited monorepo configs, and one root typecheck command. Use when creating TypeScript configuration, auditing whether it is correct, or completing it in a single package or monorepo.
 ---
 
 # Set up TypeScript
 
 Inspect the repository before changing it. Keep each configuration as small as possible. Preserve an
 option only when the current runtime, framework, build, or source code requires it.
+
+When the caller requests an assessment, report this capability as ready, gap, not-applicable, or
+unverified with the evidence for it, then stop before changing anything.
 
 ## Configure
 

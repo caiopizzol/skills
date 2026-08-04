@@ -1,11 +1,14 @@
 ---
 name: create-gh-repo
-description: Create a GitHub repository from an existing local Git repository and connect its remote. Use when a local project has no GitHub repository yet, not when adding CI or merge protection.
+description: Create a GitHub repository from an existing local Git repository and connect its remote, or assess whether one is connected. Use when a local project has no GitHub repository yet, not when adding CI or merge protection.
 ---
 
 # Create a GitHub repository
 
 Keep the local repository as the source of truth.
+
+When the caller requests an assessment, report this capability as ready, gap, not-applicable, or
+unverified with the evidence for it, then stop before changing anything.
 
 ## Workflow
 

@@ -1,4 +1,4 @@
 interface:
   display_name: "Protect GitHub repository"
-  short_description: "Require observed checks before merge"
-  default_prompt: "Use $protect-gh-repo to protect this repository using checks and review paths already observed on GitHub."
+  short_description: "Require or assess observed checks before merge"
+  default_prompt: "Use $protect-gh-repo to assess this repository's branch protection, then require checks and review paths already observed on GitHub."

@@ -1,15 +1,19 @@
 ---
 name: setup-vite-plus
-description: Set up or migrate a Vite-based application, library, or workspace to a minimal Vite+ toolchain with generated defaults, integrated checks, and basic commit hooks. Use for Vite+ setup, vp create, vp migrate, or replacing separate Vite, Vitest, lint, format, and hook tools.
+description: Set up, migrate, reconcile, or assess a minimal Vite+ toolchain for an application, library, or workspace. Use for Vite+ setup, vp create, vp migrate, replacing separate Vite, Vitest, lint, format, and hook tools, or auditing whether Vite+ is implemented correctly.
 ---
 
 # Set up Vite+
 
 Use Vite+ as the integrated development toolchain. Prefer generated defaults over custom configuration.
 
+When the caller requests an assessment, report this capability as ready, gap, not-applicable, or
+unverified with the evidence for it, then stop before changing anything.
+
 ## Workflow
 
-1. Inspect the existing toolchain. Preserve its package manager, or use pnpm for a new project.
+1. Inspect the existing toolchain. Preserve its package manager; for a new project use Bun unless the
+   chosen template or toolchain does not support it, and report why another was necessary.
 2. Select and pin an exact Vite+ version. Before installation, invoke `vp` through explicit package
    selection:
 
@@ -22,9 +26,12 @@ Use Vite+ as the integrated development toolchain. Prefer generated defaults ove
    hooks, and avoid generating editor or agent configuration.
 
    ```sh
-   vp create vite:application --directory <relative-target> --package-manager pnpm \
+   vp create vite:application --directory <relative-target> --package-manager <manager> \
      --git --hooks --no-agent --no-editor --no-interactive
    ```
+
+   `--git` initializes a repository on the generator's default branch and leaves the scaffold
+   uncommitted. Report the branch name and that no commit exists; creating one belongs to the caller.
 
 4. For a migration, report upstream divergence and the declared workspace boundary. Preview
    `vp migrate . --no-hooks --no-agent --no-editor --no-interactive` in a detached worktree at `HEAD`.

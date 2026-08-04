@@ -1,11 +1,14 @@
 ---
 name: setup-tests
-description: Set up or simplify a repository's local testing foundation with its existing runner, deterministic tests, one root test command, and inclusion in the root check. Use when a single package or monorepo lacks a reliable automated test path.
+description: Set up, reconcile, or assess a repository's local testing foundation with its existing runner, deterministic tests, one root test command, and inclusion in the root check. Use when a single package or monorepo lacks a reliable automated test path, or to audit whether one exists.
 ---
 
 # Set up tests
 
 Establish one reliable test path without choosing architecture the repository does not need.
+
+When the caller requests an assessment, report this capability as ready, gap, not-applicable, or
+unverified with the evidence for it, then stop before changing anything.
 
 ## Workflow
 
