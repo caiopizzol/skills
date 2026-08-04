@@ -62,9 +62,10 @@ Start with a composite for an end-to-end outcome, or choose a focused skill for 
 
 ### DX
 
-| Skill                                                           | Type    | Purpose                                          |
-| --------------------------------------------------------------- | ------- | ------------------------------------------------ |
-| [`improve-codebase-dx`](skills/dx/improve-codebase-dx/SKILL.md) | Focused | Find and reduce developer friction in a codebase |
+| Skill                                                                     | Type    | Purpose                                          |
+| ------------------------------------------------------------------------- | ------- | ------------------------------------------------ |
+| [`improve-codebase-dx`](skills/dx/improve-codebase-dx/SKILL.md)           | Focused | Find and reduce developer friction in a codebase |
+| [`improve-documentation-dx`](skills/dx/improve-documentation-dx/SKILL.md) | Focused | Make developer documentation easier to use       |
 
 ### Files
 
