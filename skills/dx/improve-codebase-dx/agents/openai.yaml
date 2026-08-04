@@ -1,0 +1,4 @@
+interface:
+  display_name: "Improve codebase DX"
+  short_description: "Find and reduce evidence-backed developer friction"
+  default_prompt: "Use $improve-codebase-dx to inspect this codebase, identify evidence-backed developer friction, and propose the smallest useful improvements."
