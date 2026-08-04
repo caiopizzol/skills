@@ -82,17 +82,19 @@ const available = index();
 const selected = closure(requested.length === 0 ? [...available.keys()] : [...new Set(requested)]);
 
 // Every target is checked before anything is created. The closure is larger than what the caller
-// named, so a partway install would leave symlinks they never asked for and no clean way back.
+// named, so a conflicting target must not leave a partly updated installation behind.
+const missing: Array<{ directory: string; name: string; target: string }> = [];
 for (const name of selected) {
-  if (pathExists(join(destination, name)))
-    fail(`destination already exists: ${join(destination, name)}`);
+  const directory = owns(name);
+  const target = join(destination, name);
+  if (!pathExists(target)) missing.push({ directory, name, target });
+  else if (!isCurrentInstallation(target, directory)) fail(`destination already exists: ${target}`);
 }
 
 mkdirSync(destination, { recursive: true });
-for (const name of selected) {
-  const directory = owns(name);
-  symlinkSync(directory, join(destination, name), "dir");
-  console.log(`${basename(join(destination, name))} -> ${relative(root, directory)}`);
+for (const installation of missing) {
+  symlinkSync(installation.directory, installation.target, "dir");
+  console.log(`${installation.name} -> ${relative(root, installation.directory)}`);
 }
 
 /** Every skill the catalog provides, keyed by name, refusing a name two folders both claim. */
@@ -159,6 +161,14 @@ function pathExists(path: string): boolean {
   try {
     lstatSync(path);
     return true;
+  } catch {
+    return false;
+  }
+}
+
+function isCurrentInstallation(target: string, directory: string): boolean {
+  try {
+    return lstatSync(target).isSymbolicLink() && realpathSync(target) === realpathSync(directory);
   } catch {
     return false;
   }

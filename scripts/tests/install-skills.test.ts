@@ -223,7 +223,7 @@ describe("refusals", () => {
     expect(run.stderr).toContain("SKILL.md");
   });
 
-  it("refuses to replace an existing installation", async () => {
+  it("accepts an existing installation from the same catalog", async () => {
     const root = await catalog();
     await writeSkill(root, "files/read-image");
     const destination = join(await scratch(), "skills");
@@ -231,13 +231,44 @@ describe("refusals", () => {
 
     const run = await installFrom(root, destination, "read-image");
 
+    expect(run.exitCode).toBe(0);
+    expect(await realpath(join(destination, "read-image"))).toBe(
+      await realpath(join(root, "skills", "files", "read-image")),
+    );
+  });
+
+  it("adds a parent when its child is already installed from the same catalog", async () => {
+    const root = await catalog();
+    await writeSkill(root, "files/read-video", "Frames go to `$read-image`.");
+    await writeSkill(root, "files/read-image");
+    const destination = join(await scratch(), "skills");
+    await installFrom(root, destination, "read-image");
+
+    const run = await installFrom(root, destination, "read-video");
+
+    expect(run.exitCode).toBe(0);
+    expect((await readdir(destination)).sort()).toEqual(["read-image", "read-video"]);
+  });
+
+  it("refuses a skill installed from another catalog", async () => {
+    const root = await catalog();
+    const other = await catalog();
+    await writeSkill(root, "files/read-video", "Frames go to `$read-image`.");
+    await writeSkill(root, "files/read-image");
+    await writeSkill(other, "files/read-image");
+    const destination = join(await scratch(), "skills");
+    await installFrom(other, destination, "read-image");
+
+    const run = await installFrom(root, destination, "read-video");
+
     expect(run.exitCode).toBe(1);
     expect(run.stderr).toContain("destination already exists");
+    expect(await readdir(destination)).toEqual(["read-image"]);
   });
 
   // The closure is larger than what the caller named, so a collision partway through would otherwise
   // leave symlinks they never asked for and no clean way back.
-  it("creates nothing when one skill in the closure is already installed", async () => {
+  it("creates nothing when one skill in the closure has a conflicting destination", async () => {
     const root = await catalog();
     await writeSkill(root, "files/read-video", "Frames go to `$read-image`.");
     await writeSkill(root, "files/read-image");

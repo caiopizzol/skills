@@ -30,6 +30,9 @@ tests, CI, or repository structure as part of this baseline. Add them later when
 
 ## Verify
 
+In an isolated copy, remove every option beyond `strict`. Retain one only when current documentation or
+a before-and-after comparison of applicable checks, coverage, output, and runtime behavior requires it;
+generated defaults alone are not evidence.
 Run the root `typecheck` script with the repository's package manager. Confirm it covers every configured
 TypeScript project and leaves no untracked artifacts. Report existing errors instead of weakening the
 configuration to hide them.
