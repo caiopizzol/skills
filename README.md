@@ -56,11 +56,12 @@ Start with a composite for an end-to-end outcome, or choose a focused skill for 
 
 ### Context
 
-| Skill                                                            | Type    | Purpose                                             |
-| ---------------------------------------------------------------- | ------- | --------------------------------------------------- |
-| [`read-github-issue`](skills/context/read-github-issue/SKILL.md) | Focused | Read one exact GitHub issue conversation            |
-| [`read-github-pr`](skills/context/read-github-pr/SKILL.md)       | Focused | Read one exact pull request, reviews, changed files |
-| [`read-slack-thread`](skills/context/read-slack-thread/SKILL.md) | Focused | Read one exact Slack thread via MCP                 |
+| Skill                                                                            | Type    | Purpose                                               |
+| -------------------------------------------------------------------------------- | ------- | ----------------------------------------------------- |
+| [`read-discord-conversation`](skills/context/read-discord-conversation/SKILL.md) | Focused | Read one exact Discord message, thread, or forum post |
+| [`read-github-issue`](skills/context/read-github-issue/SKILL.md)                 | Focused | Read one exact GitHub issue conversation              |
+| [`read-github-pr`](skills/context/read-github-pr/SKILL.md)                       | Focused | Read one exact pull request, reviews, changed files   |
+| [`read-slack-thread`](skills/context/read-slack-thread/SKILL.md)                 | Focused | Read one exact Slack thread via MCP                   |
 
 ### Files
 
