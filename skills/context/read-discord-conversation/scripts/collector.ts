@@ -793,8 +793,11 @@ export function detectMime(bytes: Uint8Array, declaredMime: string | null, name:
   if (text !== null && !text.includes("\0")) {
     const trimmed = text.trimStart();
     const declared = declaredMime?.split(";", 1)[0]?.toLowerCase();
-    if (trimmed.startsWith("<svg") || /<svg[\s>]/i.test(trimmed.slice(0, 512)))
-      return "image/svg+xml";
+    const containsSvgRoot = /<svg[\s>]/i.test(trimmed.slice(0, 512));
+    const claimedSvg = declared === "image/svg+xml" || /\.svg$/i.test(name);
+    const beginsWithSvg = /^<svg[\s>]/i.test(trimmed);
+    const xmlSvg = trimmed.startsWith("<?xml") && containsSvgRoot;
+    if (beginsWithSvg || xmlSvg || (claimedSvg && containsSvgRoot)) return "image/svg+xml";
     if (declared === "application/json" || /\.json$/i.test(name)) {
       try {
         JSON.parse(text);
@@ -901,7 +904,7 @@ function rawMessage(value: unknown): RawMessage {
   if (optionalArray(message.sticker_items).length > 0) unsupportedFields.add("stickers");
   if (optionalArray(message.message_snapshots).length > 0)
     unsupportedFields.add("forwarded snapshots");
-  if (message.poll !== undefined) unsupportedFields.add("poll");
+  if (message.poll !== undefined && message.poll !== null) unsupportedFields.add("poll");
   return {
     id: string(message.id, "Discord message id"),
     channel_id: string(message.channel_id, "Discord message channel id"),

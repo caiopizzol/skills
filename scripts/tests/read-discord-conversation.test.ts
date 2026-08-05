@@ -323,6 +323,25 @@ describe("Discord conversation collection", () => {
     );
   });
 
+  it("does not report a null poll as evidence", async () => {
+    const artifactsDirectory = await temporaryDirectory();
+    const fetcher = discordFixture(async (url) => {
+      if (url.pathname.endsWith(`/messages/${ROOT}`))
+        return Response.json({ ...message(ROOT), poll: null });
+      if (url.pathname.endsWith(`/channels/${CHANNEL}/messages`))
+        return Response.json([{ ...message(ROOT), poll: null }]);
+      return undefined;
+    });
+
+    const result = await collectDiscordConversation(PERMALINK, {
+      token: "fixture-token",
+      artifactsDirectory,
+      fetcher,
+    });
+
+    expect(result.gaps).toEqual([]);
+  });
+
   it("charges a failed oversized stream before considering another attachment", async () => {
     const artifactsDirectory = await temporaryDirectory();
     let attachmentCalls = 0;
@@ -440,6 +459,16 @@ describe("Discord attachment routing", () => {
     expect(detectMime(new TextEncoder().encode("fLaCfixture"), "audio/flac", "fixture.flac")).toBe(
       "audio/flac",
     );
+  });
+
+  it("keeps an inline SVG example in ordinary text evidence", () => {
+    expect(
+      detectMime(
+        new TextEncoder().encode('Markdown example: <svg viewBox="0 0 1 1"></svg>'),
+        "text/markdown",
+        "notes.md",
+      ),
+    ).toBe("text/markdown");
   });
 });
 
