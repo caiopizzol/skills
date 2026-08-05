@@ -1,0 +1,9 @@
+interface:
+  display_name: "Read Linear Issue"
+  short_description: "Read one exact Linear issue"
+  default_prompt: "Use $read-linear-issue to retrieve and present this exact Linear issue with explicit gaps."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "linear"
+      description: "Retrieve Linear issues, comments, and relationships"
