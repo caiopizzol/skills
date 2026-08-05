@@ -1,7 +1,7 @@
 interface:
   display_name: "Read Slack Thread"
-  short_description: "Read one exact Slack thread"
-  default_prompt: "Use $read-slack-thread to retrieve and present this exact Slack thread with explicit gaps."
+  short_description: "Read a Slack thread and supported files"
+  default_prompt: "Use $read-slack-thread to retrieve this exact thread, resolve every reply, and interpret selected supported files with explicit gaps."
 dependencies:
   tools:
     - type: "mcp"
