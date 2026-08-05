@@ -45,6 +45,7 @@ describe("Slack file acquisition", () => {
       import.meta.dir,
       "../../skills/context/read-slack-thread/scripts/acquire.ts",
     );
+    const artifactsDirectory = join(workingDirectory, "artifacts");
     const child = Bun.spawn(
       [
         execPath,
@@ -58,7 +59,7 @@ describe("Slack file acquisition", () => {
         "--file-id",
         "FPNG",
         "--artifacts-dir",
-        join(workingDirectory, "artifacts"),
+        artifactsDirectory,
       ],
       {
         cwd: workingDirectory,
@@ -67,9 +68,25 @@ describe("Slack file acquisition", () => {
         stderr: "pipe",
       },
     );
-    const [exitCode, stderr] = await Promise.all([child.exited, new Response(child.stderr).text()]);
-    expect(exitCode).toBe(1);
-    expect(stderr).toContain("SLACK_BOT_TOKEN is unavailable in the runtime");
+    const [exitCode, stdout, stderr] = await Promise.all([
+      child.exited,
+      new Response(child.stdout).text(),
+      new Response(child.stderr).text(),
+    ]);
+    expect(exitCode).toBe(2);
+    expect(stderr).toBe("");
+    expect(stdout).toContain("Files: 0/1");
+    const [runDirectory] = await readdir(artifactsDirectory);
+    const manifest = JSON.parse(
+      await Bun.file(join(artifactsDirectory, runDirectory!, "slack-files.json")).text(),
+    );
+    expect(manifest.files).toEqual([
+      expect.objectContaining({
+        identity: "FPNG",
+        status: "unavailable",
+        error: "SLACK_BOT_TOKEN is unavailable in the runtime",
+      }),
+    ]);
   });
 
   it("requires an objective before using a credential", async () => {
@@ -101,7 +118,7 @@ describe("Slack file acquisition", () => {
     temporary.push(artifactsDirectory);
     const bodies = new Map<string, Uint8Array>([
       ["FPNG", new Uint8Array([0x89, 0x50, 0x4e, 0x47])],
-      ["FMP4", new TextEncoder().encode("0000ftypisomfixture")],
+      ["FMP4", isoBmffFixture("isom")],
       ["FTEXT", new TextEncoder().encode("fixture text")],
     ]);
     const names = new Map([
@@ -342,7 +359,7 @@ describe("Slack file acquisition", () => {
     expect(sleeps).toEqual([60_000]);
   });
 
-  it("refuses a credential from another workspace before requesting files", async () => {
+  it("records a credential from another workspace as unavailable", async () => {
     const artifactsDirectory = await mkdtemp(join(tmpdir(), "slack-files-test-"));
     temporary.push(artifactsDirectory);
     let calls = 0;
@@ -356,21 +373,46 @@ describe("Slack file acquisition", () => {
       });
     };
 
-    let failure: unknown;
-    try {
-      await acquireSlackFiles(PERMALINK, ["FPNG"], {
-        token: "test-token",
-        objective: "Understand the image",
-        rootTs: "1700000000.123456",
-        artifactsDirectory,
-        fetcher,
-      });
-    } catch (error) {
-      failure = error;
-    }
-    expect(failure).toBeInstanceOf(Error);
-    expect((failure as Error).message).toContain("other.slack.com, not example.slack.com");
+    const result = await acquireSlackFiles(PERMALINK, ["FPNG"], {
+      token: "test-token",
+      objective: "Understand the image",
+      rootTs: "1700000000.123456",
+      artifactsDirectory,
+      fetcher,
+    });
+    expect(result.files).toEqual([
+      expect.objectContaining({
+        identity: "FPNG",
+        status: "unavailable",
+        error: "Slack credential belongs to other.slack.com, not example.slack.com",
+      }),
+    ]);
     expect(calls).toBe(1);
+  });
+
+  it("records rejected authentication once for every selected file", async () => {
+    const artifactsDirectory = await mkdtemp(join(tmpdir(), "slack-files-test-"));
+    temporary.push(artifactsDirectory);
+    const result = await acquireSlackFiles(PERMALINK, ["FONE", "FTWO"], {
+      token: "rejected-token",
+      objective: "Understand the selected files",
+      rootTs: "1700000000.123456",
+      artifactsDirectory,
+      fetcher: async () => Response.json({ ok: false, error: "invalid_auth" }),
+    });
+    expect(result.files).toEqual([
+      expect.objectContaining({
+        identity: "FONE",
+        status: "unavailable",
+        error: "Slack auth.test failed: invalid_auth",
+      }),
+      expect.objectContaining({
+        identity: "FTWO",
+        status: "unavailable",
+        error: "Slack auth.test failed: invalid_auth",
+      }),
+    ]);
+    expect(result.gaps).toHaveLength(2);
   });
 
   it("records a redirect as a file gap without following it", async () => {
@@ -453,7 +495,7 @@ describe("Slack file acquisition", () => {
     expect(calls.every((url) => !url.endsWith("/files.info"))).toBe(true);
   });
 
-  it("redacts provider URLs from persisted file gaps", async () => {
+  it("normalizes provider error codes before persistence", async () => {
     const artifactsDirectory = await mkdtemp(join(tmpdir(), "slack-files-test-"));
     temporary.push(artifactsDirectory);
     const fetcher: Fetcher = async (input) => {
@@ -489,7 +531,7 @@ describe("Slack file acquisition", () => {
     );
   });
 
-  it("redacts bearer credentials from stream failures", async () => {
+  it("redacts URLs and bearer credentials from stream failures", async () => {
     const artifactsDirectory = await mkdtemp(join(tmpdir(), "slack-files-test-"));
     temporary.push(artifactsDirectory);
     const fetcher: Fetcher = async (input) => {
@@ -510,7 +552,11 @@ describe("Slack file acquisition", () => {
         return new Response(
           new ReadableStream({
             start(controller) {
-              controller.error(new Error("upstream echoed Bearer secret-token"));
+              controller.error(
+                new Error(
+                  "upstream https://files.slack.com/private?signature=PRIVATE echoed Bearer secret-token",
+                ),
+              );
             },
           }),
         );
@@ -526,8 +572,10 @@ describe("Slack file acquisition", () => {
     });
     const manifest = await Bun.file(result.manifestPath).text();
     expect(manifest).not.toContain("secret-token");
+    expect(manifest).not.toContain("PRIVATE");
+    expect(manifest).not.toContain("files.slack.com");
     expect(result.files[0]).toEqual(
-      expect.objectContaining({ error: "upstream echoed Bearer [REDACTED]" }),
+      expect.objectContaining({ error: "upstream [REDACTED_URL] echoed Bearer [REDACTED]" }),
     );
   });
 
@@ -746,9 +794,11 @@ describe("bounded Slack downloads", () => {
 });
 
 describe("Slack file routing", () => {
-  it("recognizes MP3 frames and keeps Ogg containers generic", () => {
+  it("recognizes supported signatures without treating text as ISO-BMFF", () => {
     expect(detectMime(new Uint8Array([0xff, 0xfb, 0x90, 0x64]))).toBe("audio/mpeg");
     expect(detectMime(new TextEncoder().encode("OggSfixture"))).toBe("application/ogg");
+    expect(detectMime(isoBmffFixture("isom"))).toBe("video/mp4");
+    expect(detectMime(new TextEncoder().encode("0000ftypisomfixture"))).toBe("text/plain");
   });
 });
 
@@ -776,4 +826,12 @@ function identityResponse(): Response {
     team_id: "TEXAMPLE",
     user_id: "UBOT",
   });
+}
+
+function isoBmffFixture(brand: string): Uint8Array {
+  const bytes = new Uint8Array(16);
+  new DataView(bytes.buffer).setUint32(0, bytes.byteLength);
+  bytes.set(new TextEncoder().encode("ftyp"), 4);
+  bytes.set(new TextEncoder().encode(brand), 8);
+  return bytes;
 }

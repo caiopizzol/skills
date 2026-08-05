@@ -27,7 +27,6 @@ if (!objective) fail("Missing --objective");
 if (!rootTs) fail("Missing --root-ts");
 if (fileIds.length === 0) fail("Select at least one --file-id");
 const token = Bun.env.SLACK_BOT_TOKEN;
-if (!token) fail("SLACK_BOT_TOKEN is unavailable in the runtime");
 
 const result = await acquireSlackFiles(permalink, fileIds, {
   token,

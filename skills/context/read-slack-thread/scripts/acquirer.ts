@@ -25,7 +25,7 @@ export interface RetrievedSlackFile {
 }
 
 export interface UnreadSlackFile {
-  status: "failed" | "unsupported";
+  status: "failed" | "unavailable" | "unsupported";
   identity: string;
   originalName: string | null;
   error: string;
@@ -34,7 +34,7 @@ export interface UnreadSlackFile {
 export type SlackFileEntry = RetrievedSlackFile | UnreadSlackFile;
 
 export interface AcquireSlackFilesOptions {
-  token: string;
+  token?: string;
   objective: string;
   rootTs: string;
   artifactsDirectory: string;
@@ -51,8 +51,8 @@ export interface SlackFileAcquisition {
   channelId: string;
   messageTs: string;
   rootTs: string;
-  authorizedTeamId: string;
-  authorizedUserId: string;
+  authorizedTeamId: string | null;
+  authorizedUserId: string | null;
   requestedFileIds: string[];
   files: SlackFileEntry[];
   gaps: string[];
@@ -124,22 +124,33 @@ export async function acquireSlackFiles(
   if (selected.some((fileId) => !/^F[A-Z0-9]+$/.test(fileId)))
     throw new Error("Slack file identities must start with F and contain only letters and digits");
 
+  const generatedAt = (options.now ?? (() => new Date()))().toISOString();
   const fetcher = options.fetcher ?? fetch;
   const sleep = options.sleep ?? defaultSleep;
-  const identity = await slackApi(fetcher, options.token, "auth.test", {}, sleep);
-  if (!identity.url || !identity.team_id || !identity.user_id)
-    throw new Error("Slack auth.test returned an incomplete identity");
-  const authorizedHost = new URL(identity.url).hostname.toLowerCase();
-  if (authorizedHost !== locator.workspaceHost)
-    throw new Error(`Slack credential belongs to ${authorizedHost}, not ${locator.workspaceHost}`);
+  const token = options.token;
+  if (!token)
+    return writeUnavailableAcquisition(
+      locator,
+      selected,
+      options,
+      generatedAt,
+      "SLACK_BOT_TOKEN is unavailable in the runtime",
+    );
+  let identity: SlackApiEnvelope;
+  try {
+    identity = await slackApi(fetcher, token, "auth.test", {}, sleep);
+    if (!identity.url || !identity.team_id || !identity.user_id)
+      throw new Error("Slack auth.test returned an incomplete identity");
+    const authorizedHost = new URL(identity.url).hostname.toLowerCase();
+    if (authorizedHost !== locator.workspaceHost)
+      throw new Error(
+        `Slack credential belongs to ${authorizedHost}, not ${locator.workspaceHost}`,
+      );
+  } catch (error) {
+    return writeUnavailableAcquisition(locator, selected, options, generatedAt, safeError(error));
+  }
 
-  const messages = await retrieveThread(
-    fetcher,
-    options.token,
-    locator.channelId,
-    options.rootTs,
-    sleep,
-  );
+  const messages = await retrieveThread(fetcher, token, locator.channelId, options.rootTs, sleep);
   const exposingMessage = messages.find((message) => message.ts === locator.messageTs);
   if (!exposingMessage) throw new Error("Slack permalink message was not returned");
   const rootTs = exposingMessage.thread_ts ?? exposingMessage.ts;
@@ -152,14 +163,9 @@ export async function acquireSlackFiles(
   if (unrelated)
     throw new Error(`Selected Slack file ${unrelated} is not present in the canonical thread`);
 
-  const generatedAt = (options.now ?? (() => new Date()))().toISOString();
-  await mkdir(options.artifactsDirectory, { recursive: true });
-  if ((await lstat(options.artifactsDirectory)).isSymbolicLink())
-    throw new Error("Artifacts directory must not be a symbolic link");
-  const artifactsRoot = await realpath(options.artifactsDirectory);
-  const runDirectory = await mkdtemp(join(artifactsRoot, "slack-files-"));
-  const filesDirectory = join(runDirectory, "files");
-  await mkdir(filesDirectory);
+  const { runDirectory, filesDirectory, manifestPath } = await createRunDirectory(
+    options.artifactsDirectory,
+  );
 
   const limits = options.limits ?? {
     maxFileBytes: DEFAULT_MAX_FILE_BYTES,
@@ -170,13 +176,7 @@ export async function acquireSlackFiles(
   for (const [index, fileId] of selected.entries()) {
     let originalName: string | null = null;
     try {
-      const envelope = await slackApi(
-        fetcher,
-        options.token,
-        "files.info",
-        { file: fileId },
-        sleep,
-      );
+      const envelope = await slackApi(fetcher, token, "files.info", { file: fileId }, sleep);
       const file = envelope.file;
       if (!file || file.id !== fileId) throw new Error("Slack files.info returned the wrong file");
       originalName = safeFilename(file.name ?? file.id);
@@ -214,7 +214,7 @@ export async function acquireSlackFiles(
       let response: Response;
       try {
         response = await fetcher(source, {
-          headers: { Authorization: `Bearer ${options.token}` },
+          headers: { Authorization: `Bearer ${token}` },
           redirect: "manual",
           signal: AbortSignal.timeout(60_000),
         });
@@ -269,7 +269,6 @@ export async function acquireSlackFiles(
   const gaps = entries
     .filter((entry): entry is UnreadSlackFile => entry.status !== "retrieved")
     .map((entry) => `file:${entry.identity}: ${entry.error}`);
-  const manifestPath = join(runDirectory, "slack-files.json");
   const result: SlackFileAcquisition = {
     generatedAt,
     objective: options.objective.trim(),
@@ -284,12 +283,67 @@ export async function acquireSlackFiles(
     gaps,
     manifestPath,
   };
-  await writeFile(
+  await writeAcquisitionManifest(result);
+  return result;
+}
+
+async function writeUnavailableAcquisition(
+  locator: SlackLocator,
+  selected: string[],
+  options: AcquireSlackFilesOptions,
+  generatedAt: string,
+  error: string,
+): Promise<SlackFileAcquisition> {
+  const { manifestPath } = await createRunDirectory(options.artifactsDirectory);
+  const files: UnreadSlackFile[] = selected.map((identity) => ({
+    status: "unavailable",
+    identity,
+    originalName: null,
+    error,
+  }));
+  const result: SlackFileAcquisition = {
+    generatedAt,
+    objective: options.objective.trim(),
+    workspaceHost: locator.workspaceHost,
+    channelId: locator.channelId,
+    messageTs: locator.messageTs,
+    rootTs: options.rootTs,
+    authorizedTeamId: null,
+    authorizedUserId: null,
+    requestedFileIds: selected,
+    files,
+    gaps: files.map((file) => `file:${file.identity}: ${file.error}`),
     manifestPath,
-    `${JSON.stringify({ ...result, manifestPath: basename(manifestPath) }, null, 2)}\n`,
+  };
+  await writeAcquisitionManifest(result);
+  return result;
+}
+
+async function createRunDirectory(artifactsDirectory: string): Promise<{
+  runDirectory: string;
+  filesDirectory: string;
+  manifestPath: string;
+}> {
+  await mkdir(artifactsDirectory, { recursive: true });
+  if ((await lstat(artifactsDirectory)).isSymbolicLink())
+    throw new Error("Artifacts directory must not be a symbolic link");
+  const artifactsRoot = await realpath(artifactsDirectory);
+  const runDirectory = await mkdtemp(join(artifactsRoot, "slack-files-"));
+  const filesDirectory = join(runDirectory, "files");
+  await mkdir(filesDirectory);
+  return {
+    runDirectory,
+    filesDirectory,
+    manifestPath: join(runDirectory, "slack-files.json"),
+  };
+}
+
+async function writeAcquisitionManifest(result: SlackFileAcquisition): Promise<void> {
+  await writeFile(
+    result.manifestPath,
+    `${JSON.stringify({ ...result, manifestPath: basename(result.manifestPath) }, null, 2)}\n`,
     { flag: "wx" },
   );
-  return result;
 }
 
 async function retrieveThread(
@@ -443,8 +497,12 @@ export function detectMime(bytes: Uint8Array): string {
       (bytes[2] & 0x0c) !== 0x0c)
   )
     return "audio/mpeg";
-  if (ascii(bytes, 4, 4) === "ftyp") {
-    const brand = ascii(bytes, 8, 8);
+  const isoBoxSize =
+    bytes.length >= 16
+      ? new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(0)
+      : 0;
+  if (isoBoxSize >= 16 && isoBoxSize <= bytes.length && ascii(bytes, 4, 4) === "ftyp") {
+    const brand = ascii(bytes, 8, Math.min(isoBoxSize - 8, 32));
     if (brand.includes("avif") || brand.includes("avis")) return "image/avif";
     if (brand.includes("heic") || brand.includes("heix") || brand.includes("mif1"))
       return "image/heic";
