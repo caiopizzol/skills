@@ -1,0 +1,4 @@
+interface:
+  display_name: "Read GitHub Pull Request"
+  short_description: "Read one exact GitHub pull request"
+  default_prompt: "Use $read-github-pr to retrieve and present this exact pull request, its reviews, and its changed files with explicit gaps."
