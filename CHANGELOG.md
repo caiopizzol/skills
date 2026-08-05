@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.0](https://github.com/caiopizzol/skills/compare/v0.3.0...v0.4.0) (2026-08-05)
+
+
+### Features
+
+* **context:** deepen Discord conversation retrieval ([#57](https://github.com/caiopizzol/skills/issues/57)) ([dbec2ee](https://github.com/caiopizzol/skills/commit/dbec2eedb3268050ff00813f88d74aa8e2468f22))
+* **context:** deepen GitHub issue and PR retrieval ([#59](https://github.com/caiopizzol/skills/issues/59)) ([db5fb22](https://github.com/caiopizzol/skills/commit/db5fb22139eb900bda762c1215cfabd299f762fb))
+
 ## [0.3.0](https://github.com/caiopizzol/skills/compare/v0.2.0...v0.3.0) (2026-08-05)
 
 
