@@ -37,6 +37,9 @@ describe("GitHub resource locators", () => {
     expect(parseGitHubResourceUrl(`${ISSUE_URL}?token=secret#issuecomment-2`).requestedUrl).toBe(
       `${ISSUE_URL}?token=%5BREDACTED%5D#issuecomment-2`,
     );
+    expect(
+      parseGitHubResourceUrl(`${ISSUE_URL}?keep=1#access_token=fragment-secret`).requestedUrl,
+    ).toBe(`${ISSUE_URL}?keep=1`);
     expect(() => parseGitHubResourceUrl(`https://github.com/${OWNER}/${REPOSITORY}`)).toThrow(
       "identify one issue or pull request",
     );
@@ -212,6 +215,62 @@ describe("GitHub pull request collection", () => {
 });
 
 describe("GitHub attachment routing", () => {
+  it("acquires file attachments whose UUID precedes the filename", async () => {
+    const routes = baseRoutes();
+    routes.set(
+      issueEndpoint(3),
+      issueResource(3, 0, false, {
+        body: `Attachment https://github.com/user-attachments/files/${ATTACHMENT_ID}/fixture.png`,
+      }),
+    );
+    routes.set(issueCommentsEndpoint(3), []);
+
+    const result = await collectGitHubResource(ISSUE_URL, {
+      expectedKind: "issue",
+      artifactsDirectory: await temporaryDirectory(),
+      runner: routeRunner(routes),
+      fetcher: async () =>
+        new Response(new Uint8Array([0x89, 0x50, 0x4e, 0x47]), {
+          headers: { "content-type": "image/png" },
+        }),
+    });
+
+    expect(result.attachments).toEqual([
+      expect.objectContaining({
+        identity: ATTACHMENT_ID,
+        originalName: "fixture.png",
+        status: "retrieved",
+      }),
+    ]);
+    expect(result.gaps).toEqual([]);
+  });
+
+  it("contains malformed attachment filename escapes as a file gap", async () => {
+    const routes = baseRoutes();
+    routes.set(
+      issueEndpoint(3),
+      issueResource(3, 0, false, {
+        body: "![Legacy](https://user-images.githubusercontent.com/123/broken%ZZ.png)",
+      }),
+    );
+    routes.set(issueCommentsEndpoint(3), []);
+
+    const result = await collectGitHubResource(ISSUE_URL, {
+      expectedKind: "issue",
+      artifactsDirectory: await temporaryDirectory(),
+      runner: routeRunner(routes),
+      fetcher: async () =>
+        new Response(new Uint8Array([0, 1, 2]), {
+          headers: { "content-type": "application/octet-stream" },
+        }),
+    });
+
+    expect(result.attachments).toEqual([
+      expect.objectContaining({ status: "unsupported", error: expect.any(String) }),
+    ]);
+    expect(result.gaps).toHaveLength(1);
+  });
+
   it("retains and acquires legacy GitHub image URLs", async () => {
     const routes = baseRoutes();
     routes.set(

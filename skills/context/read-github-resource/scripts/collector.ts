@@ -877,10 +877,14 @@ function validateAttachmentUrl(input: string): URL {
 }
 
 function attachmentIdentity(url: URL): string | null {
-  const match = url.pathname.match(
+  const userAttachment = url.pathname.match(
+    /\/user-attachments\/(?:assets|files)\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:\/|$)/i,
+  );
+  const trailing = url.pathname.match(
     /([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:\.[A-Za-z0-9]+)?$/i,
   );
-  if (match?.[1]) return match[1].toLowerCase();
+  const identity = userAttachment?.[1] ?? trailing?.[1];
+  if (identity) return identity.toLowerCase();
   if (
     url.hostname === "private-user-images.githubusercontent.com" ||
     url.hostname === "user-images.githubusercontent.com"
@@ -891,7 +895,13 @@ function attachmentIdentity(url: URL): string | null {
 }
 
 function attachmentName(url: URL): string {
-  const name = decodeURIComponent(url.pathname.split("/").at(-1) ?? "GitHub attachment");
+  const rawName = url.pathname.split("/").at(-1) ?? "GitHub attachment";
+  let name = rawName;
+  try {
+    name = decodeURIComponent(rawName);
+  } catch {
+    name = rawName;
+  }
   return /^[0-9a-f-]{36}$/i.test(name) ? "GitHub attachment" : name.replace(/^\d+-/, "");
 }
 
@@ -919,7 +929,11 @@ function sanitizeReference(input: string, preserveHash = false): string | null {
       const value = url.searchParams.get(key) ?? "";
       if (isSensitiveQuery(key, value)) url.searchParams.set(key, "[REDACTED]");
     }
-    if (!preserveHash) url.hash = "";
+    if (
+      !preserveHash ||
+      !/^#(?:issuecomment-\d+|discussion_r\d+|pullrequestreview-\d+)$/.test(url.hash)
+    )
+      url.hash = "";
     return url.toString();
   } catch {
     return null;
