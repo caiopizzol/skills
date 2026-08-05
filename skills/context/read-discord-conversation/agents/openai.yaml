@@ -1,9 +1,4 @@
 interface:
   display_name: "Read Discord Conversation"
-  short_description: "Read one exact Discord conversation"
-  default_prompt: "Use $read-discord-conversation to retrieve and present this exact Discord conversation with explicit gaps."
-dependencies:
-  tools:
-    - type: "mcp"
-      value: "discord"
-      description: "Retrieve Discord messages and threads through an authorized bot"
+  short_description: "Read Discord replies, threads, and files"
+  default_prompt: "Use $read-discord-conversation to retrieve this exact Discord conversation, resolve its replies, and interpret supported files with explicit gaps."
