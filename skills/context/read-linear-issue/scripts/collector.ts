@@ -737,11 +737,17 @@ export function detectMime(bytes: Uint8Array): string {
     return "image/tiff";
   if (ascii(bytes, 0, 4) === "RIFF" && ascii(bytes, 8, 4) === "WEBP") return "image/webp";
   if (ascii(bytes, 0, 4) === "RIFF" && ascii(bytes, 8, 4) === "WAVE") return "audio/wav";
-  if (ascii(bytes, 0, 4) === "OggS") return "audio/ogg";
+  if (ascii(bytes, 0, 4) === "OggS") return "application/ogg";
   if (ascii(bytes, 0, 4) === "fLaC") return "audio/flac";
   if (
     ascii(bytes, 0, 3) === "ID3" ||
-    (bytes[0] === 0xff && bytes[1] !== undefined && (bytes[1] & 0xe0) === 0xe0)
+    (bytes.length >= 4 &&
+      bytes[0] === 0xff &&
+      (bytes[1] & 0xe0) === 0xe0 &&
+      (bytes[1] & 0x18) !== 0x08 &&
+      (bytes[1] & 0x06) === 0x02 &&
+      (bytes[2] & 0xf0) !== 0xf0 &&
+      (bytes[2] & 0x0c) !== 0x0c)
   ) {
     return "audio/mpeg";
   }

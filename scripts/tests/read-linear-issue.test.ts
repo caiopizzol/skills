@@ -91,10 +91,18 @@ describe("MIME detection", () => {
       "image/svg+xml",
     );
     expect(detectMime(new TextEncoder().encode("ID3fixture"))).toBe("audio/mpeg");
-    expect(detectMime(new TextEncoder().encode("OggSfixture"))).toBe("audio/ogg");
+    expect(detectMime(new Uint8Array([0xff, 0xfb, 0x90, 0x64]))).toBe("audio/mpeg");
+    expect(detectMime(new TextEncoder().encode("OggSfixture"))).toBe("application/ogg");
     expect(detectMime(new TextEncoder().encode("fLaCfixture"))).toBe("audio/flac");
     expect(detectMime(new TextEncoder().encode("RIFF0000WAVEfixture"))).toBe("audio/wav");
     expect(detectMime(new TextEncoder().encode("0000ftypM4A fixture"))).toBe("audio/mp4");
+  });
+
+  it("does not infer a codec from an Ogg container or incomplete MPEG headers", () => {
+    expect(detectMime(new Uint8Array([0xff, 0xe0, 0x00, 0x00]))).toBe("application/octet-stream");
+    expect(detectMime(new Uint8Array([0xff, 0xf9, 0x90, 0x00]))).toBe("application/octet-stream");
+    expect(detectMime(new Uint8Array([0xff, 0xfb, 0xf0, 0x00]))).toBe("application/octet-stream");
+    expect(detectMime(new Uint8Array([0xff, 0xfb, 0x9c, 0x00]))).toBe("application/octet-stream");
   });
 });
 
