@@ -1,0 +1,4 @@
+interface:
+  display_name: "Read GitHub Resource"
+  short_description: "Retrieve one GitHub issue or pull request"
+  default_prompt: "Use $read-github-resource to retrieve this exact GitHub issue or pull request through authenticated gh with explicit gaps."

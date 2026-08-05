@@ -1,4 +1,4 @@
 interface:
   display_name: "Read GitHub Issue"
-  short_description: "Read one exact GitHub issue"
-  default_prompt: "Use $read-github-issue to retrieve and present this exact GitHub issue with explicit gaps."
+  short_description: "Read a GitHub issue and supported files"
+  default_prompt: "Use $read-github-issue to retrieve this exact issue, every comment, and supported files with explicit gaps."
