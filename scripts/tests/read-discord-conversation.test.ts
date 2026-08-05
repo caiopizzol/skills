@@ -5,6 +5,7 @@ import { execPath } from "node:process";
 import { afterEach, describe, expect, it } from "bun:test";
 import {
   collectDiscordConversation,
+  detectMime,
   parseDiscordPermalink,
   type Fetcher,
 } from "../../skills/context/read-discord-conversation/scripts/collector.ts";
@@ -262,11 +263,14 @@ describe("Discord conversation collection", () => {
 
   it("redacts signed URLs and URL credentials from persisted messages", async () => {
     const artifactsDirectory = await temporaryDirectory();
-    const sensitive =
+    const sensitiveHttps =
       "https://alice:password@example.com/context?apiKey=secret&authToken=other&keep=1";
+    const sensitiveHttp = "http://bob:password@example.net/context?signature=signed&keep=2";
     const fetcher = discordFixture(async (url) => {
       if (url.pathname.endsWith(`/messages/${ROOT}`))
-        return Response.json(message(ROOT, { content: `Evidence ${sensitive}` }));
+        return Response.json(
+          message(ROOT, { content: `Evidence ${sensitiveHttps} and ${sensitiveHttp}` }),
+        );
       if (url.pathname.endsWith(`/channels/${CHANNEL}/messages`))
         return Response.json([message(ROOT)]);
       return undefined;
@@ -282,7 +286,41 @@ describe("Discord conversation collection", () => {
     expect(persisted).not.toContain("alice");
     expect(persisted).not.toContain("secret");
     expect(persisted).not.toContain("other");
+    expect(persisted).not.toContain("bob");
+    expect(persisted).not.toContain("signed");
     expect(persisted).toContain("keep=1");
+    expect(persisted).toContain("keep=2");
+    expect(result.externalReferences).toContain(
+      "http://example.net/context?signature=%5BREDACTED%5D&keep=2",
+    );
+  });
+
+  it("reports Discord content structures it cannot yet represent", async () => {
+    const artifactsDirectory = await temporaryDirectory();
+    const fetcher = discordFixture(async (url) => {
+      if (url.pathname.endsWith(`/messages/${ROOT}`))
+        return Response.json({
+          ...message(ROOT, { content: "" }),
+          components: [{ type: 1, components: [{ type: 2, label: "Evidence" }] }],
+          sticker_items: [{ id: "STICKER", name: "Evidence sticker", format_type: 1 }],
+          message_snapshots: [{ message: { content: "Forwarded evidence" } }],
+          poll: { question: { text: "Evidence poll" }, answers: [] },
+          embeds: [{ type: "rich", fields: [{ name: "Finding", value: "Evidence" }] }],
+        });
+      if (url.pathname.endsWith(`/channels/${CHANNEL}/messages`))
+        return Response.json([message(ROOT)]);
+      return undefined;
+    });
+
+    const result = await collectDiscordConversation(PERMALINK, {
+      token: "fixture-token",
+      artifactsDirectory,
+      fetcher,
+    });
+
+    expect(result.gaps).toContain(
+      `Message ${ROOT} contains unsupported Discord fields: components, embed.fields, forwarded snapshots, poll, stickers`,
+    );
   });
 
   it("charges a failed oversized stream before considering another attachment", async () => {
@@ -388,6 +426,23 @@ describe("Discord conversation collection", () => {
   });
 });
 
+describe("Discord attachment routing", () => {
+  it("distinguishes supported ISO-BMFF, SVG, and FLAC evidence", () => {
+    expect(detectMime(isoBmffFixture("avif"), "image/avif", "fixture.avif")).toBe("image/avif");
+    expect(detectMime(isoBmffFixture("M4A "), "audio/mp4", "fixture.m4a")).toBe("audio/mp4");
+    expect(
+      detectMime(
+        new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg"></svg>'),
+        "image/svg+xml",
+        "fixture.svg",
+      ),
+    ).toBe("image/svg+xml");
+    expect(detectMime(new TextEncoder().encode("fLaCfixture"), "audio/flac", "fixture.flac")).toBe(
+      "audio/flac",
+    );
+  });
+});
+
 function discordFixture(
   override: (url: URL, init?: RequestInit) => Promise<Response | undefined>,
 ): Fetcher {
@@ -470,4 +525,13 @@ async function temporaryDirectory(): Promise<string> {
 
 function requestUrl(input: string | URL | Request): string {
   return input instanceof Request ? input.url : input.toString();
+}
+
+function isoBmffFixture(brand: string): Uint8Array {
+  const bytes = new Uint8Array(24);
+  new DataView(bytes.buffer).setUint32(0, bytes.byteLength);
+  bytes.set(new TextEncoder().encode("ftyp"), 4);
+  bytes.set(new TextEncoder().encode(brand.padEnd(4, " ").slice(0, 4)), 8);
+  bytes.set(new TextEncoder().encode(brand.padEnd(4, " ").slice(0, 4)), 16);
+  return bytes;
 }

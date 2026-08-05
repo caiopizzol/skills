@@ -126,6 +126,7 @@ interface RawMessage {
   sticker_items?: unknown[];
   message_snapshots?: unknown[];
   poll?: unknown;
+  unsupportedFields: string[];
 }
 
 interface PendingAttachment extends DiscordAttachment {
@@ -284,6 +285,10 @@ export async function collectDiscordConversation(
   for (const message of messages) {
     if (!hasMessageContentEvidence(message))
       gaps.push(`Message ${message.id} may be missing Message Content access`);
+    if (message.unsupportedFields.length > 0)
+      gaps.push(
+        `Message ${message.id} contains unsupported Discord fields: ${message.unsupportedFields.join(", ")}`,
+      );
   }
 
   const normalized = messages.map(normalizeMessage);
@@ -625,7 +630,7 @@ function discoverReferences(messages: RawMessage[]): string[] {
         embed.description ?? "",
       ]),
     ]) {
-      for (const match of text.matchAll(/https:\/\/[^\s<>()[\]{}"']+/g)) {
+      for (const match of text.matchAll(/https?:\/\/[^\s<>()[\]{}"']+/g)) {
         const sanitized = sanitizeReference(match[0].replace(/[.,;:!?]+$/, ""));
         if (sanitized && !isDiscordCdnReference(sanitized)) references.add(sanitized);
       }
@@ -637,7 +642,7 @@ function discoverReferences(messages: RawMessage[]): string[] {
 function sanitizeReference(input: string): string | null {
   try {
     const url = new URL(input);
-    if (url.protocol !== "https:") return null;
+    if (url.protocol !== "https:" && url.protocol !== "http:") return null;
     url.username = "";
     url.password = "";
     for (const key of url.searchParams.keys()) {
@@ -652,10 +657,10 @@ function sanitizeReference(input: string): string | null {
 }
 
 function redactText(value: string): string {
-  return value.replace(/https:\/\/[^\s<>"')\]]+/g, (match) => {
+  return value.replace(/https?:\/\/[^\s<>"')\]]+/g, (match) => {
     const trailing = match.match(/[.,;:!?]+$/)?.[0] ?? "";
     const clean = trailing ? match.slice(0, -trailing.length) : match;
-    return `${sanitizeReference(clean) ?? "HTTPS URL [REDACTED]"}${trailing}`;
+    return `${sanitizeReference(clean) ?? "URL [REDACTED]"}${trailing}`;
   });
 }
 
@@ -734,7 +739,7 @@ function isSupportedMetadata(attachment: PendingAttachment): boolean {
     return true;
   if (mime?.startsWith("text/")) return true;
   if (["application/json", "application/xml"].includes(mime ?? "")) return true;
-  return /\.(?:png|jpe?g|gif|webp|txt|md|json|xml|csv|mp4|webm|mov|mp3|wav|m4a|ogg)$/i.test(
+  return /\.(?:png|jpe?g|gif|webp|avif|heic|svg|txt|md|json|xml|csv|mp4|m4[abpv]|webm|mov|mp3|wav|ogg|flac)$/i.test(
     attachment.originalName,
   );
 }
@@ -755,16 +760,41 @@ export function detectMime(bytes: Uint8Array, declaredMime: string | null, name:
   if (startsWith(bytes, [0xff, 0xd8, 0xff])) return "image/jpeg";
   if (startsWith(bytes, [0x47, 0x49, 0x46, 0x38])) return "image/gif";
   if (ascii(bytes, 0, 4) === "RIFF" && ascii(bytes, 8, 4) === "WEBP") return "image/webp";
-  if (ascii(bytes, 4, 4) === "ftyp") return "video/mp4";
   if (startsWith(bytes, [0x1a, 0x45, 0xdf, 0xa3])) return "video/webm";
   if (ascii(bytes, 0, 4) === "RIFF" && ascii(bytes, 8, 4) === "WAVE") return "audio/wav";
-  if (startsWith(bytes, [0x49, 0x44, 0x33]) || (bytes[0] === 0xff && (bytes[1] ?? 0) >= 0xe0))
+  if (ascii(bytes, 0, 4) === "fLaC") return "audio/flac";
+  if (
+    startsWith(bytes, [0x49, 0x44, 0x33]) ||
+    (bytes.length >= 4 &&
+      bytes[0] === 0xff &&
+      ((bytes[1] ?? 0) & 0xe0) === 0xe0 &&
+      ((bytes[1] ?? 0) & 0x18) !== 0x08 &&
+      ((bytes[1] ?? 0) & 0x06) === 0x02 &&
+      ((bytes[2] ?? 0) & 0xf0) !== 0xf0 &&
+      ((bytes[2] ?? 0) & 0x0c) !== 0x0c)
+  )
     return "audio/mpeg";
   if (ascii(bytes, 0, 4) === "OggS") return "audio/ogg";
+  const isoBoxSize =
+    bytes.length >= 16
+      ? new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(0)
+      : 0;
+  if (isoBoxSize >= 16 && isoBoxSize <= bytes.length && ascii(bytes, 4, 4) === "ftyp") {
+    const brand = ascii(bytes, 8, Math.min(isoBoxSize - 8, 32));
+    if (brand.includes("avif") || brand.includes("avis")) return "image/avif";
+    if (brand.includes("heic") || brand.includes("heix") || brand.includes("mif1"))
+      return "image/heic";
+    if (brand.includes("M4A ") || brand.includes("M4B ") || brand.includes("M4P "))
+      return "audio/mp4";
+    if (brand.includes("qt  ")) return "video/quicktime";
+    return "video/mp4";
+  }
   const text = decodeUtf8(bytes);
   if (text !== null && !text.includes("\0")) {
     const trimmed = text.trimStart();
     const declared = declaredMime?.split(";", 1)[0]?.toLowerCase();
+    if (trimmed.startsWith("<svg") || /<svg[\s>]/i.test(trimmed.slice(0, 512)))
+      return "image/svg+xml";
     if (declared === "application/json" || /\.json$/i.test(name)) {
       try {
         JSON.parse(text);
@@ -849,8 +879,13 @@ function rawMessage(value: unknown): RawMessage {
       url: string(attachment.url, "Discord attachment URL"),
     };
   });
+  const unsupportedFields = new Set<string>();
   const embeds = optionalArray(message.embeds).map((value) => {
     const embed = object(value, "Discord embed");
+    for (const [key, child] of Object.entries(embed)) {
+      if (!["type", "title", "description", "url"].includes(key) && child !== null)
+        unsupportedFields.add(`embed.${key}`);
+    }
     return {
       ...(optionalString(embed.type) ? { type: optionalString(embed.type) } : {}),
       ...(optionalString(embed.title) ? { title: optionalString(embed.title) } : {}),
@@ -862,6 +897,11 @@ function rawMessage(value: unknown): RawMessage {
   });
   const reference = isRecord(message.message_reference) ? message.message_reference : undefined;
   const thread = isRecord(message.thread) ? message.thread : undefined;
+  if (optionalArray(message.components).length > 0) unsupportedFields.add("components");
+  if (optionalArray(message.sticker_items).length > 0) unsupportedFields.add("stickers");
+  if (optionalArray(message.message_snapshots).length > 0)
+    unsupportedFields.add("forwarded snapshots");
+  if (message.poll !== undefined) unsupportedFields.add("poll");
   return {
     id: string(message.id, "Discord message id"),
     channel_id: string(message.channel_id, "Discord message channel id"),
@@ -914,6 +954,7 @@ function rawMessage(value: unknown): RawMessage {
     sticker_items: optionalArray(message.sticker_items),
     message_snapshots: optionalArray(message.message_snapshots),
     ...(message.poll !== undefined ? { poll: message.poll } : {}),
+    unsupportedFields: [...unsupportedFields].sort(),
   };
 }
 
@@ -988,7 +1029,7 @@ function decodeUtf8(bytes: Uint8Array): string | null {
 function safeError(error: unknown): string {
   if (!(error instanceof Error)) return "Unknown attachment failure";
   return error.message
-    .replace(/https:\/\/[^\s]+/g, (value) => sanitizeReference(value) ?? "[redacted URL]")
+    .replace(/https?:\/\/[^\s]+/g, (value) => sanitizeReference(value) ?? "[redacted URL]")
     .replace(/\b(Bot|Bearer)\s+\S+/gi, "$1 [REDACTED]");
 }
 
