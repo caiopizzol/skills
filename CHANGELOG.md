@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/caiopizzol/skills/compare/v0.2.0...v0.3.0) (2026-08-05)
+
+
+### Features
+
+* **context:** deepen Slack thread retrieval ([#55](https://github.com/caiopizzol/skills/issues/55)) ([45d545c](https://github.com/caiopizzol/skills/commit/45d545cf572d93c53a9414c637c6e42a8332a100))
+
 ## [0.2.0](https://github.com/caiopizzol/skills/compare/v0.1.0...v0.2.0) (2026-08-05)
 
 
