@@ -120,7 +120,7 @@ const ISSUE_FIELDS = `
   project { id }
   projectMilestone { id name description targetDate }
   cycle { id number name startsAt endsAt }
-  parent { id identifier title url }
+  parent { id identifier title description url }
   syncedWith { id service }
 `;
 
@@ -451,6 +451,32 @@ function contextSources(
   for (const comment of retrievedNodes(lanes.comments)) {
     addText(sources, `comment:${stringOr(comment.id, "unknown")}`, "body", comment.body);
   }
+  const parent = isRecord(issue.parent) ? issue.parent : null;
+  if (parent)
+    addText(sources, `parent:${stringOr(parent.id, "unknown")}`, "description", parent.description);
+  for (const child of retrievedNodes(lanes.children)) {
+    addText(sources, `child:${stringOr(child.id, "unknown")}`, "description", child.description);
+  }
+  for (const relation of retrievedNodes(lanes.relations)) {
+    const related = isRecord(relation.relatedIssue) ? relation.relatedIssue : null;
+    if (related)
+      addText(
+        sources,
+        `related-issue:${stringOr(related.id, "unknown")}`,
+        "description",
+        related.description,
+      );
+  }
+  for (const relation of retrievedNodes(lanes.inverseRelations)) {
+    const related = isRecord(relation.issue) ? relation.issue : null;
+    if (related)
+      addText(
+        sources,
+        `inverse-related-issue:${stringOr(related.id, "unknown")}`,
+        "description",
+        related.description,
+      );
+  }
   for (const need of [...retrievedNodes(lanes.needs), ...retrievedNodes(lanes.formerNeeds)]) {
     const container = `customer-need:${stringOr(need.id, "unknown")}`;
     addText(sources, container, "body", need.body);
@@ -624,16 +650,26 @@ async function downloadUploads(
     try {
       const response = await fetcher(upload.url, {
         headers: { Authorization: apiKey },
+        redirect: "manual",
         signal: AbortSignal.timeout(60_000),
       });
+      if (response.redirected) throw new Error("upload download redirected unexpectedly");
+      if (response.url && new URL(response.url).hostname !== "uploads.linear.app") {
+        throw new Error("upload response escaped uploads.linear.app");
+      }
       if (!response.ok) throw new Error(`download returned HTTP ${response.status}`);
       const declaredLength = Number(response.headers.get("content-length"));
       if (Number.isFinite(declaredLength) && declaredLength > MAX_FILE_BYTES)
         throw new Error("file exceeds 50 MiB limit");
       const remainingTotal = MAX_TOTAL_BYTES - totalBytes;
       if (remainingTotal <= 0) throw new Error("collection exceeds 250 MiB total limit");
-      const bytes = await readBounded(response, Math.min(MAX_FILE_BYTES, remainingTotal));
-      totalBytes += bytes.byteLength;
+      const bytes = await readBounded(
+        response,
+        Math.min(MAX_FILE_BYTES, remainingTotal),
+        (consumed) => {
+          totalBytes += consumed;
+        },
+      );
       const sha256 = hashBytes(bytes);
       const localName = `${String(index + 1).padStart(3, "0")}-${sha256.slice(0, 12)}-${originalName}`;
       const localPath = join(filesDirectory, localName);
@@ -662,7 +698,11 @@ async function downloadUploads(
   return output;
 }
 
-async function readBounded(response: Response, maximumBytes: number): Promise<Uint8Array> {
+export async function readBounded(
+  response: Response,
+  maximumBytes: number,
+  account: (consumedBytes: number) => void = () => undefined,
+): Promise<Uint8Array> {
   if (!response.body) throw new Error("download returned no body");
   const reader = response.body.getReader();
   const chunks: Uint8Array[] = [];
@@ -671,6 +711,7 @@ async function readBounded(response: Response, maximumBytes: number): Promise<Ui
     const part = await reader.read();
     if (part.done) break;
     bytes += part.value.byteLength;
+    account(part.value.byteLength);
     if (bytes > maximumBytes) {
       await reader.cancel();
       throw new Error("download exceeded configured byte limit");
@@ -695,12 +736,23 @@ export function detectMime(bytes: Uint8Array): string {
   if (starts(bytes, [0x49, 0x49, 0x2a, 0x00]) || starts(bytes, [0x4d, 0x4d, 0x00, 0x2a]))
     return "image/tiff";
   if (ascii(bytes, 0, 4) === "RIFF" && ascii(bytes, 8, 4) === "WEBP") return "image/webp";
+  if (ascii(bytes, 0, 4) === "RIFF" && ascii(bytes, 8, 4) === "WAVE") return "audio/wav";
+  if (ascii(bytes, 0, 4) === "OggS") return "audio/ogg";
+  if (ascii(bytes, 0, 4) === "fLaC") return "audio/flac";
+  if (
+    ascii(bytes, 0, 3) === "ID3" ||
+    (bytes[0] === 0xff && bytes[1] !== undefined && (bytes[1] & 0xe0) === 0xe0)
+  ) {
+    return "audio/mpeg";
+  }
   if (starts(bytes, [0x1a, 0x45, 0xdf, 0xa3])) return "video/webm";
   if (ascii(bytes, 4, 4) === "ftyp") {
     const brand = ascii(bytes, 8, 8);
     if (brand.includes("avif") || brand.includes("avis")) return "image/avif";
     if (brand.includes("heic") || brand.includes("heix") || brand.includes("mif1"))
       return "image/heic";
+    if (brand.includes("M4A ") || brand.includes("M4B ") || brand.includes("M4P "))
+      return "audio/mp4";
     if (brand.includes("qt  ")) return "video/quicktime";
     return "video/mp4";
   }
@@ -786,6 +838,11 @@ function safeRequestedLocator(locator: string): string {
 function safeExternalUrl(input: URL): { url: string; queryRedacted: boolean } {
   const url = new URL(input);
   let queryRedacted = false;
+  if (url.username || url.password) {
+    url.username = "";
+    url.password = "";
+    queryRedacted = true;
+  }
   for (const key of url.searchParams.keys()) {
     const value = url.searchParams.get(key) ?? "";
     if (isSensitiveQuery(key, value)) {
@@ -801,9 +858,9 @@ function safeExternalUrl(input: URL): { url: string; queryRedacted: boolean } {
 }
 
 function isSensitiveQuery(key: string, value: string): boolean {
-  const normalized = key.toLowerCase();
+  const normalized = key.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
   return (
-    /(?:^|[-_])(signature|sig|token|secret|key|credential|authorization|auth|jwt)(?:$|[-_])/.test(
+    /(?:^|[-_])(signature|sig|token|secret|key|credential|authorization|auth|jwt|password|passwd)(?:$|[-_])/.test(
       normalized,
     ) ||
     normalized === "expires" ||

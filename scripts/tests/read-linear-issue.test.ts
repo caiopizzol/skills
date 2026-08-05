@@ -8,6 +8,7 @@ import {
   discoverReferences,
   type Fetcher,
   parseIssueLocator,
+  readBounded,
   redactSignedUrls,
 } from "../../skills/context/read-linear-issue/scripts/collector.ts";
 
@@ -70,6 +71,16 @@ describe("evidence discovery", () => {
     expect(reference.url).not.toContain("secret");
     expect(reference.url).toContain("part=1");
   });
+
+  it("redacts URL userinfo, passwords, and camel-case credential keys", () => {
+    const redacted = redactSignedUrls(
+      "https://alice:short-password@example.com/file?apiKey=short-api&authToken=short-auth&password=short-query&keep=1",
+    );
+
+    expect(redacted).not.toContain("alice");
+    expect(redacted).not.toContain("short-");
+    expect(redacted).toContain("keep=1");
+  });
 });
 
 describe("MIME detection", () => {
@@ -79,6 +90,28 @@ describe("MIME detection", () => {
     expect(detectMime(new TextEncoder().encode('<svg viewBox="0 0 1 1"></svg>'))).toBe(
       "image/svg+xml",
     );
+    expect(detectMime(new TextEncoder().encode("ID3fixture"))).toBe("audio/mpeg");
+    expect(detectMime(new TextEncoder().encode("OggSfixture"))).toBe("audio/ogg");
+    expect(detectMime(new TextEncoder().encode("fLaCfixture"))).toBe("audio/flac");
+    expect(detectMime(new TextEncoder().encode("RIFF0000WAVEfixture"))).toBe("audio/wav");
+    expect(detectMime(new TextEncoder().encode("0000ftypM4A fixture"))).toBe("audio/mp4");
+  });
+});
+
+describe("bounded downloads", () => {
+  it("charges bytes consumed before an oversized stream fails", async () => {
+    let consumed = 0;
+    const response = new Response(new Uint8Array(10));
+    let failure: unknown;
+
+    try {
+      await readBounded(response, 4, (bytes) => (consumed += bytes));
+    } catch (error) {
+      failure = error;
+    }
+    expect(failure).toBeInstanceOf(Error);
+    expect((failure as Error).message).toContain("configured byte limit");
+    expect(consumed).toBe(10);
   });
 });
 
@@ -92,6 +125,13 @@ describe("collection", () => {
       const url =
         typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
       if (url.startsWith("https://uploads.linear.app/")) {
+        expect(init?.redirect).toBe("manual");
+        if (url.includes("child.png")) {
+          return new Response(null, {
+            status: 302,
+            headers: { location: "https://attacker.example/private" },
+          });
+        }
         return new Response(png, {
           headers: { "content-type": "image/png", "content-length": String(png.length) },
         });
@@ -124,6 +164,7 @@ describe("collection", () => {
       calls.push({ field, after });
       const firstCommentsPage = field === "comments" && after === null;
       const needs = field === "needs" && after === null;
+      const children = field === "children" && after === null;
       return Response.json({
         data: {
           issue: {
@@ -142,7 +183,15 @@ describe("collection", () => {
                         },
                       },
                     ]
-                  : [],
+                  : children
+                    ? [
+                        {
+                          id: "child",
+                          description:
+                            "![child](https://uploads.linear.app/work/child.png) https://related.example/context",
+                        },
+                      ]
+                    : [],
               pageInfo: firstCommentsPage
                 ? { hasNextPage: true, endCursor: "next" }
                 : { hasNextPage: false, endCursor: null },
@@ -166,9 +215,13 @@ describe("collection", () => {
       { field: "comments", after: null },
       { field: "comments", after: "next" },
     ]);
-    expect(result.files).toHaveLength(2);
+    expect(result.files).toHaveLength(3);
     expect(result.files[0]?.status).toBe("retrieved");
     expect(result.gaps).toContain("project: Linear GraphQL error: Project lane unavailable");
+    expect(result.gaps.some((gap) => gap.includes("download returned HTTP 302"))).toBe(true);
+    expect(result.externalReferences.map((reference) => reference.url)).toContain(
+      "https://related.example/context",
+    );
     const context = await Bun.file(result.contextPath).text();
     expect(context).not.toContain("signature=secret");
     expect(context).not.toContain("request-secret");
