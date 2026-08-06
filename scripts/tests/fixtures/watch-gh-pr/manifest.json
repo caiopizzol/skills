@@ -1,0 +1,34 @@
+{
+  "fixtures": [
+    {
+      "file": "user.json",
+      "sha256": "ce1fced50d571b1b1f44e07e9bf36f24769a2fe23f5082076e30c2c0fef127f9",
+      "property": "authenticated GitHub identity boundary"
+    },
+    {
+      "file": "stack.json",
+      "sha256": "e4e34c2442f927cfd0234e328fbac43f28adfc77fcf1189e7a6030632fdb5880",
+      "property": "managed Stack membership and bottom-to-top order"
+    },
+    {
+      "file": "no-stack.json",
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+      "property": "absence of managed Stack membership"
+    },
+    {
+      "file": "pr-7.json",
+      "sha256": "aa28f5ab29b1edd354964308b7f5ba8067695ed3011bd89b5532379344ec7300",
+      "property": "ready lower layer with both GitHub check shapes"
+    },
+    {
+      "file": "pr-8.json",
+      "sha256": "ca36ce39fba095333f8b563eb4a29bb1e6ac53beb3580c83d5f374eaf9a484f5",
+      "property": "ready middle layer with no checks or review decision"
+    },
+    {
+      "file": "pr-9.json",
+      "sha256": "9485b810c77b9206eb981c1ff65d6272b2668ad561d30572a0c4e31a97ac5bae",
+      "property": "draft top layer with provider auto-merge metadata"
+    }
+  ]
+}

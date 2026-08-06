@@ -1,0 +1,4 @@
+interface:
+  display_name: "Watch GitHub Pull Request"
+  short_description: "Watch pull request and Stack state changes"
+  default_prompt: "Use $watch-gh-pr to watch this exact GitHub pull request and report PR or Stack state changes."

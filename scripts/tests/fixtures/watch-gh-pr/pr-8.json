@@ -1,0 +1,17 @@
+{
+  "number": 8,
+  "url": "https://github.com/fixture-owner/fixture-repository/pull/8",
+  "title": "API layer",
+  "state": "OPEN",
+  "isDraft": false,
+  "baseRefName": "feature/foundation",
+  "baseRefOid": "2222222222222222222222222222222222222222",
+  "headRefName": "feature/api",
+  "headRefOid": "3333333333333333333333333333333333333333",
+  "mergeable": "MERGEABLE",
+  "mergeStateStatus": "BLOCKED",
+  "reviewDecision": "",
+  "autoMergeRequest": null,
+  "updatedAt": "2026-08-01T12:01:00Z",
+  "statusCheckRollup": []
+}
