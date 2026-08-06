@@ -16,7 +16,7 @@ missing, ambiguous, and non-pull-request locators rather than guessing from the 
 Run the bundled read-only collector:
 
 ```sh
-bun --no-env-file scripts/snapshot.ts <pull-request-url>
+bun --no-env-file <skill-directory>/scripts/snapshot.ts <pull-request-url>
 ```
 
 The result contains no observation timestamp, so identical provider state produces identical JSON. When
