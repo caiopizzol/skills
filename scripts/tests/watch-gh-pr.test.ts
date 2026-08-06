@@ -6,7 +6,7 @@ import {
   observeGitHubPullRequest,
   parseGitHubPullRequestUrl,
   type GhRunner,
-} from "../../skills/context/watch-gh-pr/scripts/observer.ts";
+} from "../../skills/development/watch-gh-pr/scripts/observer.ts";
 
 const FIXTURES = join(import.meta.dir, "fixtures", "watch-gh-pr");
 const OWNER = "fixture-owner";
