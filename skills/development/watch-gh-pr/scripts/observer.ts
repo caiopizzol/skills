@@ -119,16 +119,21 @@ export async function observeGitHubPullRequest(
       );
     }
     const runner = options.runner ?? createDefaultGhRunner(timeoutMs);
-    const identity = record(await runner(["api", "user"]), "GitHub authenticated identity");
+    const identity = record(
+      await runner(["api", "--hostname", "github.com", "user"]),
+      "GitHub authenticated identity",
+    );
     const authenticatedAccount = requiredString(identity.login, "GitHub authenticated account");
     const stackRaw = await runner([
       "api",
+      "--hostname",
+      "github.com",
       `repos/${encode(requested.owner)}/${encode(requested.repository)}/stacks?pull_request=${requested.number}`,
     ]);
     const stacks = array(stackRaw, "GitHub Stack lookup");
     if (stacks.length > 1) {
       throw new WatchFailure(
-        "unsupported-input",
+        "provider-error",
         "GitHub returned multiple managed Stacks for the pull request",
       );
     }
@@ -170,7 +175,7 @@ export async function observeGitHubPullRequest(
         "view",
         String(number),
         "--repo",
-        `${requested.owner}/${requested.repository}`,
+        `github.com/${requested.owner}/${requested.repository}`,
         "--json",
         "number,url,title,state,isDraft,baseRefName,baseRefOid,headRefName,headRefOid,mergeable,mergeStateStatus,reviewDecision,autoMergeRequest,statusCheckRollup,updatedAt",
       ]);
@@ -268,10 +273,15 @@ function normalizeChecks(input: unknown): CheckSnapshot[] {
     throw new WatchFailure("provider-error", `Unsupported GitHub check type: ${type}`);
   });
   return checks.sort((left, right) =>
-    [left.name, left.workflow ?? "", left.type, left.url ?? ""]
-      .join("\0")
-      .localeCompare([right.name, right.workflow ?? "", right.type, right.url ?? ""].join("\0")),
+    compareCodeUnits(
+      [left.name, left.workflow ?? "", left.type, left.url ?? ""].join("\0"),
+      [right.name, right.workflow ?? "", right.type, right.url ?? ""].join("\0"),
+    ),
   );
+}
+
+function compareCodeUnits(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
 }
 
 function createDefaultGhRunner(timeoutMs: number): GhRunner {
@@ -290,12 +300,18 @@ function createDefaultGhRunner(timeoutMs: number): GhRunner {
       timedOut = true;
       child.kill();
     }, timeoutMs);
-    const [exitCode, stdout, stderr] = await Promise.all([
-      child.exited,
-      new Response(child.stdout).text(),
-      new Response(child.stderr).text(),
-    ]);
-    clearTimeout(timer);
+    let exitCode: number;
+    let stdout: string;
+    let stderr: string;
+    try {
+      [exitCode, stdout, stderr] = await Promise.all([
+        child.exited,
+        new Response(child.stdout).text(),
+        new Response(child.stderr).text(),
+      ]);
+    } finally {
+      clearTimeout(timer);
+    }
     if (timedOut) {
       throw new WatchFailure("timeout", `GitHub CLI timed out after ${timeoutMs}ms`);
     }

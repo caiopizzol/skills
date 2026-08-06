@@ -16,7 +16,7 @@
   "statusCheckRollup": [
     {
       "__typename": "CheckRun",
-      "name": "zeta",
+      "name": "ä",
       "workflowName": "checks",
       "status": "COMPLETED",
       "conclusion": "SUCCESS",
@@ -24,7 +24,7 @@
     },
     {
       "__typename": "StatusContext",
-      "context": "alpha",
+      "context": "z",
       "state": "SUCCESS",
       "targetUrl": "https://example.invalid/status/1"
     }

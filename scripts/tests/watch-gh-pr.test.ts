@@ -60,10 +60,7 @@ describe("GitHub pull request snapshots", () => {
     expect(result.snapshot.pullRequests.map((pullRequest) => pullRequest.number)).toEqual([
       7, 8, 9,
     ]);
-    expect(result.snapshot.pullRequests[0]?.checks.map((check) => check.name)).toEqual([
-      "alpha",
-      "zeta",
-    ]);
+    expect(result.snapshot.pullRequests[0]?.checks.map((check) => check.name)).toEqual(["z", "ä"]);
     expect(result.snapshot.pullRequests[2]?.draft).toBe(true);
     expect(result.snapshot.pullRequests[2]?.autoMergeEnabled).toBe(true);
   });
@@ -90,7 +87,7 @@ describe("GitHub pull request snapshots", () => {
     const base = fixtureRunner("stack.json");
     const runner: GhRunner = async (arguments_) => {
       const value = await base(arguments_);
-      if (arguments_[0] !== "api" || !String(arguments_[1]).includes("/stacks?")) return value;
+      if (arguments_[0] !== "api" || !String(arguments_.at(-1)).includes("/stacks?")) return value;
       const stacks = structuredClone(value) as Array<{ pull_requests: Array<{ number: number }> }>;
       stacks[0]!.pull_requests = [{ number: 7 }, { number: 9 }];
       return stacks;
@@ -101,6 +98,23 @@ describe("GitHub pull request snapshots", () => {
     expect(result).toEqual({
       outcome: "provider-error",
       error: "GitHub Stack lookup did not include the requested pull request",
+    });
+  });
+
+  it("classifies multiple managed Stacks as a provider failure", async () => {
+    const base = fixtureRunner("stack.json");
+    const runner: GhRunner = async (arguments_) => {
+      const value = await base(arguments_);
+      if (arguments_[0] !== "api" || !String(arguments_.at(-1)).includes("/stacks?")) return value;
+      const stacks = structuredClone(value) as unknown[];
+      return [...stacks, ...stacks];
+    };
+
+    const result = await observeGitHubPullRequest(PR_URL, { runner });
+
+    expect(result).toEqual({
+      outcome: "provider-error",
+      error: "GitHub returned multiple managed Stacks for the pull request",
     });
   });
 
@@ -123,12 +137,17 @@ describe("GitHub pull request snapshots", () => {
 
 function fixtureRunner(stackFixture: "stack.json" | "no-stack.json"): GhRunner {
   return async (arguments_) => {
-    if (arguments_[0] === "api" && arguments_[1] === "user") return fixture("user.json");
-    if (arguments_[0] === "api" && String(arguments_[1]).includes("/stacks?")) {
+    if (arguments_[0] === "api" && arguments_.at(-1) === "user") {
+      expect(arguments_.slice(1, 3)).toEqual(["--hostname", "github.com"]);
+      return fixture("user.json");
+    }
+    if (arguments_[0] === "api" && String(arguments_.at(-1)).includes("/stacks?")) {
+      expect(arguments_.slice(1, 3)).toEqual(["--hostname", "github.com"]);
       return fixture(stackFixture);
     }
     if (arguments_[0] === "pr" && arguments_[1] === "view") {
       const number = Number(arguments_[2]);
+      expect(arguments_[4]).toBe(`github.com/${OWNER}/${REPOSITORY}`);
       if ([7, 8, 9].includes(number)) return fixture(`pr-${number}.json`);
     }
     throw new Error(`Unexpected fixture route: ${arguments_.join(" ")}`);
