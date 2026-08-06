@@ -64,7 +64,12 @@ Start with a composite for an end-to-end outcome, or choose a focused skill for 
 | [`read-github-resource`](skills/context/read-github-resource/SKILL.md)           | Focused | Retrieve complete GitHub evidence through `gh`        |
 | [`read-linear-issue`](skills/context/read-linear-issue/SKILL.md)                 | Focused | Read one exact Linear issue and its relationships     |
 | [`read-slack-thread`](skills/context/read-slack-thread/SKILL.md)                 | Focused | Read one Slack thread and selected supported files    |
-| [`watch-gh-pr`](skills/context/watch-gh-pr/SKILL.md)                             | Focused | Watch pull request and managed Stack state            |
+
+### Development
+
+| Skill                                                    | Type    | Purpose                                    |
+| -------------------------------------------------------- | ------- | ------------------------------------------ |
+| [`watch-gh-pr`](skills/development/watch-gh-pr/SKILL.md) | Focused | Watch pull request and managed Stack state |
 
 ### Development
 
