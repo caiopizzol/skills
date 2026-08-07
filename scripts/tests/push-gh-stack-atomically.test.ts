@@ -85,11 +85,41 @@ describe("atomic Stack publication", () => {
     expect(localChanged.pushes).toHaveLength(0);
     expect(remoteChanged.pushes).toHaveLength(0);
   });
+
+  it("classifies failed pushes from verified remote state instead of error wording", async () => {
+    const request = await fixture<AtomicPushRequest>("success.json");
+    const providerRejected = gitSimulation(request, { pushFailure: "unchanged" });
+    const raced = gitSimulation(request, { pushFailure: "remote-changed" });
+    const responseLost = gitSimulation(request, { pushFailure: "applied" });
+
+    expect(await pushGitHubStackAtomically(request, { runner: providerRejected.runner })).toEqual({
+      outcome: "provider-error",
+      error:
+        "Atomic Git push failed: remote: protected branch hook declined\n! [remote rejected] feature/foundation (pre-receive hook declined)",
+    });
+    expect(await pushGitHubStackAtomically(request, { runner: raced.runner })).toEqual({
+      outcome: "input-changed",
+      error: "Atomic Git push failed: ! [rejected] feature/foundation (stale info)",
+    });
+    expect(await pushGitHubStackAtomically(request, { runner: responseLost.runner })).toEqual({
+      outcome: "ok",
+      remote: request.remote,
+      branches: request.branches.map((branch) => ({
+        name: branch.name,
+        previousSha: branch.expectedRemoteSha,
+        pushedSha: branch.localSha,
+      })),
+    });
+  });
 });
 
 function gitSimulation(
   request: AtomicPushRequest,
-  changes: { localChanged?: string; remoteChanged?: string } = {},
+  changes: {
+    localChanged?: string;
+    remoteChanged?: string;
+    pushFailure?: "unchanged" | "remote-changed" | "applied";
+  } = {},
 ): { runner: GitRunner; pushes: string[][] } {
   const local = new Map(request.branches.map((branch) => [branch.name, branch.localSha]));
   const remote = new Map(request.branches.map((branch) => [branch.name, branch.expectedRemoteSha]));
@@ -121,6 +151,28 @@ function gitSimulation(
     if (arguments_[0] === "push") {
       pushes.push([...arguments_]);
       for (const branch of request.branches) remote.set(branch.name, branch.localSha);
+      if (changes.pushFailure === "remote-changed") {
+        remote.set(request.branches[0]!.name, "e".repeat(40));
+        return {
+          exitCode: 1,
+          stdout: "",
+          stderr: "! [rejected] feature/foundation (stale info)",
+        };
+      }
+      if (changes.pushFailure === "unchanged") {
+        for (const branch of request.branches) {
+          remote.set(branch.name, branch.expectedRemoteSha);
+        }
+        return {
+          exitCode: 1,
+          stdout: "",
+          stderr:
+            "remote: protected branch hook declined\n! [remote rejected] feature/foundation (pre-receive hook declined)",
+        };
+      }
+      if (changes.pushFailure === "applied") {
+        return { exitCode: 1, stdout: "", stderr: "error: remote hung up unexpectedly" };
+      }
       return success("");
     }
     return { exitCode: 1, stdout: "", stderr: `Unexpected Git command: ${arguments_.join(" ")}` };

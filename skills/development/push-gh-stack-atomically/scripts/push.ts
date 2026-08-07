@@ -142,30 +142,31 @@ export async function pushGitHubStackAtomically(
       pushArguments.push(`${branch.localSha}:refs/heads/${branch.name}`);
     }
     const pushed = await runner(pushArguments);
+    let remoteAfter: Map<string, string> | undefined;
     if (pushed.exitCode !== 0) {
       const detail = safeDetail(pushed.stderr);
+      remoteAfter = await readRemoteHeads(runner, request.remote, request.branches);
+      const allPushed = request.branches.every(
+        (branch) => remoteAfter?.get(branch.name) === branch.localSha,
+      );
+      if (allPushed) {
+        return successfulResult(request);
+      }
+      const remoteChanged = request.branches.some(
+        (branch) => remoteAfter?.get(branch.name) !== branch.expectedRemoteSha,
+      );
       throw new PushFailure(
-        /stale info|atomic push failed|fetch first|rejected/i.test(detail)
-          ? "input-changed"
-          : "provider-error",
+        remoteChanged ? "input-changed" : "provider-error",
         `Atomic Git push failed${detail ? `: ${detail}` : ""}`,
       );
     }
-    const remoteAfter = await readRemoteHeads(runner, request.remote, request.branches);
+    remoteAfter = await readRemoteHeads(runner, request.remote, request.branches);
     for (const branch of request.branches) {
       if (remoteAfter.get(branch.name) !== branch.localSha) {
         throw new PushFailure("provider-error", `Remote verification failed: ${branch.name}`);
       }
     }
-    return {
-      outcome: "ok",
-      remote: request.remote,
-      branches: request.branches.map((branch) => ({
-        name: branch.name,
-        previousSha: branch.expectedRemoteSha,
-        pushedSha: branch.localSha,
-      })),
-    };
+    return successfulResult(request);
   } catch (error) {
     if (error instanceof PushFailure) return { outcome: error.outcome, error: error.message };
     return {
@@ -173,6 +174,18 @@ export async function pushGitHubStackAtomically(
       error: error instanceof Error ? error.message : "Unknown Git provider failure",
     };
   }
+}
+
+function successfulResult(request: AtomicPushRequest): AtomicPushResult {
+  return {
+    outcome: "ok",
+    remote: request.remote,
+    branches: request.branches.map((branch) => ({
+      name: branch.name,
+      previousSha: branch.expectedRemoteSha,
+      pushedSha: branch.localSha,
+    })),
+  };
 }
 
 async function readRemoteHeads(
