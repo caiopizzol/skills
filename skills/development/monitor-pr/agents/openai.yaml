@@ -1,0 +1,4 @@
+interface:
+  display_name: "Monitor PR to Ready"
+  short_description: "Monitor and repair a PR or Stack to ready"
+  default_prompt: "Use $monitor-pr to monitor this pull request or Stack until it is ready to merge."
