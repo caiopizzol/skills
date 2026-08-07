@@ -83,6 +83,26 @@ describe("GitHub pull request snapshots", () => {
     expect(result.snapshot.pullRequests.map((pullRequest) => pullRequest.number)).toEqual([8]);
   });
 
+  it("lets a PR worker observe only its assigned pull request", async () => {
+    const base = fixtureRunner("stack.json");
+    const routes: string[] = [];
+    const runner: GhRunner = async (arguments_) => {
+      routes.push(arguments_.join(" "));
+      return base(arguments_);
+    };
+
+    const result = await observeGitHubPullRequest(PR_URL, {
+      runner,
+      includeManagedStack: false,
+    });
+
+    expect(result.outcome).toBe("ok");
+    if (result.outcome !== "ok") throw new Error(result.error);
+    expect(result.snapshot.scope).toEqual({ kind: "pull-request" });
+    expect(result.snapshot.pullRequests.map((pullRequest) => pullRequest.number)).toEqual([8]);
+    expect(routes.some((route) => route.includes("/stacks?"))).toBe(false);
+  });
+
   it("produces identical JSON for unchanged provider state", async () => {
     const first = await observeGitHubPullRequest(PR_URL, { runner: fixtureRunner("stack.json") });
     const second = await observeGitHubPullRequest(PR_URL, { runner: fixtureRunner("stack.json") });

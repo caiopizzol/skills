@@ -59,6 +59,7 @@ export type SnapshotResult =
 export interface ObserveOptions {
   runner?: GhRunner;
   timeoutMs?: number;
+  includeManagedStack?: boolean;
 }
 
 class SnapshotFailure extends Error {
@@ -122,56 +123,58 @@ export async function observeGitHubPullRequest(
       );
     }
     const runner = options.runner ?? createDefaultGhRunner(timeoutMs);
+    const includeManagedStack = options.includeManagedStack ?? true;
     const identity = record(
       await runner(["api", "--hostname", "github.com", "user"]),
       "GitHub authenticated identity",
     );
     const authenticatedAccount = requiredString(identity.login, "GitHub authenticated account");
-    const stackRaw = await runner([
-      "api",
-      "--hostname",
-      "github.com",
-      `repos/${encode(requested.owner)}/${encode(requested.repository)}/stacks?pull_request=${requested.number}`,
-    ]);
-    const stacks = array(stackRaw, "GitHub Stack lookup");
-    if (stacks.length > 1) {
-      throw new SnapshotFailure(
-        "provider-error",
-        "GitHub returned multiple managed Stacks for the pull request",
-      );
-    }
-
     let scope: PullRequestStateSnapshot["scope"] = { kind: "pull-request" };
     let pullRequestNumbers = [requested.number];
-    if (stacks.length === 1) {
-      const stack = record(stacks[0], "GitHub Stack");
-      const members = array(stack.pull_requests, "GitHub Stack pull requests");
-      pullRequestNumbers = members.map((member, index) =>
-        requiredPositiveInteger(
-          record(member, `GitHub Stack member ${index + 1}`).number,
-          "number",
-        ),
-      );
-      if (new Set(pullRequestNumbers).size !== pullRequestNumbers.length) {
+    if (includeManagedStack) {
+      const stackRaw = await runner([
+        "api",
+        "--hostname",
+        "github.com",
+        `repos/${encode(requested.owner)}/${encode(requested.repository)}/stacks?pull_request=${requested.number}`,
+      ]);
+      const stacks = array(stackRaw, "GitHub Stack lookup");
+      if (stacks.length > 1) {
         throw new SnapshotFailure(
           "provider-error",
-          "GitHub Stack contains duplicate pull requests",
+          "GitHub returned multiple managed Stacks for the pull request",
         );
       }
-      if (!pullRequestNumbers.includes(requested.number)) {
-        throw new SnapshotFailure(
-          "provider-error",
-          "GitHub Stack lookup did not include the requested pull request",
+      if (stacks.length === 1) {
+        const stack = record(stacks[0], "GitHub Stack");
+        const members = array(stack.pull_requests, "GitHub Stack pull requests");
+        pullRequestNumbers = members.map((member, index) =>
+          requiredPositiveInteger(
+            record(member, `GitHub Stack member ${index + 1}`).number,
+            "number",
+          ),
         );
+        if (new Set(pullRequestNumbers).size !== pullRequestNumbers.length) {
+          throw new SnapshotFailure(
+            "provider-error",
+            "GitHub Stack contains duplicate pull requests",
+          );
+        }
+        if (!pullRequestNumbers.includes(requested.number)) {
+          throw new SnapshotFailure(
+            "provider-error",
+            "GitHub Stack lookup did not include the requested pull request",
+          );
+        }
+        const base = record(stack.base, "GitHub Stack base");
+        scope = {
+          kind: "stack",
+          number: requiredPositiveInteger(stack.number, "GitHub Stack number"),
+          id: requiredPositiveInteger(stack.id, "GitHub Stack id"),
+          baseRef: requiredString(base.ref, "GitHub Stack base ref"),
+          open: requiredBoolean(stack.open, "GitHub Stack open state"),
+        };
       }
-      const base = record(stack.base, "GitHub Stack base");
-      scope = {
-        kind: "stack",
-        number: requiredPositiveInteger(stack.number, "GitHub Stack number"),
-        id: requiredPositiveInteger(stack.id, "GitHub Stack id"),
-        baseRef: requiredString(base.ref, "GitHub Stack base ref"),
-        open: requiredBoolean(stack.open, "GitHub Stack open state"),
-      };
     }
 
     const pullRequests: PullRequestSnapshot[] = [];

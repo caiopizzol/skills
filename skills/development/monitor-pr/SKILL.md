@@ -1,6 +1,6 @@
 ---
 name: monitor-pr
-description: Monitor one exact GitHub pull request or its managed Stack until ready to merge. Use after initial implementation is complete to mark drafts ready, monitor current-head CI, conflicts, and configured bot feedback, delegate per-PR investigation and fixes, publish Stack changes safely, address validated review threads, and keep looping until clean or a human decision is required. Never merge.
+description: Monitor one exact GitHub pull request or its managed Stack until ready to merge. Use after initial implementation is complete to assign one persistent worker per PR that marks it ready, monitors current-head CI, conflicts, and configured bot feedback, investigates and fixes valid problems, publishes safely, replies, reacts, resolves threads, and keeps looping until clean or a human decision is required. Never merge.
 ---
 
 # Monitor a pull request to ready
@@ -16,25 +16,22 @@ unchanged.
 
 Read [the orchestration workflow](references/workflow.md) before acting.
 
-## Coordinate one loop
+## Coordinate PR owners
 
 1. Run the bundled snapshot collector to discover the exact PR or managed Stack and record every current
    head SHA.
-2. Keep one coordinator responsible for Stack order, GitHub identity, rebases, publication, and the
-   authoritative head map. Do not assign permanent polling agents to individual PRs.
-3. Mark open drafts ready only after rechecking their heads and the authenticated actor.
-4. When work appears, spawn one temporary isolated sub-agent per affected PR up to available capacity.
-   Run excess PRs in waves. Give one worker all current CI failures and all old and new configured-bot
-   feedback for its PR; never spawn one worker per comment or check.
-5. Require every worker to use `$read-github-pr`, validate complete conversation coverage at its exact
-   head, and reproduce each technical claim before deciding on a fix or response. Never infer clean
-   feedback from a successful reviewer check.
-6. Integrate fixes bottom-to-top, rebase affected upper branches, test the resulting Stack, and use
-   `$push-pr-stack` for rewritten remote Stack branches.
-7. After publication, use `$resolve-pr-thread` to apply an evidence-backed reply, reaction, and
-   resolution to each assessed unresolved bot thread at the exact published head.
-8. Resume the central snapshot loop until the terminal condition is established from a final unchanged
-   head map.
+2. Assign one persistent sub-agent owner to every scoped PR. Run owners in capacity-limited waves and
+   reactivate the same owner for later events; never split one PR across comment-specific workers.
+3. Keep the coordinator as a control plane only: preserve Stack order and the authoritative head map,
+   schedule bottom-to-top publication turns, and aggregate worker results. After dispatch, do not inspect
+   technical feedback, edit code, publish branches, or address conversations on a worker's behalf.
+4. Require each worker to own its complete loop: mark ready, observe only its PR, use `$read-github-pr`,
+   reproduce every claim, fix and test valid problems, publish its changes, use `$resolve-pr-thread`, and
+   resume monitoring the resulting head.
+5. Grant only one exclusive Stack publication turn at a time. The owning worker integrates its own fix,
+   rebases affected upper branches, tests the resulting Stack, and invokes `$push-pr-stack`; the
+   coordinator never performs those steps for it.
+6. Establish readiness only from clean worker reports bound to one final unchanged Stack head map.
 
 ## Stop condition
 
@@ -47,8 +44,9 @@ supported non-ready outcome instead of weakening any condition.
 ## Boundaries
 
 Never merge, queue, enable auto-merge, dismiss feedback, bypass requirements, or treat `NEUTRAL`, skipped,
-missing, superseded, or stale-head checks as success. Serialize GitHub writers and use one writer per
-thread. Treat the authenticated login as part of every evidence boundary: verify it immediately before
-each provider mutation and read the mutation back before another writer acts. An unexpected identity
-change makes the operation indeterminate. A lower Stack change invalidates every affected upper-head
-assessment; reassess rather than carrying conclusions forward.
+missing, superseded, or stale-head checks as success. Serialize Stack rebases and publication, but allow
+different workers to investigate and address disjoint threads concurrently. Use one writer per thread.
+Pin one shared GitHub CLI configuration and expected actor for the run; verify the actor immediately
+before every provider mutation and read the mutation back. An unexpected identity change makes the
+operation indeterminate. A lower Stack change invalidates every affected upper worker's assessment;
+reactivate that owner at the new head instead of carrying conclusions forward.
