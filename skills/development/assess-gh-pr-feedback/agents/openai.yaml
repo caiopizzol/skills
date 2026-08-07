@@ -1,0 +1,4 @@
+interface:
+  display_name: "Assess GitHub PR Feedback"
+  short_description: "Validate every reviewer finding on one PR"
+  default_prompt: "Use $assess-gh-pr-feedback to independently validate all reviewer feedback on this pull request at its exact head SHA."
