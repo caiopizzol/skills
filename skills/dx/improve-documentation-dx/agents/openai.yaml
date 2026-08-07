@@ -1,0 +1,4 @@
+interface:
+  display_name: "Improve documentation DX"
+  short_description: "Make developer documentation easier to use"
+  default_prompt: "Use $improve-documentation-dx to assess this developer documentation and propose the smallest evidence-backed improvements."
