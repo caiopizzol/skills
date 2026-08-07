@@ -1,0 +1,14 @@
+{
+  "fixtures": [
+    {
+      "file": "unresolved.json",
+      "sha256": "2247873d99d4583565c9eeff93a276fc95f4476b61b2d93c0a572951a21558a6",
+      "property": "one unresolved review thread with an unreacted bot root comment"
+    },
+    {
+      "file": "reply.md",
+      "sha256": "dfa23effa0fad88f2276ca6f657b4d71cc6c69506c14e921490c8492790e2ab1",
+      "property": "one evidence-based reply body used for retry identity"
+    }
+  ]
+}
