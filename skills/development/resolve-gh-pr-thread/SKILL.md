@@ -41,5 +41,8 @@ fresh head SHA without validating the finding again.
 ## Boundaries
 
 Use one writer per thread. Provider mutations have no compare-and-swap primitive, so concurrent
-writers can still duplicate replies after simultaneous preflight reads. Do not assess findings, edit
-code, commit, push, rebase, change Stack membership, mark a PR ready, merge, or touch issue comments.
+writers can still duplicate replies after simultaneous preflight reads. Serialize this operation with
+any process that can run `gh auth switch`: `gh api` has no per-call account selector, so the expected
+actor guards detect an identity change but cannot prevent another process from changing global auth
+between calls. Do not assess findings, edit code, commit, push, rebase, change Stack membership, mark a
+PR ready, merge, or touch issue comments.
