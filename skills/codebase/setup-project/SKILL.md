@@ -1,6 +1,6 @@
 ---
 name: setup-project
-description: Create, assess, or complete a project's toolchain, TypeScript, tests, and optional GitHub repository. Use when starting a Vite+ project from scratch, auditing an existing codebase, finishing an incomplete setup, or checking whether a project follows the standard setup.
+description: Create, assess, or complete a project's toolchain, TypeScript, tests, and optional GitHub repository. Use when starting a Vite+ project from scratch, auditing whether an existing project has these standard setup foundations, or completing missing foundations; not for reviewing broader developer experience or repository organization.
 ---
 
 # Set up a project

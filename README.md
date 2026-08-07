@@ -1,6 +1,6 @@
 # Skills
 
-Composable agent skills for inspecting files and setting up repositories.
+Composable agent skills for inspecting files, improving developer experience, and setting up repositories.
 
 [![Release](https://img.shields.io/github/v/release/caiopizzol/skills)](https://github.com/caiopizzol/skills/releases/latest)
 [![Checks](https://github.com/caiopizzol/skills/actions/workflows/check.yml/badge.svg)](https://github.com/caiopizzol/skills/actions/workflows/check.yml)
@@ -64,6 +64,12 @@ Start with a composite for an end-to-end outcome, or choose a focused skill for 
 | [`read-github-resource`](skills/context/read-github-resource/SKILL.md)           | Focused | Retrieve complete GitHub evidence through `gh`        |
 | [`read-linear-issue`](skills/context/read-linear-issue/SKILL.md)                 | Focused | Read one exact Linear issue and its relationships     |
 | [`read-slack-thread`](skills/context/read-slack-thread/SKILL.md)                 | Focused | Read one Slack thread and selected supported files    |
+
+### DX
+
+| Skill                                                           | Type    | Purpose                                          |
+| --------------------------------------------------------------- | ------- | ------------------------------------------------ |
+| [`improve-codebase-dx`](skills/dx/improve-codebase-dx/SKILL.md) | Focused | Find and reduce developer friction in a codebase |
 
 ### Files
 
