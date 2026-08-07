@@ -23,7 +23,8 @@ one `git push --atomic`, and reads the remote heads back. After a failed push, i
 from those heads rather than ambiguous Git error wording: changed leases are `input-changed`, unchanged
 leases are `provider-error`, and every requested head already present is verified success. Treat
 `input-changed` as a stale observation: re-read the Stack and revalidate the intended changes instead of
-retrying with fresh leases.
+retrying with fresh leases. If post-push verification itself fails, retain its structured outcome and
+both sanitized diagnostics; never recover a classification from the push error wording.
 
 ## Output
 
