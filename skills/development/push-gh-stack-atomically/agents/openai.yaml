@@ -1,0 +1,4 @@
+interface:
+  display_name: "Push GitHub Stack Atomically"
+  short_description: "Push Stack branches with atomic leases"
+  default_prompt: "Use $push-gh-stack-atomically to publish these rebased Stack branches without overwriting remote changes."

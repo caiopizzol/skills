@@ -1,0 +1,9 @@
+{
+  "fixtures": [
+    {
+      "file": "success.json",
+      "sha256": "6f88203f7ba458f8ba1e1232af6d8ef29448416a0a2ee820fa92c83bf523e773",
+      "property": "two rewritten Stack branches with explicit local and remote object IDs"
+    }
+  ]
+}
