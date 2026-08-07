@@ -233,13 +233,6 @@ export async function resolveGitHubPullRequestThread(
     steps.reaction = state.hasReaction ? "already-present" : "pending";
     steps.resolution = state.observation.isResolved ? "already-present" : "pending";
 
-    if (state.observation.isResolved && (!state.hasReply || !state.hasReaction)) {
-      throw new ThreadFailure(
-        "input-changed",
-        "Review thread is already resolved without the requested reply and reaction",
-      );
-    }
-
     if (!state.hasReply) {
       state = await mutateAndVerify(
         runner,

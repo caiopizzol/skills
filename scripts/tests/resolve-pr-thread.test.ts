@@ -165,15 +165,21 @@ describe("review thread reconciliation", () => {
     expect(valid.mutations).toHaveLength(3);
   });
 
-  it("fails closed when an already-resolved thread lacks the requested evidence", async () => {
+  it("adds missing evidence without reopening an already-resolved thread", async () => {
     const simulation = await githubSimulation({ resolved: true });
 
     const result = await resolveGitHubPullRequestThread(await request(), {
       runner: simulation.runner,
     });
 
-    expect(result.outcome).toBe("input-changed");
-    expect(simulation.mutations).toHaveLength(0);
+    expect(result.outcome).toBe("ok");
+    if (result.outcome !== "ok") throw new Error(result.error);
+    expect(result.steps).toEqual({
+      reply: "applied",
+      reaction: "applied",
+      resolution: "already-present",
+    });
+    expect(simulation.mutations).toEqual(["reply", "reaction"]);
   });
 });
 

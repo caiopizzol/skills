@@ -29,7 +29,8 @@ finding is valid.
 The script pins all calls to `github.com`, verifies the authenticated actor and exact thread/root/PR,
 then reads back after each mutation. GitHub does not make reply, reaction, and resolution atomic, so
 the same exact request reconciles already-applied steps after a known partial failure without adding
-an identical reply or reaction again.
+an identical reply or reaction again. If the configured reviewer already resolved the thread, the
+script preserves that resolution while adding any still-missing reply and reaction.
 
 ## Outcomes
 
