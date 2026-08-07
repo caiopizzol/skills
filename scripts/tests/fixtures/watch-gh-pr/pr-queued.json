@@ -1,0 +1,58 @@
+{
+  "number": 8,
+  "url": "https://github.com/fixture-owner/fixture-repository/pull/8",
+  "title": "API layer",
+  "state": "OPEN",
+  "isDraft": false,
+  "baseRefName": "feature/foundation",
+  "baseRefOid": "2222222222222222222222222222222222222222",
+  "headRefName": "feature/api",
+  "headRefOid": "3333333333333333333333333333333333333333",
+  "mergeable": "MERGEABLE",
+  "mergeStateStatus": "BLOCKED",
+  "reviewDecision": "",
+  "autoMergeRequest": null,
+  "updatedAt": "2026-08-01T12:02:00Z",
+  "statusCheckRollup": [
+    {
+      "__typename": "CheckRun",
+      "name": "Check",
+      "workflowName": "checks",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/fixture-owner/fixture-repository/actions/runs/100",
+      "startedAt": "2026-08-01T12:00:00Z",
+      "completedAt": "2026-08-01T12:01:00Z"
+    },
+    {
+      "__typename": "CheckRun",
+      "name": "Check",
+      "workflowName": "checks",
+      "status": "QUEUED",
+      "conclusion": null,
+      "detailsUrl": "https://github.com/fixture-owner/fixture-repository/actions/runs/101",
+      "startedAt": null,
+      "completedAt": null
+    },
+    {
+      "__typename": "CheckRun",
+      "name": "Build",
+      "workflowName": "checks",
+      "status": "IN_PROGRESS",
+      "conclusion": null,
+      "detailsUrl": "https://github.com/fixture-owner/fixture-repository/actions/runs/200",
+      "startedAt": "2026-08-01T11:00:00Z",
+      "completedAt": null
+    },
+    {
+      "__typename": "CheckRun",
+      "name": "Build",
+      "workflowName": "checks",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/fixture-owner/fixture-repository/actions/runs/201",
+      "startedAt": "2026-08-01T11:01:00Z",
+      "completedAt": "2026-08-01T11:02:00Z"
+    }
+  ]
+}

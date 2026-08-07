@@ -90,6 +90,43 @@ describe("GitHub pull request snapshots", () => {
     expect(JSON.stringify(first)).toBe(JSON.stringify(second));
   });
 
+  it("uses run sequence for a missing start without preferring an older active run", async () => {
+    const result = await observeGitHubPullRequest(PR_URL, {
+      runner: fixtureRunner("no-stack.json", "pr-queued.json"),
+    });
+
+    expect(result.outcome).toBe("ok");
+    if (result.outcome !== "ok") throw new Error(result.error);
+    expect(
+      result.snapshot.pullRequests[0]?.checks.map((check) => [check.name, check.status, check.url]),
+    ).toEqual([
+      [
+        "Build",
+        "COMPLETED",
+        "https://github.com/fixture-owner/fixture-repository/actions/runs/201",
+      ],
+      ["Check", "QUEUED", "https://github.com/fixture-owner/fixture-repository/actions/runs/101"],
+    ]);
+    expect(
+      result.snapshot.pullRequests[0]?.supersededChecks.map((check) => [
+        check.name,
+        check.status,
+        check.url,
+      ]),
+    ).toEqual([
+      [
+        "Build",
+        "IN_PROGRESS",
+        "https://github.com/fixture-owner/fixture-repository/actions/runs/200",
+      ],
+      [
+        "Check",
+        "COMPLETED",
+        "https://github.com/fixture-owner/fixture-repository/actions/runs/100",
+      ],
+    ]);
+  });
+
   it("fails closed when Stack membership omits the requested pull request", async () => {
     const base = fixtureRunner("stack.json");
     const runner: GhRunner = async (arguments_) => {
@@ -142,7 +179,10 @@ describe("GitHub pull request snapshots", () => {
   });
 });
 
-function fixtureRunner(stackFixture: "stack.json" | "no-stack.json"): GhRunner {
+function fixtureRunner(
+  stackFixture: "stack.json" | "no-stack.json",
+  pr8Fixture: "pr-8.json" | "pr-queued.json" = "pr-8.json",
+): GhRunner {
   return async (arguments_) => {
     if (arguments_[0] === "api" && arguments_.at(-1) === "user") {
       expect(arguments_.slice(1, 3)).toEqual(["--hostname", "github.com"]);
@@ -155,7 +195,8 @@ function fixtureRunner(stackFixture: "stack.json" | "no-stack.json"): GhRunner {
     if (arguments_[0] === "pr" && arguments_[1] === "view") {
       const number = Number(arguments_[2]);
       expect(arguments_[4]).toBe(`github.com/${OWNER}/${REPOSITORY}`);
-      if ([7, 8, 9].includes(number)) return fixture(`pr-${number}.json`);
+      if (number === 8) return fixture(pr8Fixture);
+      if ([7, 9].includes(number)) return fixture(`pr-${number}.json`);
     }
     throw new Error(`Unexpected fixture route: ${arguments_.join(" ")}`);
   };

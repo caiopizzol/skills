@@ -29,6 +29,11 @@
       "file": "pr-9.json",
       "sha256": "9485b810c77b9206eb981c1ff65d6272b2668ad561d30572a0c4e31a97ac5bae",
       "property": "draft top layer with provider auto-merge metadata"
+    },
+    {
+      "file": "pr-queued.json",
+      "sha256": "a0eb796efccadff16fdc9946ce25d5aa29a8b7dd76d7c9e2b9dddfe635c4f98a",
+      "property": "newer queued run without a start time and older active control"
     }
   ]
 }

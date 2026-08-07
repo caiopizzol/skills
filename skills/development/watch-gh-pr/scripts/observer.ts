@@ -319,16 +319,21 @@ function sortChecks(checks: CheckSnapshot[]): CheckSnapshot[] {
 }
 
 function compareCheckRecency(left: CheckSnapshot, right: CheckSnapshot): number {
-  const started = compareCodeUnits(left.startedAt ?? "", right.startedAt ?? "");
-  if (started !== 0) return started;
+  if (left.startedAt !== null && right.startedAt !== null) {
+    const started = compareCodeUnits(left.startedAt, right.startedAt);
+    if (started !== 0) return started;
+  }
   const sequence = compareNumericStrings(
     githubActionsRunSequence(left.url),
     githubActionsRunSequence(right.url),
   );
   if (sequence !== 0) return sequence;
+  const leftActive = left.status !== "COMPLETED";
+  const rightActive = right.status !== "COMPLETED";
+  if (leftActive !== rightActive) return leftActive ? 1 : -1;
   return compareCodeUnits(
-    [left.completedAt ?? "", left.url ?? ""].join("\0"),
-    [right.completedAt ?? "", right.url ?? ""].join("\0"),
+    [left.startedAt ?? "", left.completedAt ?? "", left.url ?? ""].join("\0"),
+    [right.startedAt ?? "", right.completedAt ?? "", right.url ?? ""].join("\0"),
   );
 }
 
