@@ -67,9 +67,10 @@ Start with a composite for an end-to-end outcome, or choose a focused skill for 
 
 ### Development
 
-| Skill                                                    | Type    | Purpose                                    |
-| -------------------------------------------------------- | ------- | ------------------------------------------ |
-| [`watch-gh-pr`](skills/development/watch-gh-pr/SKILL.md) | Focused | Watch pull request and managed Stack state |
+| Skill                                                                              | Type    | Purpose                                             |
+| ---------------------------------------------------------------------------------- | ------- | --------------------------------------------------- |
+| [`push-gh-stack-atomically`](skills/development/push-gh-stack-atomically/SKILL.md) | Focused | Publish rewritten Stack branches with atomic leases |
+| [`watch-gh-pr`](skills/development/watch-gh-pr/SKILL.md)                           | Focused | Watch pull request and managed Stack state          |
 
 ### Files
 
