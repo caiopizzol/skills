@@ -1,4 +1,4 @@
-export type WatchOutcome =
+export type SnapshotOutcome =
   | "ok"
   | "tool-unavailable"
   | "timeout"
@@ -42,7 +42,7 @@ export interface PullRequestSnapshot {
   supersededChecks: CheckSnapshot[];
 }
 
-export interface PullRequestWatchSnapshot {
+export interface PullRequestStateSnapshot {
   schemaVersion: "1.1";
   requested: GitHubPullRequestLocator;
   authenticatedAccount: string;
@@ -52,18 +52,18 @@ export interface PullRequestWatchSnapshot {
   pullRequests: PullRequestSnapshot[];
 }
 
-export type WatchResult =
-  | { outcome: "ok"; snapshot: PullRequestWatchSnapshot }
-  | { outcome: Exclude<WatchOutcome, "ok">; error: string };
+export type SnapshotResult =
+  | { outcome: "ok"; snapshot: PullRequestStateSnapshot }
+  | { outcome: Exclude<SnapshotOutcome, "ok">; error: string };
 
 export interface ObserveOptions {
   runner?: GhRunner;
   timeoutMs?: number;
 }
 
-class WatchFailure extends Error {
+class SnapshotFailure extends Error {
   constructor(
-    readonly outcome: Exclude<WatchOutcome, "ok">,
+    readonly outcome: Exclude<SnapshotOutcome, "ok">,
     message: string,
   ) {
     super(message);
@@ -75,7 +75,7 @@ export function parseGitHubPullRequestUrl(input: string): GitHubPullRequestLocat
   try {
     url = new URL(input);
   } catch {
-    throw new WatchFailure(
+    throw new SnapshotFailure(
       "unsupported-input",
       "Input must be one exact HTTPS GitHub pull request URL",
     );
@@ -87,18 +87,18 @@ export function parseGitHubPullRequestUrl(input: string): GitHubPullRequestLocat
     url.password ||
     url.port
   ) {
-    throw new WatchFailure(
+    throw new SnapshotFailure(
       "unsupported-input",
       "Input must be one exact HTTPS GitHub pull request URL",
     );
   }
   const match = url.pathname.match(/^\/([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)\/pull\/([1-9]\d*)\/?$/);
   if (!match || match[1] === "." || match[1] === ".." || match[2] === "." || match[2] === "..") {
-    throw new WatchFailure("unsupported-input", "GitHub URL must identify one pull request");
+    throw new SnapshotFailure("unsupported-input", "GitHub URL must identify one pull request");
   }
   const number = Number(match[3]);
   if (!Number.isSafeInteger(number)) {
-    throw new WatchFailure("unsupported-input", "GitHub pull request number is too large");
+    throw new SnapshotFailure("unsupported-input", "GitHub pull request number is too large");
   }
   return {
     owner: match[1]!,
@@ -111,12 +111,12 @@ export function parseGitHubPullRequestUrl(input: string): GitHubPullRequestLocat
 export async function observeGitHubPullRequest(
   input: string,
   options: ObserveOptions = {},
-): Promise<WatchResult> {
+): Promise<SnapshotResult> {
   try {
     const requested = parseGitHubPullRequestUrl(input);
     const timeoutMs = options.timeoutMs ?? 30_000;
     if (!Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 120_000) {
-      throw new WatchFailure(
+      throw new SnapshotFailure(
         "unsupported-input",
         "timeoutMs must be an integer between 1 and 120000",
       );
@@ -135,13 +135,13 @@ export async function observeGitHubPullRequest(
     ]);
     const stacks = array(stackRaw, "GitHub Stack lookup");
     if (stacks.length > 1) {
-      throw new WatchFailure(
+      throw new SnapshotFailure(
         "provider-error",
         "GitHub returned multiple managed Stacks for the pull request",
       );
     }
 
-    let scope: PullRequestWatchSnapshot["scope"] = { kind: "pull-request" };
+    let scope: PullRequestStateSnapshot["scope"] = { kind: "pull-request" };
     let pullRequestNumbers = [requested.number];
     if (stacks.length === 1) {
       const stack = record(stacks[0], "GitHub Stack");
@@ -153,10 +153,13 @@ export async function observeGitHubPullRequest(
         ),
       );
       if (new Set(pullRequestNumbers).size !== pullRequestNumbers.length) {
-        throw new WatchFailure("provider-error", "GitHub Stack contains duplicate pull requests");
+        throw new SnapshotFailure(
+          "provider-error",
+          "GitHub Stack contains duplicate pull requests",
+        );
       }
       if (!pullRequestNumbers.includes(requested.number)) {
-        throw new WatchFailure(
+        throw new SnapshotFailure(
           "provider-error",
           "GitHub Stack lookup did not include the requested pull request",
         );
@@ -196,7 +199,7 @@ export async function observeGitHubPullRequest(
       },
     };
   } catch (error) {
-    if (error instanceof WatchFailure) return { outcome: error.outcome, error: error.message };
+    if (error instanceof SnapshotFailure) return { outcome: error.outcome, error: error.message };
     return {
       outcome: "provider-error",
       error: error instanceof Error ? error.message : "Unknown GitHub provider failure",
@@ -212,7 +215,7 @@ function normalizePullRequest(
   const raw = record(input, `GitHub pull request #${expectedNumber}`);
   const number = requiredPositiveInteger(raw.number, "pull request number");
   if (number !== expectedNumber) {
-    throw new WatchFailure("provider-error", "GitHub returned a different pull request number");
+    throw new SnapshotFailure("provider-error", "GitHub returned a different pull request number");
   }
   const url = requiredString(raw.url, "pull request URL");
   const resolved = parseGitHubPullRequestUrl(url);
@@ -221,7 +224,7 @@ function normalizePullRequest(
     resolved.repository.toLowerCase() !== requested.repository.toLowerCase() ||
     resolved.number !== expectedNumber
   ) {
-    throw new WatchFailure(
+    throw new SnapshotFailure(
       "provider-error",
       "GitHub returned a pull request from another repository",
     );
@@ -282,7 +285,7 @@ function normalizeChecks(input: unknown): {
         completedAt: null,
       };
     }
-    throw new WatchFailure("provider-error", `Unsupported GitHub check type: ${type}`);
+    throw new SnapshotFailure("provider-error", `Unsupported GitHub check type: ${type}`);
   });
   const current: CheckSnapshot[] = [];
   const superseded: CheckSnapshot[] = [];
@@ -356,7 +359,7 @@ function createDefaultGhRunner(timeoutMs: number): GhRunner {
   return async (arguments_) => {
     const executable = Bun.which("gh");
     if (!executable) {
-      throw new WatchFailure("tool-unavailable", "GitHub CLI is unavailable in PATH");
+      throw new SnapshotFailure("tool-unavailable", "GitHub CLI is unavailable in PATH");
     }
     const child = Bun.spawn([executable, ...arguments_], {
       stdout: "pipe",
@@ -381,11 +384,11 @@ function createDefaultGhRunner(timeoutMs: number): GhRunner {
       clearTimeout(timer);
     }
     if (timedOut) {
-      throw new WatchFailure("timeout", `GitHub CLI timed out after ${timeoutMs}ms`);
+      throw new SnapshotFailure("timeout", `GitHub CLI timed out after ${timeoutMs}ms`);
     }
     if (exitCode !== 0) {
       const detail = stderr.trim().slice(0, 500);
-      throw new WatchFailure(
+      throw new SnapshotFailure(
         "provider-error",
         detail.includes("HTTP 404")
           ? "GitHub resource is missing or inaccessible"
@@ -395,28 +398,28 @@ function createDefaultGhRunner(timeoutMs: number): GhRunner {
     try {
       return JSON.parse(stdout) as unknown;
     } catch {
-      throw new WatchFailure("provider-error", "GitHub CLI returned invalid JSON");
+      throw new SnapshotFailure("provider-error", "GitHub CLI returned invalid JSON");
     }
   };
 }
 
 function record(value: unknown, label: string): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new WatchFailure("provider-error", `${label} was not an object`);
+    throw new SnapshotFailure("provider-error", `${label} was not an object`);
   }
   return value as Record<string, unknown>;
 }
 
 function array(value: unknown, label: string): unknown[] {
   if (!Array.isArray(value)) {
-    throw new WatchFailure("provider-error", `${label} was not an array`);
+    throw new SnapshotFailure("provider-error", `${label} was not an array`);
   }
   return value;
 }
 
 function requiredString(value: unknown, label: string): string {
   if (typeof value !== "string" || value.length === 0) {
-    throw new WatchFailure("provider-error", `${label} was missing`);
+    throw new SnapshotFailure("provider-error", `${label} was missing`);
   }
   return value;
 }
@@ -424,21 +427,21 @@ function requiredString(value: unknown, label: string): string {
 function optionalString(value: unknown, label: string): string | null {
   if (value === null || value === undefined || value === "") return null;
   if (typeof value !== "string") {
-    throw new WatchFailure("provider-error", `${label} was not a string`);
+    throw new SnapshotFailure("provider-error", `${label} was not a string`);
   }
   return value;
 }
 
 function requiredBoolean(value: unknown, label: string): boolean {
   if (typeof value !== "boolean") {
-    throw new WatchFailure("provider-error", `${label} was missing`);
+    throw new SnapshotFailure("provider-error", `${label} was missing`);
   }
   return value;
 }
 
 function requiredPositiveInteger(value: unknown, label: string): number {
   if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 1) {
-    throw new WatchFailure("provider-error", `${label} was not a positive integer`);
+    throw new SnapshotFailure("provider-error", `${label} was not a positive integer`);
   }
   return value;
 }

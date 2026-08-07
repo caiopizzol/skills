@@ -18,19 +18,22 @@ Read [the orchestration workflow](references/workflow.md) before acting.
 
 ## Coordinate one loop
 
-1. Use `$watch-gh-pr` to discover the exact PR or managed Stack and record every current head SHA.
+1. Run the bundled snapshot collector to discover the exact PR or managed Stack and record every current
+   head SHA.
 2. Keep one coordinator responsible for Stack order, GitHub identity, rebases, publication, and the
    authoritative head map. Do not assign permanent polling agents to individual PRs.
 3. Mark open drafts ready only after rechecking their heads and the authenticated actor.
-4. When work appears, assign at most one isolated worker per affected PR. Let that worker investigate
-   all current CI failures and all old and new configured-bot feedback for that PR.
-5. Require `$assess-gh-pr-feedback` before deciding that a review claim needs a fix, disagreement, reply,
-   or resolution. Never infer clean feedback from a successful reviewer check.
+4. When work appears, spawn one temporary isolated sub-agent per affected PR up to available capacity.
+   Run excess PRs in waves. Give one worker all current CI failures and all old and new configured-bot
+   feedback for its PR; never spawn one worker per comment or check.
+5. Require every worker to use `$read-github-pr`, validate complete conversation coverage at its exact
+   head, and reproduce each technical claim before deciding on a fix or response. Never infer clean
+   feedback from a successful reviewer check.
 6. Integrate fixes bottom-to-top, rebase affected upper branches, test the resulting Stack, and use
-   `$push-gh-stack-atomically` for rewritten remote Stack branches.
-7. After publication, use `$resolve-gh-pr-thread` to apply an evidence-backed reply, reaction, and
+   `$push-pr-stack` for rewritten remote Stack branches.
+7. After publication, use `$resolve-pr-thread` to apply an evidence-backed reply, reaction, and
    resolution to each assessed unresolved bot thread at the exact published head.
-8. Resume `$watch-gh-pr` and repeat until the terminal condition is established from a final unchanged
+8. Resume the central snapshot loop until the terminal condition is established from a final unchanged
    head map.
 
 ## Stop condition

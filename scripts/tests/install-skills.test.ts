@@ -511,18 +511,16 @@ describe("this repository's own catalog", () => {
 
     expect(run.exitCode).toBe(0);
     expect((await readdir(destination)).sort()).toEqual([
-      "assess-gh-pr-feedback",
       "monitor-pr",
-      "push-gh-stack-atomically",
+      "push-pr-stack",
       "read-github-issue",
       "read-github-pr",
       "read-github-resource",
       "read-image",
       "read-text-file",
       "read-video",
-      "resolve-gh-pr-thread",
+      "resolve-pr-thread",
       "transcribe-audio",
-      "watch-gh-pr",
     ]);
   });
 });

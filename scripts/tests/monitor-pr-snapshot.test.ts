@@ -6,9 +6,9 @@ import {
   observeGitHubPullRequest,
   parseGitHubPullRequestUrl,
   type GhRunner,
-} from "../../skills/development/watch-gh-pr/scripts/observer.ts";
+} from "../../skills/development/monitor-pr/scripts/observer.ts";
 
-const FIXTURES = join(import.meta.dir, "fixtures", "watch-gh-pr");
+const FIXTURES = join(import.meta.dir, "fixtures", "monitor-pr-snapshot");
 const OWNER = "fixture-owner";
 const REPOSITORY = "fixture-repository";
 const PR_URL = `https://github.com/${OWNER}/${REPOSITORY}/pull/8`;
@@ -17,7 +17,7 @@ interface FixtureManifest {
   fixtures: Array<{ file: string; sha256: string; property: string }>;
 }
 
-describe("watch-gh-pr fixtures", () => {
+describe("monitor-pr snapshot fixtures", () => {
   it("retains the recorded bytes for every provider shape", async () => {
     const manifest = await fixture<FixtureManifest>("manifest.json");
     for (const entry of manifest.fixtures) {

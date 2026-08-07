@@ -1,5 +1,7 @@
 #!/usr/bin/env -S bun --no-env-file
 
+// Produce one normalized observation; monitor-pr owns the repeated wait loop.
+
 import { observeGitHubPullRequest } from "./observer.ts";
 
 const [url, ...arguments_] = Bun.argv.slice(2);
