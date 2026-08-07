@@ -1,0 +1,4 @@
+interface:
+  display_name: "Resolve GitHub PR Thread"
+  short_description: "Reply, react, and resolve one review thread"
+  default_prompt: "Use $resolve-gh-pr-thread to close this validated GitHub pull request review thread with evidence."
