@@ -1,3 +1,4 @@
+/** Resolve one already-investigated pull request review thread safely. */
 import { readFile } from "node:fs/promises";
 
 export type ThreadReaction = "+1" | "-1";

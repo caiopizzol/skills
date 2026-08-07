@@ -7,9 +7,9 @@ import {
   resolveGitHubPullRequestThread,
   type GhRunner,
   type ResolveThreadRequest,
-} from "../../skills/development/resolve-gh-pr-thread/scripts/resolve.ts";
+} from "../../skills/development/resolve-pr-thread/scripts/resolve.ts";
 
-const FIXTURES = join(import.meta.dir, "fixtures", "resolve-gh-pr-thread");
+const FIXTURES = join(import.meta.dir, "fixtures", "resolve-pr-thread");
 const PR_URL = "https://github.com/fixture-owner/fixture-repository/pull/8";
 
 interface FixtureManifest {
@@ -21,7 +21,7 @@ interface Simulation {
   mutations: string[];
 }
 
-describe("resolve-gh-pr-thread fixtures", () => {
+describe("resolve-pr-thread fixtures", () => {
   it("retains the recorded bytes for every provider state and reply", async () => {
     const manifest = await fixture<FixtureManifest>("manifest.json");
     for (const entry of manifest.fixtures) {

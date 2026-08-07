@@ -1,5 +1,5 @@
 ---
-name: resolve-gh-pr-thread
+name: resolve-pr-thread
 description: Reply to, react to, and resolve one already-assessed GitHub pull request review thread with exact identity and head-SHA guards. Use after a finding has been independently validated and any required fix has been published. Do not use to assess feedback, edit code, push branches, or handle general PR comments.
 ---
 
