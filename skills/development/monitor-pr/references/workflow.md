@@ -88,12 +88,16 @@ The coordinator is the only Stack writer.
    `gh stack rebase` commands. Resolve conflicts from the lowest affected branch upward with one conflict
    resolver at a time. Abort the rebase when resolution cannot be supported by evidence.
 3. Re-run focused checks and the repository's complete root check at the top of the resulting Stack.
-4. Publish rewritten existing Stack branches with `$push-gh-stack-atomically`, using remote heads observed
+4. Compare every affected branch ref with its local `gh stack view --json` head. A newly integrated commit
+   can move the Git ref before gh-stack refreshes its recorded layer boundary. Reconcile a mismatch with a
+   non-interactive `gh stack rebase --no-trunk` from that layer, then verify the complete local head map
+   again. Never publish while the two local views disagree.
+5. Publish rewritten existing Stack branches with `$push-gh-stack-atomically`, using remote heads observed
    before local mutation as leases. Never replace them with freshly discovered leases after a rejection,
    and never fall back to sequential pushes.
-5. For a standalone PR, prefer a fast-forward push. If history was rewritten, use an explicit
+6. For a standalone PR, prefer a fast-forward push. If history was rewritten, use an explicit
    force-with-lease bound to the previously observed remote head and verify the remote afterward.
-6. Take a fresh snapshot. Every rewritten upper PR now has a new evidence boundary: discard its prior
+7. Take a fresh snapshot. Every rewritten upper PR now has a new evidence boundary: discard its prior
    assessment even when its layer diff appears unchanged.
 
 When a configured reviewer deliberately skips rewritten history, request a new review only if the
