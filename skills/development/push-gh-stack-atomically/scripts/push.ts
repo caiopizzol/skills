@@ -145,7 +145,7 @@ export async function pushGitHubStackAtomically(
     let remoteAfter: Map<string, string> | undefined;
     if (pushed.exitCode !== 0) {
       const detail = safeDetail(pushed.stderr);
-      remoteAfter = await readRemoteHeads(runner, request.remote, request.branches);
+      remoteAfter = await readRemoteHeadsAfterPushFailure(runner, request, detail);
       const allPushed = request.branches.every(
         (branch) => remoteAfter?.get(branch.name) === branch.localSha,
       );
@@ -173,6 +173,26 @@ export async function pushGitHubStackAtomically(
       outcome: "provider-error",
       error: error instanceof Error ? error.message : "Unknown Git provider failure",
     };
+  }
+}
+
+async function readRemoteHeadsAfterPushFailure(
+  runner: GitRunner,
+  request: AtomicPushRequest,
+  pushDetail: string,
+): Promise<Map<string, string>> {
+  try {
+    return await readRemoteHeads(runner, request.remote, request.branches);
+  } catch (error) {
+    const outcome = error instanceof PushFailure ? error.outcome : "provider-error";
+    const verificationDetail = safeDetail(
+      error instanceof Error ? error.message : "Unknown remote verification failure",
+    );
+    const pushFailure = `Atomic Git push failed${pushDetail ? `: ${pushDetail}` : ""}`;
+    throw new PushFailure(
+      outcome,
+      `${pushFailure}; post-push verification failed${verificationDetail ? `: ${verificationDetail}` : ""}`,
+    );
   }
 }
 

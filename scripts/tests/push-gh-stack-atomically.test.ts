@@ -111,6 +111,31 @@ describe("atomic Stack publication", () => {
       })),
     });
   });
+
+  it("preserves push diagnostics when post-push verification cannot complete", async () => {
+    const request = await fixture<AtomicPushRequest>("success.json");
+    const verificationUnavailable = gitSimulation(request, {
+      pushFailure: "remote-changed",
+      postPushReadFailure: "transport",
+    });
+    const branchUnavailable = gitSimulation(request, {
+      pushFailure: "remote-changed",
+      postPushReadFailure: "missing",
+    });
+
+    expect(
+      await pushGitHubStackAtomically(request, { runner: verificationUnavailable.runner }),
+    ).toEqual({
+      outcome: "provider-error",
+      error:
+        "Atomic Git push failed: ! [rejected] feature/foundation (stale info); post-push verification failed: Unable to read remote branch heads: connection reset",
+    });
+    expect(await pushGitHubStackAtomically(request, { runner: branchUnavailable.runner })).toEqual({
+      outcome: "input-changed",
+      error:
+        "Atomic Git push failed: ! [rejected] feature/foundation (stale info); post-push verification failed: Remote branch is unavailable: feature/foundation",
+    });
+  });
 });
 
 function gitSimulation(
@@ -119,6 +144,7 @@ function gitSimulation(
     localChanged?: string;
     remoteChanged?: string;
     pushFailure?: "unchanged" | "remote-changed" | "applied";
+    postPushReadFailure?: "transport" | "missing";
   } = {},
 ): { runner: GitRunner; pushes: string[][] } {
   const local = new Map(request.branches.map((branch) => [branch.name, branch.localSha]));
@@ -126,6 +152,7 @@ function gitSimulation(
   if (changes.localChanged) local.set(changes.localChanged, "c".repeat(40));
   if (changes.remoteChanged) remote.set(changes.remoteChanged, "d".repeat(40));
   const pushes: string[][] = [];
+  let remoteReads = 0;
   const runner: GitRunner = async (arguments_) => {
     if (arguments_[0] === "rev-parse" && arguments_[1] === "--show-toplevel") {
       return success("/fixture/repository\n");
@@ -138,9 +165,18 @@ function gitSimulation(
       return success(`${local.get(name) ?? ""}\n`);
     }
     if (arguments_[0] === "ls-remote") {
+      remoteReads += 1;
+      if (remoteReads > 1 && changes.postPushReadFailure === "transport") {
+        return { exitCode: 1, stdout: "", stderr: "connection reset" };
+      }
+      const missingRef =
+        remoteReads > 1 && changes.postPushReadFailure === "missing"
+          ? `refs/heads/${request.branches[0]!.name}`
+          : undefined;
       return success(
         arguments_
           .slice(3)
+          .filter((ref) => ref !== missingRef)
           .map((ref) => {
             const name = ref.replace(/^refs\/heads\//, "");
             return `${remote.get(name) ?? ""}\t${ref}`;
