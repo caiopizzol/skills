@@ -117,6 +117,21 @@ describe("review thread reconciliation", () => {
     expect(simulation.mutations).toEqual(["reply", "reaction", "resolution"]);
   });
 
+  it("returns indeterminate when the authenticated account changes during mutation", async () => {
+    const simulation = await githubSimulation({ switchActorAfterResolution: true });
+
+    const result = await resolveGitHubPullRequestThread(await request(), {
+      runner: simulation.runner,
+    });
+
+    expect(result).toEqual({
+      outcome: "indeterminate",
+      error:
+        "Resolution state is unknown after mutation attempt: Authenticated GitHub user is other-actor, expected fixture-actor",
+      steps: { reply: "applied", reaction: "applied", resolution: "pending" },
+    });
+  });
+
   it("reports confirmed partial state instead of hiding a later provider failure", async () => {
     const simulation = await githubSimulation({ failReactionBeforeApply: true });
 
@@ -202,6 +217,7 @@ async function githubSimulation(
     resolved?: boolean;
     failReplyAfterApply?: boolean;
     failReactionBeforeApply?: boolean;
+    switchActorAfterResolution?: boolean;
   } = {},
 ): Promise<Simulation> {
   const provider = structuredClone(await fixture<Record<string, unknown>>("unresolved.json"));
@@ -251,6 +267,9 @@ async function githubSimulation(
     if (query.includes("ResolveReviewThread")) {
       mutations.push("resolution");
       node.isResolved = true;
+      if (initial.switchActorAfterResolution) {
+        (data.viewer as Record<string, unknown>).login = "other-actor";
+      }
       return { data: {} };
     }
     throw new Error(`Unexpected fixture route: ${arguments_.join(" ")}`);
