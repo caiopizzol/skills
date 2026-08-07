@@ -1,0 +1,4 @@
+interface:
+  display_name: "Push PR Stack"
+  short_description: "Push a rewritten PR Stack safely"
+  default_prompt: "Use $push-pr-stack to push these rebased pull request Stack branches safely without overwriting remote changes."

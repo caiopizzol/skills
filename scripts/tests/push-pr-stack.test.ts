@@ -7,15 +7,15 @@ import {
   pushGitHubStackAtomically,
   type AtomicPushRequest,
   type GitRunner,
-} from "../../skills/development/push-gh-stack-atomically/scripts/push.ts";
+} from "../../skills/development/push-pr-stack/scripts/push.ts";
 
-const FIXTURES = join(import.meta.dir, "fixtures", "push-gh-stack-atomically");
+const FIXTURES = join(import.meta.dir, "fixtures", "push-pr-stack");
 
 interface FixtureManifest {
   fixtures: Array<{ file: string; sha256: string; property: string }>;
 }
 
-describe("push-gh-stack-atomically fixtures", () => {
+describe("push-pr-stack fixtures", () => {
   it("retains the recorded bytes for every Git state", async () => {
     const manifest = await fixture<FixtureManifest>("manifest.json");
     for (const entry of manifest.fixtures) {

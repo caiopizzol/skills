@@ -67,9 +67,9 @@ Start with a composite for an end-to-end outcome, or choose a focused skill for 
 
 ### Development
 
-| Skill                                                                              | Type    | Purpose                                             |
-| ---------------------------------------------------------------------------------- | ------- | --------------------------------------------------- |
-| [`push-gh-stack-atomically`](skills/development/push-gh-stack-atomically/SKILL.md) | Focused | Publish rewritten Stack branches with atomic leases |
+| Skill                                                        | Type    | Purpose                                           |
+| ------------------------------------------------------------ | ------- | ------------------------------------------------- |
+| [`push-pr-stack`](skills/development/push-pr-stack/SKILL.md) | Focused | Push rewritten pull request Stack branches safely |
 
 ### Files
 

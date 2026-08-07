@@ -1,3 +1,4 @@
+/** Publish an existing pull request Stack as one lease-guarded Git update. */
 export type AtomicPushOutcome =
   | "ok"
   | "tool-unavailable"

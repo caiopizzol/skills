@@ -1,9 +1,9 @@
 ---
-name: push-gh-stack-atomically
-description: Publish rewritten branches of an existing GitHub PR Stack in one lease-guarded atomic Git push. Use after local Stack rebases when every affected branch already exists remotely and the caller has exact pre-change remote and post-change local SHAs. Do not use to create branches, PRs, or Stack membership.
+name: push-pr-stack
+description: Push rewritten branches of an existing GitHub PR Stack safely as one lease-guarded atomic update. Use after local Stack rebases when every affected branch already exists remotely and the caller has exact pre-change remote and post-change local SHAs. Do not use to create branches, pull requests, or Stack membership.
 ---
 
-# Push a GitHub Stack atomically
+# Push a pull request Stack
 
 Require one remote and an explicit lease for every branch being updated. A lease contains the branch
 name, the exact local commit to publish, and the remote commit observed before local mutation. Never
