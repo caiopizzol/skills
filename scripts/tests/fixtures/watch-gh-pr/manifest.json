@@ -17,8 +17,8 @@
     },
     {
       "file": "pr-7.json",
-      "sha256": "a6a3feabd7d81568a99e5afbe84afbb8efa74db1415af733193b1ea358144dba",
-      "property": "ready lower layer with both GitHub check shapes"
+      "sha256": "90f005a4ef8ba9ccdf6d9e24aae3ae3ab576d119b48f75b5840ef3ecab16c69d",
+      "property": "ready lower layer with current, superseded, and status checks"
     },
     {
       "file": "pr-8.json",

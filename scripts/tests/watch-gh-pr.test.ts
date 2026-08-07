@@ -61,6 +61,13 @@ describe("GitHub pull request snapshots", () => {
       7, 8, 9,
     ]);
     expect(result.snapshot.pullRequests[0]?.checks.map((check) => check.name)).toEqual(["z", "ä"]);
+    expect(result.snapshot.pullRequests[0]?.checks.at(-1)?.conclusion).toBe("SUCCESS");
+    expect(
+      result.snapshot.pullRequests[0]?.supersededChecks.map((check) => [
+        check.name,
+        check.conclusion,
+      ]),
+    ).toEqual([["ä", "CANCELLED"]]);
     expect(result.snapshot.pullRequests[2]?.draft).toBe(true);
     expect(result.snapshot.pullRequests[2]?.autoMergeEnabled).toBe(true);
   });

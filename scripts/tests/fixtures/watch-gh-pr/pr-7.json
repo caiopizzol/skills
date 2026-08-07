@@ -20,7 +20,19 @@
       "workflowName": "checks",
       "status": "COMPLETED",
       "conclusion": "SUCCESS",
-      "detailsUrl": "https://github.com/fixture-owner/fixture-repository/actions/runs/2"
+      "detailsUrl": "https://github.com/fixture-owner/fixture-repository/actions/runs/2",
+      "startedAt": "2026-08-01T12:00:00Z",
+      "completedAt": "2026-08-01T12:01:00Z"
+    },
+    {
+      "__typename": "CheckRun",
+      "name": "ä",
+      "workflowName": "checks",
+      "status": "COMPLETED",
+      "conclusion": "CANCELLED",
+      "detailsUrl": "https://github.com/fixture-owner/fixture-repository/actions/runs/1",
+      "startedAt": "2026-08-01T12:00:00Z",
+      "completedAt": "2026-08-01T12:02:00Z"
     },
     {
       "__typename": "StatusContext",

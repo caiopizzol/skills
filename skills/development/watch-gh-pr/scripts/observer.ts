@@ -21,6 +21,8 @@ export interface CheckSnapshot {
   status: string;
   conclusion: string | null;
   url: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
 }
 
 export interface PullRequestSnapshot {
@@ -37,10 +39,11 @@ export interface PullRequestSnapshot {
   autoMergeEnabled: boolean;
   updatedAt: string;
   checks: CheckSnapshot[];
+  supersededChecks: CheckSnapshot[];
 }
 
 export interface PullRequestWatchSnapshot {
-  schemaVersion: "1.0";
+  schemaVersion: "1.1";
   requested: GitHubPullRequestLocator;
   authenticatedAccount: string;
   scope:
@@ -185,7 +188,7 @@ export async function observeGitHubPullRequest(
     return {
       outcome: "ok",
       snapshot: {
-        schemaVersion: "1.0",
+        schemaVersion: "1.1",
         requested,
         authenticatedAccount,
         scope,
@@ -223,6 +226,7 @@ function normalizePullRequest(
       "GitHub returned a pull request from another repository",
     );
   }
+  const normalizedChecks = normalizeChecks(raw.statusCheckRollup);
   return {
     number,
     url: resolved.canonicalUrl,
@@ -242,11 +246,15 @@ function normalizePullRequest(
     reviewDecision: optionalString(raw.reviewDecision, "pull request review decision"),
     autoMergeEnabled: raw.autoMergeRequest !== null && raw.autoMergeRequest !== undefined,
     updatedAt: requiredString(raw.updatedAt, "pull request update time"),
-    checks: normalizeChecks(raw.statusCheckRollup),
+    checks: normalizedChecks.current,
+    supersededChecks: normalizedChecks.superseded,
   };
 }
 
-function normalizeChecks(input: unknown): CheckSnapshot[] {
+function normalizeChecks(input: unknown): {
+  current: CheckSnapshot[];
+  superseded: CheckSnapshot[];
+} {
   const checks = array(input, "pull request check rollup").map((entry, index) => {
     const raw = record(entry, `pull request check ${index + 1}`);
     const type = requiredString(raw.__typename, "pull request check type");
@@ -258,6 +266,8 @@ function normalizeChecks(input: unknown): CheckSnapshot[] {
         status: requiredString(raw.status, "check run status"),
         conclusion: optionalString(raw.conclusion, "check run conclusion"),
         url: optionalString(raw.detailsUrl, "check run URL"),
+        startedAt: optionalString(raw.startedAt, "check run start time"),
+        completedAt: optionalString(raw.completedAt, "check run completion time"),
       };
     }
     if (type === "StatusContext") {
@@ -268,16 +278,69 @@ function normalizeChecks(input: unknown): CheckSnapshot[] {
         status: requiredString(raw.state, "status context state"),
         conclusion: null,
         url: optionalString(raw.targetUrl, "status context URL"),
+        startedAt: null,
+        completedAt: null,
       };
     }
     throw new WatchFailure("provider-error", `Unsupported GitHub check type: ${type}`);
   });
+  const current: CheckSnapshot[] = [];
+  const superseded: CheckSnapshot[] = [];
+  const runsByIdentity = new Map<string, CheckSnapshot[]>();
+  for (const check of checks) {
+    if (check.type === "status-context") {
+      current.push(check);
+      continue;
+    }
+    const identity = [check.workflow ?? "", check.name].join("\0");
+    const group = runsByIdentity.get(identity) ?? [];
+    group.push(check);
+    runsByIdentity.set(identity, group);
+  }
+  for (const group of runsByIdentity.values()) {
+    group.sort(compareCheckRecency);
+    const latest = group.pop();
+    if (latest) current.push(latest);
+    superseded.push(...group);
+  }
+  return {
+    current: sortChecks(current),
+    superseded: sortChecks(superseded),
+  };
+}
+
+function sortChecks(checks: CheckSnapshot[]): CheckSnapshot[] {
   return checks.sort((left, right) =>
     compareCodeUnits(
       [left.name, left.workflow ?? "", left.type, left.url ?? ""].join("\0"),
       [right.name, right.workflow ?? "", right.type, right.url ?? ""].join("\0"),
     ),
   );
+}
+
+function compareCheckRecency(left: CheckSnapshot, right: CheckSnapshot): number {
+  const started = compareCodeUnits(left.startedAt ?? "", right.startedAt ?? "");
+  if (started !== 0) return started;
+  const sequence = compareNumericStrings(
+    githubActionsRunSequence(left.url),
+    githubActionsRunSequence(right.url),
+  );
+  if (sequence !== 0) return sequence;
+  return compareCodeUnits(
+    [left.completedAt ?? "", left.url ?? ""].join("\0"),
+    [right.completedAt ?? "", right.url ?? ""].join("\0"),
+  );
+}
+
+function githubActionsRunSequence(url: string | null): string {
+  return (
+    url?.match(/^https:\/\/github\.com\/[^/]+\/[^/]+\/actions\/runs\/([1-9]\d*)(?:\/|$)/)?.[1] ?? ""
+  );
+}
+
+function compareNumericStrings(left: string, right: string): number {
+  if (left.length !== right.length) return left.length < right.length ? -1 : 1;
+  return compareCodeUnits(left, right);
 }
 
 function compareCodeUnits(left: string, right: string): number {

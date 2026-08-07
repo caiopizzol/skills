@@ -44,7 +44,9 @@ metadata may have changed. This minimal skill does not retrieve or interpret tha
 - Source identity: canonical PR URL, repository, requested number, and authenticated GitHub account.
 - Scope: one pull request or the managed Stack number and trunk.
 - State: ordered PRs with exact base and head SHAs, draft and merge state, review decision, auto-merge
-  presence, normalized checks, and provider update time.
+  presence, normalized current checks, superseded duplicate check runs, and provider update time. Treat
+  workflow plus check name as one logical check and retain only its most recently started run as current,
+  using the GitHub Actions run sequence when start times tie.
 - Change: fields that differ from the previous snapshot, or an explicit unchanged result.
 - Gaps: conversations, review threads, approvals by actor, branch-protection evaluation, and semantic
   readiness are not inspected in this version.
