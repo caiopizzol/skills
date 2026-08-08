@@ -36,8 +36,9 @@ upper branches, runs the relevant checks, verifies `gh stack view --json`, and u
 the recorded remote heads. Read back the new map and reactivate every affected upper owner; lower changes
 invalidate upper assessments.
 
-If rewritten history leaves Cubic absent or neutral, and no equivalent request or successful check exists,
-post `@cubic-dev-ai review this PR after the Stack rebase.` once and read back the request and result.
+If rewritten history leaves a configured reviewer absent or neutral, use its repository-configured rerun
+command when available and no equivalent request or successful check exists. Never guess a command;
+return a human decision when one is required but unavailable. Read back the request and result.
 
 ## Feedback
 
