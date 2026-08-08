@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.5.0](https://github.com/caiopizzol/skills/compare/v0.4.0...v0.5.0) (2026-08-08)
+
+
+### Features
+
+* **development:** monitor PRs to ready ([#65](https://github.com/caiopizzol/skills/issues/65)) ([ae06351](https://github.com/caiopizzol/skills/commit/ae06351ec989e3f916104886a2c4187ca800d1e4))
+* **development:** push PR Stacks safely ([#61](https://github.com/caiopizzol/skills/issues/61)) ([ada9207](https://github.com/caiopizzol/skills/commit/ada9207cb9d9c789620eaf94a23a97410b8e7501))
+* **development:** resolve PR review threads ([#62](https://github.com/caiopizzol/skills/issues/62)) ([ac10164](https://github.com/caiopizzol/skills/commit/ac101646a77abc6a6993dc6da7186bf238e63bc9))
+* **read-linear-issue:** follow configured provider context ([#68](https://github.com/caiopizzol/skills/issues/68)) ([69fd643](https://github.com/caiopizzol/skills/commit/69fd643c59fd71de5cafec4f6bd91c08f3d1d895))
+
 ## [0.4.0](https://github.com/caiopizzol/skills/compare/v0.3.0...v0.4.0) (2026-08-05)
 
 
