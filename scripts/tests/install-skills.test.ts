@@ -499,4 +499,28 @@ describe("this repository's own catalog", () => {
       "transcribe-audio",
     ]);
   });
+
+  it("installs monitor-pr with its complete operating closure", async () => {
+    const destination = join(await scratch(), "skills");
+
+    const run = await installFrom(
+      resolve(import.meta.dirname, "..", ".."),
+      destination,
+      "monitor-pr",
+    );
+
+    expect(run.exitCode).toBe(0);
+    expect((await readdir(destination)).sort()).toEqual([
+      "monitor-pr",
+      "push-pr-stack",
+      "read-github-issue",
+      "read-github-pr",
+      "read-github-resource",
+      "read-image",
+      "read-text-file",
+      "read-video",
+      "resolve-pr-thread",
+      "transcribe-audio",
+    ]);
+  });
 });

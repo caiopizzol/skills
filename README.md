@@ -67,10 +67,11 @@ Start with a composite for an end-to-end outcome, or choose a focused skill for 
 
 ### Development
 
-| Skill                                                                | Type    | Purpose                                           |
-| -------------------------------------------------------------------- | ------- | ------------------------------------------------- |
-| [`push-pr-stack`](skills/development/push-pr-stack/SKILL.md)         | Focused | Push rewritten pull request Stack branches safely |
-| [`resolve-pr-thread`](skills/development/resolve-pr-thread/SKILL.md) | Focused | Close one validated PR review conversation        |
+| Skill                                                                | Type      | Purpose                                           |
+| -------------------------------------------------------------------- | --------- | ------------------------------------------------- |
+| [`monitor-pr`](skills/development/monitor-pr/SKILL.md)               | Composite | Take a PR or Stack through checks and review      |
+| [`push-pr-stack`](skills/development/push-pr-stack/SKILL.md)         | Focused   | Push rewritten pull request Stack branches safely |
+| [`resolve-pr-thread`](skills/development/resolve-pr-thread/SKILL.md) | Focused   | Close one validated PR review conversation        |
 
 ### Files
 

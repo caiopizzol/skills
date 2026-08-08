@@ -1,0 +1,44 @@
+{
+  "number": 7,
+  "url": "https://github.com/fixture-owner/fixture-repository/pull/7",
+  "title": "Foundation layer",
+  "state": "OPEN",
+  "isDraft": false,
+  "baseRefName": "main",
+  "baseRefOid": "1111111111111111111111111111111111111111",
+  "headRefName": "feature/foundation",
+  "headRefOid": "2222222222222222222222222222222222222222",
+  "mergeable": "MERGEABLE",
+  "mergeStateStatus": "CLEAN",
+  "reviewDecision": "APPROVED",
+  "autoMergeRequest": null,
+  "updatedAt": "2026-08-01T12:00:00Z",
+  "statusCheckRollup": [
+    {
+      "__typename": "CheckRun",
+      "name": "ä",
+      "workflowName": "checks",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/fixture-owner/fixture-repository/actions/runs/2",
+      "startedAt": "2026-08-01T12:00:00Z",
+      "completedAt": "2026-08-01T12:01:00Z"
+    },
+    {
+      "__typename": "CheckRun",
+      "name": "ä",
+      "workflowName": "checks",
+      "status": "COMPLETED",
+      "conclusion": "CANCELLED",
+      "detailsUrl": "https://github.com/fixture-owner/fixture-repository/actions/runs/1",
+      "startedAt": "2026-08-01T12:00:00Z",
+      "completedAt": "2026-08-01T12:02:00Z"
+    },
+    {
+      "__typename": "StatusContext",
+      "context": "z",
+      "state": "SUCCESS",
+      "targetUrl": "https://example.invalid/status/1"
+    }
+  ]
+}
