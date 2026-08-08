@@ -14,5 +14,5 @@ reactions, and resolutions. A requested dry run changes nothing.
 Read [the workflow](references/workflow.md) before acting.
 
 Never merge, queue, enable auto-merge, dismiss feedback, or bypass requirements. Before every mutation,
-verify the expected actor and exact remote head; read the mutation back. Keep one owner per PR and
-serialize Stack publication.
+verify the expected actor and exact remote head; read the mutation back. Own a standalone PR directly;
+delegate one persistent owner per PR only for a Stack, and serialize Stack publication.

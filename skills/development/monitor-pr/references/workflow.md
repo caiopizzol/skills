@@ -4,11 +4,12 @@
 
 1. Run `bun --no-env-file <skill-directory>/scripts/snapshot.ts <pr-url>` and record the exact head of
    every scoped PR in bottom-to-top order.
-2. Give each PR one persistent owner. Spawn it with `fork_turns: "none"` and pass only its URL and head,
-   expected actor, reviewers and checks, worktree and artifacts paths, shared GitHub CLI configuration,
-   and this skill path. The owner reads repository instructions itself.
-3. For a standalone PR, let its owner publish directly. For a Stack, keep the coordinator limited to the
-   head map, publication order, and final result.
+2. For a standalone PR, make the invoking agent its owner and run the owner loop directly. Do not spawn a
+   sub-agent: there is no parallel work or publication coordination to isolate.
+3. For a Stack, give each PR one persistent owner. Spawn it with `fork_turns: "none"` and pass only its URL
+   and head, expected actor, reviewers and checks, worktree and artifacts paths, shared GitHub CLI
+   configuration, and this skill path. The owner reads repository instructions itself. Keep the
+   coordinator limited to the head map, publication order, and final result.
 
 If the expected writer is unavailable, stop before mutation. Before every mutation, verify the actor and
 remote head against the recorded lease; on drift, make no change. Read every mutation back.
