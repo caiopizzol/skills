@@ -1,0 +1,15 @@
+{
+  "remote": "origin",
+  "branches": [
+    {
+      "name": "feature/foundation",
+      "localSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "expectedRemoteSha": "1111111111111111111111111111111111111111"
+    },
+    {
+      "name": "feature/consumer",
+      "localSha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "expectedRemoteSha": "2222222222222222222222222222222222222222"
+    }
+  ]
+}

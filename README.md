@@ -65,6 +65,12 @@ Start with a composite for an end-to-end outcome, or choose a focused skill for 
 | [`read-linear-issue`](skills/context/read-linear-issue/SKILL.md)                 | Focused | Read one exact Linear issue and its relationships     |
 | [`read-slack-thread`](skills/context/read-slack-thread/SKILL.md)                 | Focused | Read one Slack thread and selected supported files    |
 
+### Development
+
+| Skill                                                        | Type    | Purpose                                           |
+| ------------------------------------------------------------ | ------- | ------------------------------------------------- |
+| [`push-pr-stack`](skills/development/push-pr-stack/SKILL.md) | Focused | Push rewritten pull request Stack branches safely |
+
 ### Files
 
 `read-image` does not teach the model to see. It makes that ability dependable for composition by
