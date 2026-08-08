@@ -1,0 +1,4 @@
+interface:
+  display_name: "Resolve PR Thread"
+  short_description: "Reply, react, and resolve one PR thread"
+  default_prompt: "Use $resolve-pr-thread to close this validated pull request review thread with evidence."

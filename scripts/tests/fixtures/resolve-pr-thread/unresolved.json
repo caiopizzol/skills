@@ -1,0 +1,45 @@
+{
+  "data": {
+    "viewer": {
+      "login": "fixture-actor"
+    },
+    "node": {
+      "__typename": "PullRequestReviewThread",
+      "id": "PRRT_fixture_thread_123",
+      "isResolved": false,
+      "pullRequest": {
+        "number": 8,
+        "url": "https://github.com/fixture-owner/fixture-repository/pull/8",
+        "headRefOid": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "state": "OPEN",
+        "repository": {
+          "nameWithOwner": "fixture-owner/fixture-repository"
+        }
+      },
+      "comments": {
+        "totalCount": 1,
+        "nodes": [
+          {
+            "id": "PRRC_fixture_root_456",
+            "databaseId": 456,
+            "body": "The parser accepts an invalid separator.",
+            "author": {
+              "login": "review-bot"
+            },
+            "replyTo": null,
+            "reactionGroups": [
+              {
+                "content": "THUMBS_UP",
+                "viewerHasReacted": false
+              },
+              {
+                "content": "THUMBS_DOWN",
+                "viewerHasReacted": false
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}
