@@ -1,6 +1,6 @@
 ---
 name: read-image
-description: Inspect one exact local image file, including animations and safe SVGs, while preserving source identity, derivative provenance, frame coverage, and explicit gaps. Use for a local image path or when another skill delegates an image artifact.
+description: Inspect one exact local image file, including animations and safe SVGs, while preserving source identity, derivative provenance, frame coverage, and explicit gaps. Use for a local image path or when another skill delegates an image artifact. Do not use for image types the model can read and interpret directly with its default tools; reserve this skill for image types those tools cannot interpret.
 ---
 
 # Read an image
