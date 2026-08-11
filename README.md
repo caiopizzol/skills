@@ -128,6 +128,16 @@ access.
 Committed fixtures use generated shapes, text tokens, and audio rather than customer or user data. They
 are covered by this repository's MIT license.
 
+Compare skill descriptions against labeled routing cases with the real Codex catalog:
+
+```sh
+bun run eval:skill-routing -- evals/skill-routing/config-gh-repo.json --model gpt-5.6-sol
+```
+
+The runner replaces the evaluated workflows with marker-only temporary skills, so it can observe which
+skill Codex selects without running the workflow. Raw JSONL and the scored report are written to a
+temporary artifacts directory and are not part of the repository.
+
 ## Licensing
 
 Licensed under the [MIT License](LICENSE).

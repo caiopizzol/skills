@@ -1,0 +1,82 @@
+{
+  "name": "GitHub repository skill routing",
+  "target": "config-gh-repo",
+  "variants": [
+    {
+      "id": "core",
+      "description": "Configure or check GitHub repository settings."
+    },
+    {
+      "id": "positive",
+      "description": "Configure or check GitHub merge settings and pull request cleanup. Use for squash merging, auto-merge, branch updates, and deleting merged branches."
+    },
+    {
+      "id": "bounded",
+      "description": "Configure or check GitHub merge settings and pull request cleanup. Use for squash merging, auto-merge, branch updates, and deleting merged branches. Do not use for CI or branch protection."
+    },
+    {
+      "id": "intent-bounded",
+      "description": "Configure or check GitHub merge and pull-request settings: allowed merge methods, auto-merge, branch update suggestions, squash commit titles, merged-branch deletion, and explicit DCO web signoff. Use only when the user wants settings inspected or changed. Do not use for explanations, repository visibility or features, CI, or branch protection."
+    }
+  ],
+  "competitors": [
+    {
+      "name": "create-gh-repo",
+      "description": "Create a GitHub repository from an existing local Git repository, or check whether one is connected. Do not use for CI or merge protection."
+    },
+    {
+      "name": "setup-gh-checks",
+      "description": "Add, update, or check a small GitHub Actions workflow that runs the repository's existing check command. Do not use for merge protection."
+    },
+    {
+      "name": "protect-gh-repo",
+      "description": "Protect or check a GitHub default branch using checks and reviews already seen on real pull requests. Use only after CI and review tools have run successfully."
+    },
+    {
+      "name": "setup-gh-repo",
+      "description": "Set up or check a GitHub repository's merge settings, CI, Cubic review, and branch protection. Use a child skill when only one area is needed."
+    }
+  ],
+  "cases": [
+    {
+      "id": "squash-title",
+      "prompt": "Use each pull request title as its squash commit title and leave the commit body empty.",
+      "expected": "config-gh-repo"
+    },
+    {
+      "id": "branch-update-suggestions",
+      "prompt": "Let contributors update a pull request branch when it falls behind its base branch.",
+      "expected": "config-gh-repo"
+    },
+    {
+      "id": "dco-signoff",
+      "prompt": "Our project adopted a DCO. Require contributors editing files in GitHub's web UI to sign off their commits.",
+      "expected": "config-gh-repo"
+    },
+    {
+      "id": "squash-only-indirect",
+      "prompt": "Keep merge commits and rebase merges disabled so pull requests can land only as one commit.",
+      "expected": "config-gh-repo"
+    },
+    {
+      "id": "enable-community-features",
+      "prompt": "Enable GitHub Discussions and the wiki for this repository.",
+      "expected": null
+    },
+    {
+      "id": "change-visibility",
+      "prompt": "Change this GitHub repository from private to public.",
+      "expected": null
+    },
+    {
+      "id": "explain-auto-merge",
+      "prompt": "Explain how GitHub auto-merge works. Do not inspect or change a repository.",
+      "expected": null
+    },
+    {
+      "id": "require-reviews-and-ci",
+      "prompt": "Require two approving reviews and a successful CI check before main can be merged.",
+      "expected": "protect-gh-repo"
+    }
+  ]
+}
