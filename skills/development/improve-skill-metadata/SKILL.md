@@ -1,6 +1,6 @@
 ---
 name: improve-skill-metadata
-description: Test and improve a skill's name and description using real Codex routing results. Use when a skill activates for the wrong requests, misses requests it should handle, or when deciding whether to rename it. Do not use to rewrite the skill body or test how its workflow runs.
+description: Test and improve a skill's name and description with real Codex routing results. Use when a skill activates for the wrong requests, misses requests it should handle, or may need a new name. Do not use to rewrite the skill's steps or test what it does after activation.
 ---
 
 # Improve skill metadata
@@ -9,12 +9,12 @@ Use routing evidence instead of guessing.
 
 ## Test
 
-1. Read the target `SKILL.md`, its direct references, and the names and descriptions of its nearest
-   competing skills. Do not run their workflows.
-2. Read [the evaluation guide](references/evaluation.md). Write labeled test requests and a separate set of
-   unseen requests before writing metadata variants.
-3. Create the experiment JSON outside the repository. Keep the skill body fixed and test description
-   variants with the current name first.
+1. Read the target `SKILL.md`, its direct references, and the names and descriptions of the most similar
+   skills. Do not run any skill.
+2. Read [the evaluation guide](references/evaluation.md). Write test requests with their expected results.
+   Split them into working and unseen sets before drafting other names or descriptions.
+3. Create the experiment JSON outside the repository. Keep the skill body fixed. With the current name,
+   test different descriptions first.
 4. Run:
 
    ```sh
@@ -22,20 +22,20 @@ Use routing evidence instead of guessing.
      <experiment.json> --model <model> --repetitions 1
    ```
 
-5. Repeat every failure and close call at least twice. Keep evaluator failures separate from a valid result
-   where no skill was selected.
-6. Improve the description only when a result shows what it missed or confused. Test names only after the
-   description works, and keep that description fixed for every name.
+5. Repeat each failure and important boundary case at least twice. Keep `tool-unavailable`, `timeout`,
+   `runtime-error`, and `invalid-output` separate from a valid `none` result.
+6. Change the description only when a result shows a missed or wrong route. Test names only after the
+   description works. Keep that description fixed for every name.
 7. Test the winner against the unseen requests. Reject a change that fixes missed routes by adding false
    activations, or the reverse.
-8. Update only the metadata supported by the results. If the name changes, update the folder, skill
+8. Change only the name or description supported by the results. If the name changes, update the folder,
    references, catalog links, and `agents/openai.yaml`. Run the repository's full check.
 9. Report the model, Codex version, cases, repetitions, results, gaps, and artifacts directory. Do not commit
    raw run output.
 
 ## Rules
 
-- Score exact markers. Do not use an LLM to judge the result.
-- Measure routing only. Never run the production workflow during the test.
+- Score the fixed labels exactly. Do not ask another model to judge the result.
+- Test only which skill activates. Never run the production workflow during the test.
 - Do not turn one result into a general rule.
 - Do not add details to the description unless a routing failure shows they are needed.

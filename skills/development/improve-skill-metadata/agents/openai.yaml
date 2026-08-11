@@ -1,4 +1,4 @@
 interface:
   display_name: "Improve Skill Metadata"
-  short_description: "Test and improve skill routing metadata"
+  short_description: "Test skill names and descriptions"
   default_prompt: "Use $improve-skill-metadata to test and improve this skill's name and description."

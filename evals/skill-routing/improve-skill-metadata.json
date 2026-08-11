@@ -4,7 +4,7 @@
   "variants": [
     {
       "id": "candidate",
-      "description": "Test and improve a skill's name and description using real Codex routing results. Use when a skill activates for the wrong requests, misses requests it should handle, or when deciding whether to rename it. Do not use to rewrite the skill body or test how its workflow runs."
+      "description": "Test and improve a skill's name and description with real Codex routing results. Use when a skill activates for the wrong requests, misses requests it should handle, or may need a new name. Do not use to rewrite the skill's steps or test what it does after activation."
     }
   ],
   "competitors": [

@@ -2,27 +2,27 @@
 
 ## Write test cases
 
-Label each request with the skill that should handle it, or `null` when none of the evaluated skills should
-activate. Include the nearest real competitors so the test can expose confusion.
+For each request, set `expected` to the skill that should handle it. Use `null` when none of the tested
+skills should activate. Include the most similar skills so the test can find routing mistakes.
 
-Cover the request shapes that matter for the target:
+Include these requests when they matter:
 
-- direct requests;
-- paraphrases and indirect requests;
-- incomplete requests that should still start the workflow;
-- requests owned by a competing skill;
-- explanation-only requests that use similar words;
-- unsupported work on the same product or file;
-- other languages, shorthand, or typos when users commonly use them;
-- important false activations.
+- Direct requests
+- Paraphrases and indirect requests
+- Incomplete requests that should still start the workflow
+- Requests owned by a similar skill
+- Explanation-only requests that use similar words
+- Unsupported work on the same product or file
+- Common translations, shorthand, and typos
+- Likely false activations not covered above
 
-Keep working and unseen cases separate. Write the unseen cases before reading variant results when possible.
-Remove ambiguous cases instead of forcing one expected route.
+Use two sets. Use the working set to improve the metadata. Keep the unseen set for the final check. Write
+both before reading any results when possible. Remove ambiguous cases instead of forcing one expected route.
 
 ## Create the experiment
 
-`target` is the result label for the skill being tested. A variant may provide another `name`; the evaluator
-maps its marker back to `target` when scoring.
+`target` is the result label for the skill being tested. A variant can use another `name`. The evaluator
+still reports it as `target`, so name variants can be compared.
 
 ```json
 {
@@ -72,8 +72,8 @@ bun --no-env-file <skill-directory>/scripts/evaluate.ts \
   [--variant ID] [--case ID] [--timeout-ms N] [--artifacts-dir PATH]
 ```
 
-The evaluator replaces each skill body with a fixed label, verifies the catalog, and runs Codex in a
-read-only sandbox. It writes JSONL and `report.json` outside the repository by default.
+The evaluator replaces each skill body with a fixed label. It checks the catalog, runs Codex in a read-only
+sandbox, and writes JSONL and `report.json` outside the repository.
 
 ## Compare variants
 
@@ -82,10 +82,10 @@ Test descriptions with the current name first:
 1. Current description.
 2. Core job only.
 3. Core job plus the requests it should handle.
-4. The prior version plus boundaries for observed false activations.
+4. The prior version plus wording that prevents false activations seen in earlier results.
 
-Test names only after one description works. Use the same description with the current name, useful
-candidates, and one vague control.
+Test names only after one description works. Keep that description fixed. Compare the current name, useful
+candidates, and one intentionally vague name. The vague name shows how much the description affects routing.
 
 Compare correct routes, missed target routes, false target routes, and where wrong requests went. Repeat
 failures before drawing a conclusion, then run the winner against the unseen cases.
