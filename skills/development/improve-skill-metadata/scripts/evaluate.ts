@@ -1,6 +1,4 @@
-// Runs metadata variants through the real Codex skill-routing surface while replacing each workflow
-// body with an inert marker. The marker separates routing from execution: a selected skill identifies
-// itself, and no production workflow can run during this experiment.
+// Replace skill bodies with fixed labels so the experiment measures routing without running them.
 
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";

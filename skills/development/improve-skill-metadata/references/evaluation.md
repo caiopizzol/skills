@@ -1,34 +1,32 @@
-# Routing evaluation design
+# Evaluate skill routing
 
-## Build the dataset
+## Write test cases
 
-Write the routing contract from the workflow body before proposing metadata. A case labels the skill
-that should handle the request, or `null` when no evaluated skill should activate. Use the nearest real
-competitors; an isolated target cannot reveal confusion.
+Label each request with the skill that should handle it, or `null` when none of the evaluated skills should
+activate. Include the nearest real competitors so the test can expose confusion.
 
-Cover these request shapes:
+Cover the request shapes that matter for the target:
 
-- direct goals using expected vocabulary;
-- indirect goals and paraphrases;
-- incomplete inputs that should still enter the workflow and request missing information;
-- adjacent goals owned by competitors;
-- explanation-only requests mentioning trigger terms;
-- unsupported operations on the same product or artifact;
-- another language, shorthand, or typos when users employ them;
-- high-risk false positives even when they are uncommon.
+- direct requests;
+- paraphrases and indirect requests;
+- incomplete requests that should still start the workflow;
+- requests owned by a competing skill;
+- explanation-only requests that use similar words;
+- unsupported work on the same product or file;
+- other languages, shorthand, or typos when users commonly use them;
+- important false activations.
 
-Keep development and holdout prompts separate. Author the holdout before reading candidate results when
-possible. Ambiguous prompts need an accepted set of routes or exclusion from exact accuracy; forcing one
-label produces noisy evidence.
+Keep working and unseen cases separate. Write the unseen cases before reading variant results when possible.
+Remove ambiguous cases instead of forcing one expected route.
 
-## Experiment JSON
+## Create the experiment
 
-The target is a logical result label. A variant's optional `name` is the frontmatter name Codex sees;
-the evaluator normalizes its marker back to `target` for comparison.
+`target` is the result label for the skill being tested. A variant may provide another `name`; the evaluator
+maps its marker back to `target` when scoring.
 
 ```json
 {
-  "name": "Example routing experiment",
+  "name": "Widget routing",
   "target": "configure-widget",
   "variants": [
     {
@@ -36,26 +34,25 @@ the evaluator normalizes its marker back to `target` for comparison.
       "description": "Configure widget settings."
     },
     {
-      "id": "renamed-bounded",
-      "name": "configure-widget-policy",
-      "description": "Configure widget policy when the user wants settings inspected or changed. Do not use for explanations."
+      "id": "bounded",
+      "description": "Configure widget settings when the user wants them checked or changed. Do not use for explanations."
     }
   ],
   "competitors": [
     {
       "name": "explain-widget",
-      "description": "Explain widget concepts without inspecting or changing settings."
+      "description": "Explain widget settings without checking or changing them."
     }
   ],
   "cases": [
     {
-      "id": "change-policy",
-      "prompt": "Turn on the strict widget policy.",
+      "id": "change-setting",
+      "prompt": "Turn on strict mode.",
       "expected": "configure-widget"
     },
     {
-      "id": "explain-policy",
-      "prompt": "Why would I use the strict widget policy?",
+      "id": "explain-setting",
+      "prompt": "Why would I use strict mode?",
       "expected": "explain-widget"
     },
     {
@@ -67,7 +64,7 @@ the evaluator normalizes its marker back to `target` for comparison.
 }
 ```
 
-Run from any checkout with Bun and an authenticated Codex CLI:
+## Run the evaluator
 
 ```sh
 bun --no-env-file <skill-directory>/scripts/evaluate.ts \
@@ -75,40 +72,20 @@ bun --no-env-file <skill-directory>/scripts/evaluate.ts \
   [--variant ID] [--case ID] [--timeout-ms N] [--artifacts-dir PATH]
 ```
 
-The evaluator creates immutable temporary skills whose bodies only return markers. It disables installed
-copies of evaluated names, verifies the effective catalog before spending a model call, runs Codex with a
-read-only sandbox, and writes JSONL plus `report.json` outside the repository by default.
+The evaluator replaces each skill body with a fixed label, verifies the catalog, and runs Codex in a
+read-only sandbox. It writes JSONL and `report.json` outside the repository by default.
 
 ## Compare variants
 
-Start with description ablations while keeping the name fixed:
+Test descriptions with the current name first:
 
-1. Current metadata.
+1. Current description.
 2. Core job only.
-3. Core job plus user goals and common trigger language.
-4. The prior variant plus boundaries against observed false activations.
+3. Core job plus the requests it should handle.
+4. The prior version plus boundaries for observed false activations.
 
-Only test names after finding a viable description. Cross at least these names with the same description:
+Test names only after one description works. Use the same description with the current name, useful
+candidates, and one vague control.
 
-- current name;
-- short verb-led candidate;
-- more explicit candidate when it adds real disambiguation;
-- vague control to measure how much the description carries.
-
-Compare exact accuracy, target recall, target false activations, and the full misroute destination. Repeat
-failures: routing is stochastic, so one pass is discovery evidence rather than a conclusion.
-
-## Evidence established so far
-
-The first repository experiment found these provisional patterns on GPT-5.6 Sol with Codex CLI 0.147.0:
-
-- easy prompts let a strong existing name and clear competitors mask description differences;
-- a broad description over-triggered on unrelated settings regardless of whether the name was concise,
-  explicit, or vague;
-- an intent-bounded description prevented those false activations across all tested names;
-- a longer explicit name did not repair the broad description or outperform the existing concise name;
-- a vague name introduced one additional competitor confusion with the broad description, but that single
-  event did not repeat consistently.
-
-Treat these as starting hypotheses, not universal rules. Re-run against the target catalog, model, and
-runtime instead of copying the winning wording.
+Compare correct routes, missed target routes, false target routes, and where wrong requests went. Repeat
+failures before drawing a conclusion, then run the winner against the unseen cases.

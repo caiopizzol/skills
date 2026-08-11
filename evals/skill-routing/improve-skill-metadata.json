@@ -4,7 +4,7 @@
   "variants": [
     {
       "id": "candidate",
-      "description": "Evaluate and improve a skill's frontmatter name and description with labeled implicit-routing trials against the real Codex catalog. Use when diagnosing missed or false skill activation, comparing metadata variants, testing a proposed rename, or rewriting routing metadata from evidence. Do not use to revise the skill body or judge workflow execution."
+      "description": "Test and improve a skill's name and description using real Codex routing results. Use when a skill activates for the wrong requests, misses requests it should handle, or when deciding whether to rename it. Do not use to rewrite the skill body or test how its workflow runs."
     }
   ],
   "competitors": [
