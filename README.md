@@ -1,6 +1,6 @@
 # Skills
 
-Composable agent skills for inspecting files and setting up repositories.
+Agent skills for common developer workflows.
 
 [![Release](https://img.shields.io/github/v/release/caiopizzol/skills)](https://github.com/caiopizzol/skills/releases/latest)
 [![Checks](https://github.com/caiopizzol/skills/actions/workflows/check.yml/badge.svg)](https://github.com/caiopizzol/skills/actions/workflows/check.yml)
@@ -72,6 +72,13 @@ Start with a composite for an end-to-end outcome, or choose a focused skill for 
 | [`monitor-pr`](skills/development/monitor-pr/SKILL.md)               | Composite | Take a PR or Stack through checks and review      |
 | [`push-pr-stack`](skills/development/push-pr-stack/SKILL.md)         | Focused   | Push rewritten pull request Stack branches safely |
 | [`resolve-pr-thread`](skills/development/resolve-pr-thread/SKILL.md) | Focused   | Close one validated PR review conversation        |
+
+### DX
+
+| Skill                                                 | Type    | Purpose                                         |
+| ----------------------------------------------------- | ------- | ----------------------------------------------- |
+| [`build-testable`](skills/dx/build-testable/SKILL.md) | Focused | Build the smallest version that can be verified |
+| [`write-clearly`](skills/dx/write-clearly/SKILL.md)   | Focused | Make developer-facing writing clear and concise |
 
 ### Files
 

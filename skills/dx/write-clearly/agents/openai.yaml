@@ -1,0 +1,4 @@
+interface:
+  display_name: "Write Clearly"
+  short_description: "Make developer-facing writing clear and concise"
+  default_prompt: "Use $write-clearly to write or revise this developer-facing text."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Build Testable"
+  short_description: "Build the smallest version that can be verified"
+  default_prompt: "Use $build-testable to build the smallest working version we can verify."
