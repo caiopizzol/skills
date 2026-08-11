@@ -1,5 +1,5 @@
 ---
-name: improve-skill-metadata
+name: improve-skill
 description: Test and improve a skill's name and description with real Codex routing results. Use when a skill activates for the wrong requests, misses requests it should handle, or may need a new name. Do not use to rewrite the skill's steps or test what it does after activation.
 ---
 

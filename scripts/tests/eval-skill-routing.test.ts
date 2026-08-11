@@ -6,7 +6,7 @@ import {
   renderProbeSkill,
   scoreRuns,
   type RoutingRun,
-} from "../../skills/development/improve-skill-metadata/scripts/evaluate.ts";
+} from "../../skills/development/improve-skill/scripts/evaluate.ts";
 
 function output(response: string, overrides: { exitCode?: number; timedOut?: boolean } = {}) {
   return {

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Improve Skill"
+  short_description: "Test skill names and descriptions"
+  default_prompt: "Use $improve-skill to test and improve this skill's name and description."

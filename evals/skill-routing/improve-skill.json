@@ -1,6 +1,6 @@
 {
   "name": "Skill metadata improvement routing",
-  "target": "improve-skill-metadata",
+  "target": "improve-skill",
   "variants": [
     {
       "id": "candidate",
@@ -21,22 +21,22 @@
     {
       "id": "false-activation",
       "prompt": "This skill keeps firing when users only ask for an explanation. Evaluate its routing and improve the description.",
-      "expected": "improve-skill-metadata"
+      "expected": "improve-skill"
     },
     {
       "id": "missed-paraphrase",
       "prompt": "Codex is not picking up my skill when people paraphrase the request. Test a few metadata variants.",
-      "expected": "improve-skill-metadata"
+      "expected": "improve-skill"
     },
     {
       "id": "compare-names",
       "prompt": "Compare config-gh-repo and configure-github-merge-settings as names using actual routing trials.",
-      "expected": "improve-skill-metadata"
+      "expected": "improve-skill"
     },
     {
       "id": "rewrite-from-evidence",
       "prompt": "Use labeled activation failures to rewrite this SKILL.md name and description.",
-      "expected": "improve-skill-metadata"
+      "expected": "improve-skill"
     },
     {
       "id": "create-new-skill",
