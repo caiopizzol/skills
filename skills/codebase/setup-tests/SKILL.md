@@ -1,28 +1,27 @@
 ---
 name: setup-tests
-description: Set up, reconcile, or assess a repository's local testing foundation with its existing runner, deterministic tests, one root test command, and inclusion in the root check. Use when a single package or monorepo lacks a reliable automated test path, or to audit whether one exists.
+description: Set up or check local tests using the repository's existing test runner, one root test command, and the root check.
 ---
 
 # Set up tests
 
-Establish one reliable test path without choosing architecture the repository does not need.
+Create one reliable test path without adding layers the repository does not need.
 
-When the caller requests an assessment, report this capability as ready, gap, not-applicable, or
-unverified with the evidence for it, then stop before changing anything.
+For a check-only request, report `ready`, `gap`, `not-applicable`, or `unverified` with evidence. Do not
+change anything.
 
-## Workflow
+## Steps
 
-1. Inspect testable behavior, existing runners, configuration, scripts, and suites. Preserve the runner
-   and use the framework or toolchain's integrated runner when available.
-2. Add only required configuration and one non-watch root `test` command that runs every existing suite.
-   Include test files in the repository's type-checking path.
-3. When no suitable test exists, add one meaningful test of existing behavior. Never use a placeholder,
-   live network, or external service; use local fixtures when inputs are needed.
-4. Do not let an intended test target pass when it discovers zero tests. Report projects that still lack
-   a testable behavior or test lane.
-5. Include `test` in the root `check` command without removing formatting, linting, or type checking.
-6. Run `test` and `check`. In an isolated copy, break the tested behavior and confirm the root `test`
-   command fails.
+1. Check testable behavior, current runners, configuration, scripts, and test suites. Keep the current
+   runner and prefer one built into the framework or toolchain.
+2. Add only needed configuration and one non-watch root `test` command that runs every suite. Include test
+   files in type checking.
+3. If no useful test exists, add one test of current behavior. Do not use placeholders, live networks, or
+   outside services. Use local fixtures when needed.
+4. A test command must not pass after finding zero tests. Report projects that still have nothing useful
+   to test.
+5. Add `test` to the root `check` command without removing formatting, linting, or type checking.
+6. Run `test` and `check`. In an isolated copy, break the tested behavior and confirm `test` fails.
 
-Do not add coverage thresholds, browser or end-to-end testing, mocking libraries, or extra test layers
-without a concrete need.
+Do not add coverage limits, browser or end-to-end tests, mocking libraries, or extra test layers without
+a clear need.

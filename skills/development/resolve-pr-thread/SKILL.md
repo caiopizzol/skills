@@ -1,13 +1,12 @@
 ---
 name: resolve-pr-thread
-description: Reply to, react to, and resolve one already-assessed GitHub pull request review thread with exact identity and head-SHA guards. Use after a finding has been independently validated and any required fix has been published. Do not use to assess feedback, edit code, push branches, or handle general PR comments.
+description: Reply to, react to, and resolve one already-checked GitHub pull request review thread. Use after the finding is verified and any needed fix is pushed. Do not use for general comments or code changes.
 ---
 
-# Resolve one GitHub PR review thread
+# Resolve one GitHub PR thread
 
-Require the caller's evidence-based reply, reaction decision, expected actor, and explicit resolution
-authorization. Bind the operation to the assessed PR head SHA so a decision cannot silently cross a
-new push.
+Require an evidence-based reply, chosen reaction, expected GitHub account, permission to resolve, and the
+reviewed pull request head SHA. Do not cross a new push.
 
 Run:
 
@@ -23,27 +22,22 @@ bun --no-env-file <skill-directory>/scripts/resolve.ts \
   --resolve
 ```
 
-Use `-1` only when the caller explicitly chose that reaction. The script never decides whether the
-finding is valid.
+Use `-1` only when the user chose it. The script never decides whether the finding is valid.
 
-The script pins all calls to `github.com`, verifies the authenticated actor and exact thread/root/PR,
-then reads back after each mutation. GitHub does not make reply, reaction, and resolution atomic, so
-the same exact request reconciles already-applied steps after a known partial failure without adding
-an identical reply or reaction again. If the configured reviewer already resolved the thread, the
-script preserves that resolution while adding any still-missing reply and reaction.
+The script uses only `github.com`, checks the account and exact thread, root comment, and pull request, then
+reads each change back. GitHub cannot apply reply, reaction, and resolution together. After a known partial
+failure, rerun the exact request to add only missing steps. Keep an already-resolved thread resolved.
 
-## Outcomes
+## Results
 
-Treat `ok` as verified completion. `partial` records confirmed applied steps and may be retried with
-the same inputs after the provider recovers. For `indeterminate`, inspect the exact thread before any
-retry because GitHub's result could not be read back. Reassess on `input-changed`; do not substitute a
-fresh head SHA without validating the finding again.
+- `ok`: verified complete.
+- `partial`: applied steps are known; retry the same inputs after GitHub recovers.
+- `indeterminate`: inspect the thread before retrying because the result could not be read.
+- `input-changed`: verify the finding again before using a new head SHA.
 
-## Boundaries
+## Rules
 
-Use one writer per thread. Provider mutations have no compare-and-swap primitive, so concurrent
-writers can still duplicate replies after simultaneous preflight reads. Serialize this operation with
-any process that can run `gh auth switch`: `gh api` has no per-call account selector, so the expected
-actor guards detect an identity change but cannot prevent another process from changing global auth
-between calls. Do not assess findings, edit code, commit, push, rebase, change Stack membership, mark a
-PR ready, merge, or touch issue comments.
+- Use one writer per thread. Two writers can still duplicate replies.
+- Do not run beside a process that can call `gh auth switch`. `gh api` cannot choose an account per call.
+- Do not assess findings, edit code, commit, push, rebase, change Stack membership, mark a pull request
+  ready, merge, or touch issue comments.

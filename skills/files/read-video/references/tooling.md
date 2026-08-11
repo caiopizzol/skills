@@ -1,29 +1,25 @@
-# Deterministic tooling
+# Tools
 
-Use `video-tools` from `PATH` when installed. From a skills checkout, run:
+Use `video-tools` from `PATH` when installed. From this repository, run:
 
 ```sh
 bun run --cwd <skills-checkout> video-tools prepare <video-path> [--artifacts-dir <artifacts-directory>]
 ```
 
-Pass `--artifacts-dir` when the caller supplies one. Otherwise omit it. The tool creates an isolated
-temporary directory, reports `{ directory, mode: "temporary" }` under `artifacts`, and retains the
-derivatives for inspection. Report that directory so the caller can inspect or remove it.
+Pass `--artifacts-dir` when the user supplies one. Otherwise the tool creates a temporary directory,
+reports `{ directory, mode: "temporary" }` under `artifacts`, and keeps the extracted files. Report its path.
 
-The installed skill is normally a symlink into its checkout. Resolve that symlink rather than searching
-unrelated directories.
+An installed skill is usually a symlink to this repository. Resolve it instead of searching other folders.
 
-The host path requires `ffmpeg` and `ffprobe`. A caller may instead provide an already-present,
-digest-pinned container with `--container-image <name@sha256:digest>` when Docker is authorized. The
-command never pulls or builds an image.
+The local route needs `ffmpeg` and `ffprobe`. When Docker is allowed, the user may provide an existing
+container pinned by digest with `--container-image <name@sha256:digest>`. The command never pulls or builds
+one.
 
-Container execution disables networking, uses a read-only root, drops capabilities, mounts only the
-input read-only and the artifacts directory writable, and invokes tools without a shell. The result
-records both the requested digest and resolved local image ID.
+The container has no network, a read-only root, no added capabilities, a read-only input mount, and one
+writable artifacts mount. It runs tools without a shell and records the requested digest and local image ID.
 
 Use `--frame-count <count>` for even sampling, `--max-frames <count>` as its ceiling, and
 `--timeout-ms <milliseconds>` for each tool call.
 
-Read the JSON result. Exit `0` means every applicable preparation completed. Exit `2` preserves an
-unavailable, unsupported, failed, timed-out, or changed-input result. Exit `1` means the arguments or
-input path could not be used and emits no JSON.
+Read the JSON result. Exit `0` means preparation finished. Exit `2` returns an unavailable, unsupported,
+failed, timed-out, or changed-input result. Exit `1` means invalid arguments or path and writes no JSON.

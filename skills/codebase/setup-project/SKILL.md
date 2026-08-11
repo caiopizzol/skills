@@ -1,31 +1,27 @@
 ---
 name: setup-project
-description: Create, assess, or complete a project's toolchain, TypeScript, tests, and optional GitHub repository. Use when starting a Vite+ project from scratch, auditing an existing codebase, finishing an incomplete setup, or checking whether a project follows the standard setup.
+description: Create or check a project's tools, TypeScript, tests, and optional GitHub repository. Use for new Vite+ projects and incomplete or existing codebases.
 ---
 
 # Set up a project
 
-Coordinate the focused setup skills without recreating their procedures.
+Coordinate the setup skills without copying their steps.
 
-## Workflow
+## Steps
 
-1. Inspect the project and resolve the request: create, assess only, or apply changes. Treat GitHub as in
-   scope only when a remote points at GitHub or the caller asks for one. Another host's remote is
-   not-applicable, not a gap.
-2. Ask each applicable skill to assess: `$setup-vite-plus`, `$setup-typescript`, `$setup-tests`, and
-   `$setup-gh-repo`.
-3. Report each capability's state, the evidence behind it, and what applying it would change. Stop here
-   when the caller asked to assess.
-4. Otherwise reconcile only what is missing, in the order above. GitHub comes last because protection
-   depends on checks observed on a real pull request.
-5. Verify with the repository's root check, then report what changed and what is still unverified.
+1. Decide whether the user wants to create, check, or change a project. Include GitHub only when a remote
+   points there or the user asks for it. A remote on another host is `not-applicable`, not a gap.
+2. Ask the matching skills to check their areas: `$setup-vite-plus`, `$setup-typescript`, `$setup-tests`,
+   and `$setup-gh-repo`.
+3. Report each result, its evidence, and the proposed changes. Stop for a check-only request.
+4. Otherwise add only what is missing, in that order. GitHub comes last because protection needs checks
+   seen on a real pull request.
+5. Run the root check. Report what changed and what remains unverified.
 
-Only a Vite+ project can be created here. Require an empty target, generate it with `$setup-vite-plus`,
-then reconcile the remaining capabilities in the same order. Report any other requested stack as
-unsupported instead of scaffolding it directly.
+This skill creates only Vite+ projects. Require an empty target and use `$setup-vite-plus`, then run the
+other skills in the same order. Report other stacks as unsupported.
 
-A generator may initialize Git without creating a commit and on a branch other than the intended default.
-Set the intended default branch, then create the first commit with permission, before any GitHub work.
+A generator may create Git without a commit or on the wrong default branch. Set the intended branch and,
+with permission, create the first commit before GitHub setup.
 
-Honor each child's permission boundaries. When a child is unavailable, report its capability as
-unverified rather than inspecting or reconciling that capability directly.
+Follow each child skill's permission rules. If one is unavailable, report its area as `unverified`.

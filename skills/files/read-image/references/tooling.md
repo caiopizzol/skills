@@ -1,24 +1,22 @@
-# Deterministic tooling
+# Tools
 
-Use `image-tools` from `PATH` when installed. From a skills checkout, run:
+Use `image-tools` from `PATH` when installed. From this repository, run:
 
 ```sh
 bun run --cwd <skills-checkout> image-tools prepare <image-path> --artifacts-dir <artifacts-directory>
 ```
 
-The installed skill is normally a symlink into its checkout. Resolve that symlink rather than searching
-unrelated directories.
+An installed skill is usually a symlink to this repository. Resolve it instead of searching other folders.
 
-The host path requires `magick` and `identify`. A caller may instead provide an already-present,
-digest-pinned container with `--container-image <name@sha256:digest>` when Docker is authorized. The
-command never pulls or builds an image.
+The local route needs `magick` and `identify`. When Docker is allowed, the user may provide an existing
+container pinned by digest with `--container-image <name@sha256:digest>`. The command never pulls or builds
+one.
 
-Container execution disables networking, uses a read-only root, drops capabilities, mounts only the
-input read-only and the artifacts directory writable, and invokes tools without a shell. The result
-records both the requested digest and resolved local image ID.
+The container has no network, a read-only root, no added capabilities, a read-only input mount, and one
+writable artifacts mount. It runs tools without a shell and records the requested digest and local image ID.
 
 Use `--max-frames <count>` for animation bounds and `--timeout-ms <milliseconds>` for each tool call.
 
-Read the JSON result. Exit `0` means every applicable preparation completed. Exit `2` preserves an
-unavailable, unsafe, unsupported, failed, timed-out, or changed-input result. Exit `1` means the arguments
-or input path could not be used and emits no JSON.
+Read the JSON result. Exit `0` means preparation finished. Exit `2` returns an unavailable, unsafe,
+unsupported, failed, timed-out, or changed-input result. Exit `1` means invalid arguments or path and writes
+no JSON.

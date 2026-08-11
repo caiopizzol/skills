@@ -1,4 +1,4 @@
 interface:
   display_name: "Read Discord Conversation"
   short_description: "Read Discord replies, threads, and files"
-  default_prompt: "Use $read-discord-conversation to retrieve this exact Discord conversation, resolve its replies, and interpret supported files with explicit gaps."
+  default_prompt: "Use $read-discord-conversation to read this Discord conversation and supported files."

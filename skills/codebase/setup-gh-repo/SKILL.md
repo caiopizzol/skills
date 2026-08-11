@@ -1,22 +1,27 @@
 ---
 name: setup-gh-repo
-description: Set up, reconcile, or assess a GitHub repository with merge settings, CI, Cubic code review, and safe merge protection. Use for the complete GitHub setup or to audit it; use a child skill directly for only one capability.
+description: Set up or check a GitHub repository's merge settings, CI, Cubic review, and branch protection. Use a child skill when only one area is needed.
 ---
 
 # Set up a GitHub repository
 
-Compose the GitHub setup without recreating any child's procedure.
+Coordinate the GitHub setup skills. Do not copy their steps here.
 
-When the caller requests an assessment, ask each applicable child to assess, report this capability as
-ready, gap, not-applicable, or unverified with the evidence for it, then stop before changing anything.
+For a check-only request, ask each matching child skill to check its area. Report `ready`, `gap`,
+`not-applicable`, or `unverified` with evidence, then stop.
 
-## Workflow
+## Steps
 
 1. Use `$create-gh-repo` when the local project is not connected to GitHub.
-2. Inspect every child first. If all are compliant, report no change and stop.
-3. Use `$config-gh-repo` for repository-level merge settings. Then create or reuse one non-default bootstrap branch and use `$setup-gh-checks` and `$setup-cubic` on it. The composite owns the shared branch and pull request.
-4. With permission, push and open one draft pull request. Wait for CI. When Cubic is available but does not review drafts, get separate permission to mark the pull request ready before waiting for its review.
-5. With explicit permission, merge the bootstrap pull request after its required checks and reviews pass. Verify the default branch contains the intended changes.
-6. Use `$protect-gh-repo` with the successful CI context and reviewer paths observed on GitHub. Require Cubic only when that child proves a paired review and app-bound check.
+2. Ask every matching child to check first. If all are ready, report no change and stop.
+3. Use `$config-gh-repo` for merge settings. Create or reuse one non-default setup branch, then use
+   `$setup-gh-checks` and `$setup-cubic` on it. This skill owns the shared branch and pull request.
+4. With permission, push and open one draft pull request. Wait for CI. If Cubic does not review drafts,
+   get separate permission before marking it ready.
+5. With explicit permission, merge after required checks and reviews pass. Confirm the default branch has
+   the changes.
+6. Use `$protect-gh-repo` with the check names and review paths seen on that pull request. Require Cubic
+   only when its child skill proves both the review and App check.
 
-Honor each child's permission boundaries. If a child is unavailable or cannot verify its result, stop that capability and report the gap.
+Follow each child skill's permission rules. If one is unavailable or cannot verify its result, stop that
+part and report the gap.

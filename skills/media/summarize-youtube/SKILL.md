@@ -1,14 +1,14 @@
 ---
 name: summarize-youtube
-description: Summarize one public YouTube video from spoken and visual evidence while preserving coverage gaps. Use when the user wants its content or key points.
+description: Summarize one public YouTube video from its audio and frames, while clearly stating what was not inspected.
 ---
 
 # Summarize a YouTube video
 
-1. Invoke `$download-youtube-video`. Stop unless it returns `retrieved`.
+1. Use `$download-youtube-video`. Stop unless it returns `retrieved`.
 2. Pass its exact path and SHA-256 to `$read-video`.
 3. Summarize only the evidence `$read-video` returns. Do not invoke its child skills directly.
 
-Return a concise summary and content-only key points, followed by material coverage gaps. Put
-timestamps, tooling, hashes, and lane status in coverage, not key points. Label a partial inspection as
-partial. When no content was inspected, report that instead of inventing key points.
+Return a short summary and content-only key points, followed by important coverage gaps. Put timestamps,
+tools, hashes, and frame or audio status under coverage, not key points. Label a partial reading as partial.
+If no content was inspected, say so instead of inventing key points.

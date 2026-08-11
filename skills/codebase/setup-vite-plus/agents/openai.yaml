@@ -1,4 +1,4 @@
 interface:
   display_name: "Set up Vite+"
-  short_description: "Set up, migrate, or assess a Vite+ toolchain"
-  default_prompt: "Use $setup-vite-plus to assess this project's toolchain, then establish or migrate to a minimal Vite+ setup, preserving the existing package manager."
+  short_description: "Set up, migrate, or check Vite+"
+  default_prompt: "Use $setup-vite-plus to check, set up, or migrate this project to Vite+."

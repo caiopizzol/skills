@@ -1,15 +1,15 @@
 ---
 name: push-pr-stack
-description: Push rewritten branches of an existing GitHub PR Stack safely as one lease-guarded atomic update. Use after local Stack rebases when every affected branch already exists remotely and the caller has exact pre-change remote and post-change local SHAs. Do not use to create branches, pull requests, or Stack membership.
+description: Push rewritten branches in an existing GitHub PR Stack as one guarded update. Use after local rebases when every branch already exists remotely and the exact old remote and new local SHAs are known.
 ---
 
 # Push a pull request Stack
 
-Require one remote and an explicit lease for every branch being updated. A lease contains the branch
-name, the exact local commit to publish, and the remote commit observed before local mutation. Never
-discover the expected remote SHA at push time and treat it as permission to overwrite that revision.
+Require one remote and a guard for every branch. Each guard contains the branch name, local commit to push,
+and remote commit seen before local changes. Never read a new remote SHA at push time and use it as permission
+to overwrite that commit.
 
-Run the bundled publisher from the repository worktree:
+Run from the repository worktree:
 
 ```sh
 bun --no-env-file <skill-directory>/scripts/push.ts \
@@ -18,21 +18,24 @@ bun --no-env-file <skill-directory>/scripts/push.ts \
   --branch feature/consumer <local-sha> <expected-remote-sha>
 ```
 
-The publisher verifies every local branch and remote lease, pushes the exact supplied commits through
-one `git push --atomic`, and reads the remote heads back. After a failed push, it classifies the result
-from those heads rather than ambiguous Git error wording: changed leases are `input-changed`, unchanged
-leases are `provider-error`, and every requested head already present is verified success. Treat
-`input-changed` as a stale observation: re-read the Stack and revalidate the intended changes instead of
-retrying with fresh leases. If post-push verification itself fails, retain its structured outcome and
-both sanitized diagnostics; never recover a classification from the push error wording.
+The script checks every branch and guard, runs one `git push --atomic`, and reads remote heads back. After a
+failed push, use those heads, not Git's error text:
 
-## Output
+- Changed guard: `input-changed`.
+- Unchanged guard: `provider-error`.
+- Every requested commit already present: success.
 
-Report the remote, each branch's previous and pushed SHA, and one capability outcome: `ok`,
-`tool-unavailable`, `unsupported-input`, `input-changed`, `timeout`, or `provider-error`.
+For `input-changed`, reread and recheck the Stack. Do not retry with new guards. If the final read fails,
+keep its result and both cleaned diagnostics. Do not guess from the push error.
 
-## Boundaries
+## Return
 
-Do not fetch, rebase, create branches, create or edit PRs, alter Stack membership, reply to reviews,
-mark PRs ready, or merge. Do not fall back to sequential pushes when atomic publication fails. Preserve
-repository-specific authentication requirements before invoking the publisher.
+Report the remote, each branch's old and pushed SHA, and one result: `ok`, `tool-unavailable`,
+`unsupported-input`, `input-changed`, `timeout`, or `provider-error`.
+
+## Rules
+
+- Do not fetch, rebase, create branches, create or edit pull requests, change Stack membership, reply to
+  reviews, mark pull requests ready, or merge.
+- Do not push branches one at a time when the atomic push fails.
+- Follow repository sign-in rules before running the script.

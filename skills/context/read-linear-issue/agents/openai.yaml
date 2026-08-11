@@ -1,4 +1,4 @@
 interface:
   display_name: "Read Linear Issue"
-  short_description: "Read a Linear issue and resolvable linked context"
-  default_prompt: "Use $read-linear-issue to retrieve this exact Linear issue, its owned context, and exact external references available through configured read-only provider tools, with explicit source boundaries and gaps."
+  short_description: "Read a Linear issue and exact linked context"
+  default_prompt: "Use $read-linear-issue to read this Linear issue and exact links available through read-only tools."

@@ -1,21 +1,26 @@
 ---
 name: create-gh-repo
-description: Create a GitHub repository from an existing local Git repository and connect its remote, or assess whether one is connected. Use when a local project has no GitHub repository yet, not when adding CI or merge protection.
+description: Create a GitHub repository from an existing local Git repository, or check whether one is connected. Do not use for CI or merge protection.
 ---
 
 # Create a GitHub repository
 
 Keep the local repository as the source of truth.
 
-When the caller requests an assessment, report this capability as ready, gap, not-applicable, or
-unverified with the evidence for it, then stop before changing anything.
+For a check-only request, report `ready`, `gap`, `not-applicable`, or `unverified` with evidence. Do not
+change anything.
 
-## Workflow
+## Steps
 
-1. Inspect the commits, working tree, remotes, and authenticated GitHub owner. Require at least one commit and an available remote name.
-2. Confirm the owner, repository name, and visibility. Treat creation, public visibility, and pushing as separate permissions.
-3. Audit the exact history and refs to be pushed for secrets, private material, author identity, and licensing. Do not push secrets or material inappropriate for the chosen visibility; remediate and re-audit first. Missing or unclear licensing blocks public visibility, not private creation.
-4. Create the repository without pushing. Use `origin` and `main` unless the caller chose otherwise. Enable merged-branch deletion and read-only workflow permissions.
-5. With explicit permission, push only the selected default branch. Read the repository settings back, then compare the GitHub branch head SHA with the intended local commit.
+1. Check commits, the working tree, remotes, and the signed-in GitHub owner. Require at least one commit
+   and a free remote name.
+2. Confirm the owner, repository name, and visibility. Ask separately for permission to create it, make
+   it public, and push.
+3. Check the exact history and refs for secrets, private content, author details, and licensing. Fix and
+   recheck any problem before pushing. Unclear licensing blocks a public repository, not a private one.
+4. Create the repository without pushing. Use `origin` and `main` unless the user chose other names.
+   Enable deletion of merged branches and read-only workflow permissions.
+5. With approval, push only the chosen default branch. Read the settings back and confirm its GitHub SHA
+   matches the intended local commit.
 
 Do not rewrite project files or add CI, review tools, or merge protection.

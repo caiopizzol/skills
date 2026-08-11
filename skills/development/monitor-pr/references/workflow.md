@@ -1,136 +1,123 @@
 # PR monitoring workflow
 
-## Preflight and ownership
+## Start
 
-1. Resolve the expected writer login from the caller or repository-owned instructions. Never use the
-   remote owner as authority. Follow an explicit repository account-switch requirement before starting,
-   then pin one shared GitHub CLI configuration for every worker. If no expected writer is established,
-   return `human-decision` before any mutation.
-2. Run `bun --no-env-file <skill-directory>/scripts/snapshot.ts <pull-request-url>` once to discover a
-   standalone PR or every open member of its managed Stack in bottom-to-top order. Record the remote head
-   of every member.
-3. Assign one persistent logical owner to every scoped PR. Start as many owners as agent capacity permits
-   and queue the rest. A waiting owner may yield and later be reactivated, but keep the same canonical
-   worker responsible for that PR unless it becomes unavailable.
-4. Give each owner its exact PR URL and head, configured reviewer logins and expected checks, detached
-   investigation worktree, artifacts directory, shared authenticated configuration, and the exclusive
-   mutable Stack worktree it may use only during a granted publication turn.
+1. Get the expected writer from the user or repository instructions. Follow any required account switch,
+   then pin one shared GitHub CLI configuration. If no writer is known, return `human-decision` before any
+   change.
+2. Run:
 
-The coordinator owns only membership, order, worker capacity, the current head map, and publication-turn
-scheduling. It may take a final Stack snapshot to compare structure and heads with worker reports. After
-dispatch it must not inspect feedback, diagnose checks, edit code, push, request reviews, reply, react, or
-resolve on a worker's behalf.
+   `bun --no-env-file <skill-directory>/scripts/snapshot.ts <pull-request-url>`
 
-Draft status is a review lifecycle signal, not a CI switch. CI may run on drafts. Each worker marks its own
-open draft ready only after rechecking its exact head and authenticated actor. Never enable auto-merge;
-GitHub does not support auto-merge for stacked pull requests.
+   Record a standalone pull request or every open Stack member from bottom to top, with each remote head.
 
-## Worker-owned loop
+3. Give each pull request one persistent owner. Run as many as capacity allows and queue the rest. Reuse the
+   same owner unless it becomes unavailable.
+4. Give each owner its URL, head, reviewer logins, expected checks, detached worktree, artifacts directory,
+   shared GitHub configuration, and the Stack worktree it may use only during its publication turn.
 
-Each PR owner repeats the following loop until it can report clean at one unchanged head:
+The coordinator owns only membership, order, capacity, head SHAs, publication turns, and final comparison.
+After assigning owners, it must not inspect feedback, diagnose checks, edit code, push, request reviews, or
+close threads for them.
 
-1. Run `bun --no-env-file <skill-directory>/scripts/snapshot.ts <pr-url> --pr-only` to observe only the
-   assigned PR. Verify the authenticated account, provider head, and detached worktree head. Treat any
-   mismatch as `input-changed` and restart from the new assigned head.
-2. Establish the expected check set from caller instructions or explicit repository configuration when
-   one exists. Identify each expected check as `{ workflow, name }`, using `null` for an external check.
-   Retain duplicate older runs as superseded evidence. Never collapse checks that only share a name.
-3. Use `$read-github-pr` for complete retrieval. Enumerate every configured-bot issue comment, review
-   summary, and inline thread, including old, resolved, and outdated feedback. Exact-login matching is
-   required. Split independent technical claims and deduplicate repeated claims locally.
-4. Reproduce every concrete review claim and failing current-head CI check with the smallest existing
-   command or a temporary reproducer beneath the artifacts directory. Inspect implementation, tests,
-   configuration, diff, and surrounding behavior. A failed reproduction alone does not disprove a claim,
-   and a successful reviewer check does not prove there are no comments.
+Each owner marks its open draft ready only after checking its head and account. Never enable auto-merge.
+
+## Owner loop
+
+Repeat until the pull request is clean at one unchanged head:
+
+1. Run `bun --no-env-file <skill-directory>/scripts/snapshot.ts <pr-url> --pr-only`. Check the account,
+   remote head, and detached worktree head. On mismatch, return `input-changed` and restart at the assigned
+   head.
+2. Read expected checks from the user or repository configuration. Identify each as `{ workflow, name }`;
+   use `null` workflow for an outside check. Keep older duplicate runs as superseded. Do not merge checks
+   that only share a name.
+3. Use `$read-github-pr`. Include every configured-bot issue comment, review summary, and inline thread,
+   including old, resolved, and outdated items. Match exact bot logins. Split separate claims and remove
+   local duplicates.
+4. Reproduce each concrete claim and failing current-head check with the smallest existing command or a
+   temporary reproducer in the artifacts directory. Check the code, tests, configuration, diff, and nearby
+   behavior. Failed reproduction does not disprove a claim. A successful bot check does not prove there are
+   no comments.
 5. Classify each claim as `valid-fixable`, `invalid`, `already-addressed`, `informational`,
-   `human-decision`, or `provider-gap`. Distinguish code defects, deterministic configuration failures,
-   transient infrastructure failures, product decisions, and evidence gaps.
-6. For a valid fix, edit only the assigned detached worktree, run focused checks, and create concise
-   conventional commits. For every unresolved thread, prepare a response that states the classification,
-   evidence, change or rationale, and tests run.
-7. Request a publication turn when a code or conflict fix is ready. Do not ask the coordinator to apply
-   the commit or perform any provider mutation. Continue read-only investigation while another worker
-   holds the turn, but do not publish concurrently.
-8. After the worker publishes or confirms that no publication is required, address its own assessed
-   threads and resume this loop. Wait without busy-polling and never hold one blocking wait longer than
-   60 seconds.
+   `human-decision`, or `provider-gap`. Separate code bugs, repeatable configuration failures, temporary
+   service failures, product decisions, and missing evidence.
+6. For a valid fix, edit only the assigned detached worktree, run focused checks, and make short
+   conventional commits. For each unresolved thread, prepare a reply with its classification, evidence,
+   change or reason, and tests.
+7. Request a publication turn for a code or conflict fix. Keep investigating read-only while waiting, but
+   do not publish. Never ask the coordinator to apply the commit or change GitHub for you.
+8. After publishing, or confirming no push is needed, close assessed threads and restart this loop. Wait
+   without busy polling and never block longer than 60 seconds.
 
-Open or refresh work whenever an observed or expected check is non-successful, complete feedback has not
-covered the current head, the PR is conflicted or non-linear, its lower Stack branch changed, reviewer
-metadata changed, or a configured-bot thread remains unresolved. Do not treat `NEUTRAL`, skipped, missing,
-or an older successful run as current success.
+Reopen work when a current or expected check is not successful, current-head feedback is incomplete, the
+branch is conflicted or non-linear, a lower Stack branch changed, reviewer data changed, or a configured-bot
+thread remains unresolved. Neutral, skipped, missing, or old successful checks are not success.
 
-## Exclusive publication turn
+## Publication turn
 
-Grant waiting turns bottom-to-top. Only the granted PR owner may mutate the shared Stack worktree or remote
-branches until it releases the turn.
+Grant turns from the bottom of the Stack upward. Only that owner may change the Stack worktree or remote
+branches until the turn ends.
 
-While holding the turn, the same worker must:
+The owner must:
 
-1. Verify the authenticated actor and compare every current remote Stack head with the coordinator's
-   granted lease map. On any difference, make no mutation, release the turn as `input-changed`, and restart
-   the affected worker assessments. Never replace a rejected lease with a freshly discovered one.
-2. Apply its prepared commits to the owning PR branch. Cascade-rebase every affected upper branch with
-   non-interactive `gh stack rebase` commands. If a conflict requires a semantic change in another PR,
-   stop and return that conflict to the other PR's owner instead of authoring its fix.
-3. Run focused checks and the complete repository check at the top of the resulting Stack. Compare every
-   branch ref with `gh stack view --json`; reconcile local boundary drift with a non-interactive
-   `gh stack rebase --no-trunk` before publication.
-4. Invoke `$push-pr-stack` itself for every rewritten existing branch, using the exact pre-mutation remote
-   heads as leases. Never fall back to sequential pushes. For a standalone PR, prefer a fast-forward push;
-   bind any rewritten push to its previously observed remote head.
-5. Read every pushed remote head back, report the new map to the coordinator, and release the turn. The
-   publication invalidates all affected upper workers; reactivate their existing owners at the new heads.
-6. Observe its exact published PR again before addressing feedback. If its own head changed unexpectedly,
-   return `input-changed` instead of crossing the new evidence boundary.
+1. Check the account and every remote Stack head against the granted guard map. On any change, make no
+   update, release the turn as `input-changed`, and restart affected reviews. Never replace a rejected guard
+   with a newly read one.
+2. Apply its commits to its branch. Rebase affected upper branches with non-interactive `gh stack rebase`.
+   If a conflict needs a behavior change in another pull request, return it to that owner.
+3. Run focused checks and the full repository check at the Stack top. Compare refs with
+   `gh stack view --json`. Fix local boundary drift with non-interactive `gh stack rebase --no-trunk`.
+4. Use `$push-pr-stack` for every rewritten existing branch with the remote heads seen before local changes.
+   Never push them one at a time. For a standalone pull request, prefer fast-forward; guard any rewritten
+   push with its old remote head.
+5. Read every remote head back, report the new map, and release the turn. Reactivate affected upper owners
+   at their new heads.
+6. Read its published pull request again before closing feedback. If its head changed, return
+   `input-changed`.
 
-Publication is serialized; worker ownership is not transferred. Investigation, tests, and conversation
-writes on different PRs may remain parallel. Use one writer per thread and serialize with any process that
-can switch the shared GitHub identity.
+Only publication is serialized. Different owners may still investigate, test, and write on separate
+threads. Use one writer per thread and do not run beside a process that can switch the shared GitHub account.
 
-When a configured reviewer deliberately skips rewritten history, the worker that published its PR may
-request a new review only when the current-head reviewer check is absent or terminal-neutral. Never post a
-duplicate while a request or check is queued, in progress, or successful. For Cubic, the repository-tested
-request is:
+If a configured reviewer skips rewritten history, the owner may request another review only when its
+current-head check is missing or neutral. Never duplicate a queued, running, or successful request. For Cubic:
 
 ```text
 @cubic-dev-ai review this PR after the Stack rebase.
 ```
 
-Read the request and subsequent check back; posting the command alone does not prove review ran.
+Read the request and later check back. Posting alone does not prove review ran.
 
-## Worker-owned conversations
+## Threads
 
-The same worker that assessed a thread must close its lifecycle after any required fix is published:
+The owner that assessed a thread must finish it after any fix is published:
 
-1. Recheck the exact PR head and authenticated actor.
-2. Use `$resolve-pr-thread` with the exact thread ID, root comment ID, expected head, expected actor, reply
-   file, `+1` acknowledgment, and explicit resolution authority. Use `-1` only when the caller selected it.
-3. Read back the reply, reaction, and resolution. Respect `partial`, `indeterminate`, and `input-changed`;
-   never retry blindly.
-4. If the reviewer already resolved the thread, preserve that state while adding any missing reply and
-   reaction. Still reassess old resolved and outdated findings at the current head.
+1. Recheck the pull request head and account.
+2. Use `$resolve-pr-thread` with the thread ID, root comment ID, expected head, expected account, reply file,
+   `+1`, and permission to resolve. Use `-1` only when the user chose it.
+3. Read the reply, reaction, and resolution back. Do not blindly retry `partial`, `indeterminate`, or
+   `input-changed`.
+4. Keep an already-resolved thread resolved while adding any missing reply or reaction. Recheck old,
+   resolved, and outdated findings at the current head.
 
-The coordinator must never perform these steps for a worker.
+The coordinator must not do this for an owner.
 
-## Terminal evaluation
+## Finish
 
-Each worker reports `clean` only when, at one stable exact head:
+An owner reports `clean` only when one stable head is:
 
-- its PR is open and not a draft;
-- its branch is linear, mergeable, and conflict-free;
-- every observed current-head CI and reviewer check and every explicitly expected check succeeded;
-- no check is neutral, skipped, missing, pending, cancelled, timed out, or superseded-only;
-- every configured-bot conversation lane is complete with no retrieval or assessment gap;
-- every configured-bot finding is invalid, already addressed, or informational;
-- every thread that required action has the worker's verified reply and reaction and is resolved;
-- GitHub's merge state is clean; and
-- no human decision, external approval, provider gap, or local work remains.
+- open, ready for review, linear, mergeable, and conflict-free;
+- passing every current and expected CI and reviewer check, with none neutral, skipped, missing, pending,
+  cancelled, timed out, or superseded-only;
+- fully read for configured-bot feedback, with no reading or assessment gap;
+- left with only invalid, already addressed, or informational findings;
+- complete for every needed reply, reaction, and resolution;
+- clean in GitHub's merge state; and
+- free of human decisions, outside approvals, service gaps, and local work.
 
-The coordinator returns `ready-to-merge` only after every owner reports clean and one final Stack snapshot
-matches every reported head, preserves bottom-to-top order, and shows no conflict or non-linearity. It must
-route any discrepancy back to the existing PR owner rather than diagnose or fix it.
+Return `ready-to-merge` only after every owner is clean and a final Stack snapshot matches their heads and
+bottom-to-top order with no conflict. Send any mismatch back to its owner.
 
-Otherwise keep the owning worker loop active or return one explicit outcome: `dry-run`, `input-changed`,
-`indeterminate`, `human-decision`, `blocked`, `tool-unavailable`, `timeout`, `unsupported-input`, or
-`provider-error`. Never merge as part of this skill.
+Otherwise keep the owner active or return one result: `dry-run`, `input-changed`, `indeterminate`,
+`human-decision`, `blocked`, `tool-unavailable`, `timeout`, `unsupported-input`, or `provider-error`.
+Never merge.

@@ -1,19 +1,15 @@
 # Skills
 
-Composable agent skills for inspecting files and setting up repositories.
+Agent skills for reading files and setting up repositories.
 
 [![Release](https://img.shields.io/github/v/release/caiopizzol/skills)](https://github.com/caiopizzol/skills/releases/latest)
 [![Checks](https://github.com/caiopizzol/skills/actions/workflows/check.yml/badge.svg)](https://github.com/caiopizzol/skills/actions/workflows/check.yml)
 [![License](https://img.shields.io/github/license/caiopizzol/skills)](LICENSE)
 
-## How skills compose
+## How they work
 
-A skill is one callable capability. It can invoke another skill with a `$name` reference, and that
-child can invoke children of its own. Composite skills coordinate several capabilities; focused skills
-do one job.
-
-This is closer to functions calling functions than a fixed level hierarchy. Categories organize the
-source tree only. Installing a composite resolves its full dependency graph automatically.
+A focused skill does one job. A combined skill calls other skills with `$name`. Folders only organize the
+source; installation adds required child skills automatically.
 
 ```text
 setup-project
@@ -36,61 +32,56 @@ summarize-youtube
 
 ## Skill catalog
 
-Start with a composite for an end-to-end outcome, or choose a focused skill for one capability.
-
 ### Codebase
 
-| Skill                                                           | Type      | Purpose                                            |
-| --------------------------------------------------------------- | --------- | -------------------------------------------------- |
-| [`config-gh-repo`](skills/codebase/config-gh-repo/SKILL.md)     | Focused   | Configure merge and pull-request settings          |
-| [`create-gh-repo`](skills/codebase/create-gh-repo/SKILL.md)     | Focused   | Create and connect a GitHub repository             |
-| [`protect-gh-repo`](skills/codebase/protect-gh-repo/SKILL.md)   | Focused   | Protect merges using observed checks and reviewers |
-| [`setup-changesets`](skills/codebase/setup-changesets/SKILL.md) | Focused   | Add reviewed releases from the default branch      |
-| [`setup-cubic`](skills/codebase/setup-cubic/SKILL.md)           | Focused   | Configure focused Cubic code review                |
-| [`setup-gh-checks`](skills/codebase/setup-gh-checks/SKILL.md)   | Focused   | Run an existing local check in GitHub Actions      |
-| [`setup-gh-repo`](skills/codebase/setup-gh-repo/SKILL.md)       | Composite | Set up GitHub settings, checks, and protection     |
-| [`setup-project`](skills/codebase/setup-project/SKILL.md)       | Composite | Create, assess, or complete a project's setup      |
-| [`setup-tests`](skills/codebase/setup-tests/SKILL.md)           | Focused   | Establish one reliable local test path             |
-| [`setup-typescript`](skills/codebase/setup-typescript/SKILL.md) | Focused   | Set up strict TypeScript configuration             |
-| [`setup-vite-plus`](skills/codebase/setup-vite-plus/SKILL.md)   | Focused   | Set up the Vite+ toolchain                         |
+| Skill                                                           | Type     | Purpose                                            |
+| --------------------------------------------------------------- | -------- | -------------------------------------------------- |
+| [`config-gh-repo`](skills/codebase/config-gh-repo/SKILL.md)     | Focused  | Configure merge and pull request settings          |
+| [`create-gh-repo`](skills/codebase/create-gh-repo/SKILL.md)     | Focused  | Create and connect a GitHub repository             |
+| [`protect-gh-repo`](skills/codebase/protect-gh-repo/SKILL.md)   | Focused  | Protect merges using observed checks and reviewers |
+| [`setup-changesets`](skills/codebase/setup-changesets/SKILL.md) | Focused  | Add reviewed package releases                      |
+| [`setup-cubic`](skills/codebase/setup-cubic/SKILL.md)           | Focused  | Configure Cubic code review                        |
+| [`setup-gh-checks`](skills/codebase/setup-gh-checks/SKILL.md)   | Focused  | Run a local check in GitHub Actions                |
+| [`setup-gh-repo`](skills/codebase/setup-gh-repo/SKILL.md)       | Combined | Set up GitHub settings, checks, and protection     |
+| [`setup-project`](skills/codebase/setup-project/SKILL.md)       | Combined | Create or complete a project setup                 |
+| [`setup-tests`](skills/codebase/setup-tests/SKILL.md)           | Focused  | Add one reliable local test path                   |
+| [`setup-typescript`](skills/codebase/setup-typescript/SKILL.md) | Focused  | Set up strict TypeScript                           |
+| [`setup-vite-plus`](skills/codebase/setup-vite-plus/SKILL.md)   | Focused  | Set up Vite+                                       |
 
 ### Context
 
-| Skill                                                                            | Type    | Purpose                                               |
-| -------------------------------------------------------------------------------- | ------- | ----------------------------------------------------- |
-| [`read-discord-conversation`](skills/context/read-discord-conversation/SKILL.md) | Focused | Read one exact Discord message, thread, or forum post |
-| [`read-github-issue`](skills/context/read-github-issue/SKILL.md)                 | Focused | Read one exact GitHub issue conversation              |
-| [`read-github-pr`](skills/context/read-github-pr/SKILL.md)                       | Focused | Read one exact pull request, reviews, changed files   |
-| [`read-github-resource`](skills/context/read-github-resource/SKILL.md)           | Focused | Retrieve complete GitHub evidence through `gh`        |
-| [`read-linear-issue`](skills/context/read-linear-issue/SKILL.md)                 | Focused | Read one exact Linear issue and its relationships     |
-| [`read-slack-thread`](skills/context/read-slack-thread/SKILL.md)                 | Focused | Read one Slack thread and selected supported files    |
+| Skill                                                                            | Purpose                                  |
+| -------------------------------------------------------------------------------- | ---------------------------------------- |
+| [`read-discord-conversation`](skills/context/read-discord-conversation/SKILL.md) | Read one Discord conversation            |
+| [`read-github-issue`](skills/context/read-github-issue/SKILL.md)                 | Read one GitHub issue                    |
+| [`read-github-pr`](skills/context/read-github-pr/SKILL.md)                       | Read one pull request and its reviews    |
+| [`read-github-resource`](skills/context/read-github-resource/SKILL.md)           | Fetch GitHub issue or pull request data  |
+| [`read-linear-issue`](skills/context/read-linear-issue/SKILL.md)                 | Read one Linear issue and linked context |
+| [`read-slack-thread`](skills/context/read-slack-thread/SKILL.md)                 | Read one Slack thread and selected files |
 
 ### Development
 
-| Skill                                                                | Type      | Purpose                                           |
-| -------------------------------------------------------------------- | --------- | ------------------------------------------------- |
-| [`monitor-pr`](skills/development/monitor-pr/SKILL.md)               | Composite | Take a PR or Stack through checks and review      |
-| [`push-pr-stack`](skills/development/push-pr-stack/SKILL.md)         | Focused   | Push rewritten pull request Stack branches safely |
-| [`resolve-pr-thread`](skills/development/resolve-pr-thread/SKILL.md) | Focused   | Close one validated PR review conversation        |
+| Skill                                                                | Type     | Purpose                              |
+| -------------------------------------------------------------------- | -------- | ------------------------------------ |
+| [`monitor-pr`](skills/development/monitor-pr/SKILL.md)               | Combined | Monitor and fix a PR or Stack        |
+| [`push-pr-stack`](skills/development/push-pr-stack/SKILL.md)         | Focused  | Push rewritten Stack branches safely |
+| [`resolve-pr-thread`](skills/development/resolve-pr-thread/SKILL.md) | Focused  | Close one checked PR review thread   |
 
 ### Files
 
-`read-image` does not teach the model to see. It makes that ability dependable for composition by
-verifying the source, routing formats safely, covering animations, and reporting gaps.
-
-| Skill                                                        | Type      | Purpose                                          |
-| ------------------------------------------------------------ | --------- | ------------------------------------------------ |
-| [`read-image`](skills/files/read-image/SKILL.md)             | Focused   | Inspect raster images, animations, and safe SVGs |
-| [`read-text-file`](skills/files/read-text-file/SKILL.md)     | Focused   | Read bounded text and structured-data files      |
-| [`read-video`](skills/files/read-video/SKILL.md)             | Composite | Inspect a video's visual and audio lanes         |
-| [`transcribe-audio`](skills/files/transcribe-audio/SKILL.md) | Focused   | Transcribe audio with explicit temporal coverage |
+| Skill                                                        | Type     | Purpose                                   |
+| ------------------------------------------------------------ | -------- | ----------------------------------------- |
+| [`read-image`](skills/files/read-image/SKILL.md)             | Focused  | Inspect images, animations, and safe SVGs |
+| [`read-text-file`](skills/files/read-text-file/SKILL.md)     | Focused  | Read text and data files                  |
+| [`read-video`](skills/files/read-video/SKILL.md)             | Combined | Inspect video frames and audio            |
+| [`transcribe-audio`](skills/files/transcribe-audio/SKILL.md) | Focused  | Transcribe audio with time coverage       |
 
 ### Media
 
-| Skill                                                                    | Type      | Purpose                                           |
-| ------------------------------------------------------------------------ | --------- | ------------------------------------------------- |
-| [`download-youtube-video`](skills/media/download-youtube-video/SKILL.md) | Focused   | Download one public video as an exact local file  |
-| [`summarize-youtube`](skills/media/summarize-youtube/SKILL.md)           | Composite | Summarize spoken and visual evidence from YouTube |
+| Skill                                                                    | Type     | Purpose                             |
+| ------------------------------------------------------------------------ | -------- | ----------------------------------- |
+| [`download-youtube-video`](skills/media/download-youtube-video/SKILL.md) | Focused  | Download one public YouTube video   |
+| [`summarize-youtube`](skills/media/summarize-youtube/SKILL.md)           | Combined | Summarize a YouTube video's content |
 
 ## Install
 
@@ -103,17 +94,15 @@ bun install --production
 bun run install:skills -- ~/.agents/skills read-video
 ```
 
-Use `~/.agents/skills` for Codex or `~/.claude/skills` for Claude Code. The installer adds required
-child skills automatically, so installing `read-video` also installs `read-image` and
-`transcribe-audio`. Omit the skill name to install the full catalog.
+Use `~/.agents/skills` for Codex or `~/.claude/skills` for Claude Code. Omit the skill name to install all
+skills. The installer adds required child skills and never overwrites an existing destination.
 
-Installation uses symlinks and is supported on macOS and Linux. Existing destinations are never
-overwritten.
+Installation uses symlinks and supports macOS and Linux.
 
-## Tooling
+## Tools
 
-Image and video inspection use ImageMagick and FFmpeg when available. Missing tools are reported, not
-installed or downloaded. Audio transcription comes from the agent runtime and may use a hosted service.
+Image and video skills use installed ImageMagick and FFmpeg tools. They report missing tools instead of
+installing them. Audio transcription comes from the agent runtime and may use a hosted service.
 
 ## Development
 
@@ -122,12 +111,9 @@ bun install
 bun run check
 ```
 
-This validates the skill catalog, typechecks the workspace, and runs fixture-only tests without network
-access.
+The check validates the catalog, checks TypeScript, and runs local fixture tests without network access.
+Fixtures use generated content, not customer or user data.
 
-Committed fixtures use generated shapes, text tokens, and audio rather than customer or user data. They
-are covered by this repository's MIT license.
+## License
 
-## Licensing
-
-Licensed under the [MIT License](LICENSE).
+[MIT](LICENSE)

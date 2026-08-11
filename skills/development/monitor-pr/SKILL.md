@@ -1,52 +1,44 @@
 ---
 name: monitor-pr
-description: Monitor one exact GitHub pull request or its managed Stack until ready to merge. Use after initial implementation is complete to assign one persistent worker per PR that marks it ready, monitors current-head CI, conflicts, and configured bot feedback, investigates and fixes valid problems, publishes safely, replies, reacts, resolves threads, and keeps looping until clean or a human decision is required. Never merge.
+description: Monitor one exact GitHub pull request or managed Stack until ready to merge. Use after implementation to mark it ready, watch current-head checks and review feedback, fix valid problems, publish safely, and resolve threads. Never merge.
 ---
 
-# Monitor a pull request to ready
+# Monitor a pull request
 
-Require one exact `https://github.com/OWNER/REPOSITORY/pull/NUMBER` URL. Treat invocation as approval to
-start review by marking the requested PR, or every open member of its managed Stack, ready. Require the
-expected writer login and configured reviewer bot logins from the caller or repository-owned instructions
-or configuration; never infer writer authority from the remote owner or guess an actor.
+Require one exact `https://github.com/OWNER/REPOSITORY/pull/NUMBER` URL. Invocation allows marking the pull
+request, or each open Stack member, ready for review. Get the expected writer and reviewer bot logins from
+the user or repository instructions. Never infer them from the remote owner.
 
-When the caller explicitly requests a dry run or read-only evaluation, do not treat invocation as mutation
-authority. Build and report the exact work list, return `dry-run`, and leave repository and provider state
-unchanged.
+For a dry run or read-only request, return the work list and `dry-run`. Change nothing.
 
-Read [the orchestration workflow](references/workflow.md) before acting.
+Read [the workflow](references/workflow.md) before acting.
 
-## Coordinate PR owners
+## Coordinate
 
-1. Run the bundled snapshot collector to discover the exact PR or managed Stack and record every current
-   head SHA.
-2. Assign one persistent sub-agent owner to every scoped PR. Run owners in capacity-limited waves and
-   reactivate the same owner for later events; never split one PR across comment-specific workers.
-3. Keep the coordinator as a control plane only: preserve Stack order and the authoritative head map,
-   schedule bottom-to-top publication turns, and aggregate worker results. After dispatch, do not inspect
-   technical feedback, edit code, publish branches, or address conversations on a worker's behalf.
-4. Require each worker to own its complete loop: mark ready, observe only its PR, use `$read-github-pr`,
-   reproduce every claim, fix and test valid problems, publish its changes, use `$resolve-pr-thread`, and
-   resume monitoring the resulting head.
-5. Grant only one exclusive Stack publication turn at a time. The owning worker integrates its own fix,
-   rebases affected upper branches, tests the resulting Stack, and invokes `$push-pr-stack`; the
-   coordinator never performs those steps for it.
-6. Establish readiness only from clean worker reports bound to one final unchanged Stack head map.
+1. Collect the exact pull request or Stack and every current head SHA.
+2. Give each pull request one persistent owner. Reuse that owner after later changes. Never split one pull
+   request across comment-specific workers.
+3. Keep the coordinator limited to Stack order, head SHAs, worker scheduling, publication turns, and final
+   results. It must not inspect feedback, edit code, push, or close threads for a worker.
+4. Each owner marks its pull request ready, reads it with `$read-github-pr`, verifies every claim, fixes and
+   tests valid problems, publishes its changes, uses `$resolve-pr-thread`, and resumes monitoring.
+5. Allow one Stack publication turn at a time. The owner applies its fix, rebases affected upper branches,
+   tests the Stack, and uses `$push-pr-stack`.
+6. Call the Stack ready only from clean owner reports tied to one unchanged final head map.
 
-## Stop condition
+Keep every fix within the user's original goal. Address real problems without expanding scope.
 
-Return `ready-to-merge` only when every scoped PR is ready, linear and conflict-free; every observed
-current-head CI and reviewer check and every explicitly configured expected check succeeded; GitHub's
-merge state is clean; complete exact-head feedback assessment found no remaining fix, human decision, or
-evidence gap; every configured-bot thread is addressed; and no worker remains active. Return the
-supported non-ready outcome instead of weakening any condition.
+## Stop
 
-## Boundaries
+Use the exact terminal checks and outcomes in the workflow. Return `ready-to-merge` only when every scoped
+pull request passes them. Never weaken a condition.
 
-Never merge, queue, enable auto-merge, dismiss feedback, bypass requirements, or treat `NEUTRAL`, skipped,
-missing, superseded, or stale-head checks as success. Serialize Stack rebases and publication, but allow
-different workers to investigate and address disjoint threads concurrently. Use one writer per thread.
-Pin one shared GitHub CLI configuration and expected actor for the run; verify the actor immediately
-before every provider mutation and read the mutation back. An unexpected identity change makes the
-operation indeterminate. A lower Stack change invalidates every affected upper worker's assessment;
-reactivate that owner at the new head instead of carrying conclusions forward.
+## Rules
+
+- Never merge, queue, enable auto-merge, dismiss feedback, or bypass requirements.
+- Never treat neutral, skipped, missing, old, or stale-head checks as success.
+- Serialize Stack rebases and pushes. Different owners may investigate separate threads in parallel.
+- Use one writer per thread.
+- Pin one shared GitHub CLI configuration. Verify the expected account before every GitHub change and read
+  the change back. An unexpected account change makes the result `indeterminate`.
+- A lower Stack change invalidates affected upper reviews. Reactivate their existing owners at the new heads.
