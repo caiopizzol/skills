@@ -10,7 +10,7 @@ Use routing evidence instead of guessing.
 ## Test
 
 1. Read the target `SKILL.md`, its direct references, and the names and descriptions of the most similar
-   skills. Do not run any skill.
+   skills in the full active catalog, including skills outside the target repository. Do not run any skill.
 2. Read [the evaluation guide](references/evaluation.md). Write test requests with their expected results.
    Split them into working and unseen sets before drafting other names or descriptions.
 3. Create the experiment JSON outside the repository. Keep the skill body fixed. With the current name,
