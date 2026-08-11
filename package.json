@@ -11,7 +11,7 @@
     "image-tools": "bun apps/image-tools-cli/src/cli.ts",
     "text-tools": "bun apps/text-tools-cli/src/cli.ts",
     "video-tools": "bun apps/video-tools-cli/src/cli.ts",
-    "eval:skill-routing": "bun scripts/eval-skill-routing.ts",
+    "eval:skill-routing": "bun skills/development/improve-skill-metadata/scripts/evaluate.ts",
     "install:skills": "bun scripts/install-skills.ts",
     "validate:skills": "bun apps/catalog-validation-cli/src/cli.ts",
     "link:cli": "bun link --cwd apps/image-tools-cli && bun link --cwd apps/text-tools-cli && bun link --cwd apps/video-tools-cli",

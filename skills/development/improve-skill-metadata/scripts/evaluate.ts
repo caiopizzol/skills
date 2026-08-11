@@ -1,6 +1,6 @@
-// Runs description variants through the real Codex skill-routing surface while replacing each
-// workflow body with an inert marker. The marker separates routing from execution: a selected skill
-// identifies itself, and no production GitHub operation can run during this experiment.
+// Runs metadata variants through the real Codex skill-routing surface while replacing each workflow
+// body with an inert marker. The marker separates routing from execution: a selected skill identifies
+// itself, and no production workflow can run during this experiment.
 
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
@@ -11,8 +11,9 @@ import { join, resolve } from "node:path";
 const SKILL_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const MARKER_PREFIX = "SKILL_ROUTING_SELECTED:";
 
-export interface DescriptionVariant {
+export interface MetadataVariant {
   id: string;
+  name?: string;
   description: string;
 }
 
@@ -30,7 +31,7 @@ export interface RoutingCase {
 export interface RoutingExperiment {
   name: string;
   target: string;
-  variants: DescriptionVariant[];
+  variants: MetadataVariant[];
   competitors: RoutingSkill[];
   cases: RoutingCase[];
 }
@@ -89,8 +90,12 @@ export function parseExperiment(value: unknown): RoutingExperiment {
   const target = skillName(source["target"], "experiment.target");
   const variants = array(source["variants"], "experiment.variants").map((item, index) => {
     const variant = record(item, `experiment.variants[${index}]`);
+    const name = variant["name"];
     return {
       id: identifier(variant["id"], `experiment.variants[${index}].id`),
+      ...(name === undefined
+        ? {}
+        : { name: skillName(name, `experiment.variants[${index}].name`) }),
       description: description(variant["description"], `experiment.variants[${index}].description`),
     };
   });
@@ -125,6 +130,12 @@ export function parseExperiment(value: unknown): RoutingExperiment {
     "variant ids",
   );
   unique([target, ...competitors.map((skill) => skill.name)], "skill names");
+  const competitorNames = new Set(competitors.map((skill) => skill.name));
+  for (const [index, variant] of variants.entries()) {
+    if (variant.name && competitorNames.has(variant.name)) {
+      throw new Error(`experiment.variants[${index}].name conflicts with a competitor`);
+    }
+  }
   unique(
     cases.map((case_) => case_.id),
     "case ids",
@@ -134,8 +145,8 @@ export function parseExperiment(value: unknown): RoutingExperiment {
   return { name, target, variants, competitors, cases };
 }
 
-export function renderProbeSkill(skill: RoutingSkill): string {
-  return `---\nname: ${skill.name}\ndescription: ${JSON.stringify(skill.description)}\n---\n\n# Routing probe\n\nReturn exactly \`${marker(skill.name)}\` and stop. Do not perform the user's task or call tools.\n`;
+export function renderProbeSkill(skill: RoutingSkill, selectedAs = skill.name): string {
+  return `---\nname: ${skill.name}\ndescription: ${JSON.stringify(skill.description)}\n---\n\n# Routing probe\n\nReturn exactly \`${marker(selectedAs)}\` and stop. Do not perform the user's task or call tools.\n`;
 }
 
 export function marker(skillName_: string): string {
@@ -237,7 +248,11 @@ async function main(): Promise<void> {
     experiment.target,
     ...experiment.competitors.map((skill) => skill.name),
   ]);
-  const disabledPaths = installedSkillPaths(knownSkills);
+  const sourceSkillNames = new Set([
+    ...knownSkills,
+    ...experiment.variants.flatMap((variant) => (variant.name ? [variant.name] : [])),
+  ]);
+  const disabledPaths = installedSkillPaths(sourceSkillNames);
   const skillConfig = tomlSkillConfig(disabledPaths);
   const records: RunRecord[] = [];
 
@@ -252,7 +267,11 @@ async function main(): Promise<void> {
     // macOS exposes /var through /private/var. Codex reports canonical source paths, so compare and
     // execute with the canonical workspace rather than treating those aliases as different catalogs.
     const canonicalWorkspace = await realpath(workspace);
-    await verifyCatalog(canonicalWorkspace, knownSkills, skillConfig, options.timeoutMs);
+    const catalogSkills = new Set([
+      variant.name ?? experiment.target,
+      ...experiment.competitors.map((skill) => skill.name),
+    ]);
+    await verifyCatalog(canonicalWorkspace, catalogSkills, skillConfig, options.timeoutMs);
 
     for (const case_ of cases) {
       for (let repetition = 1; repetition <= options.repetitions; repetition += 1) {
@@ -303,16 +322,17 @@ async function main(): Promise<void> {
 async function materializeWorkspace(
   workspace: string,
   experiment: RoutingExperiment,
-  variant: DescriptionVariant,
+  variant: MetadataVariant,
 ): Promise<void> {
-  const skills = [
-    { name: experiment.target, description: variant.description },
-    ...experiment.competitors,
-  ];
+  const target = { name: variant.name ?? experiment.target, description: variant.description };
+  const skills = [target, ...experiment.competitors];
   for (const skill of skills) {
     const directory = join(workspace, ".agents", "skills", skill.name);
     await mkdir(directory, { recursive: true });
-    await writeFile(join(directory, "SKILL.md"), renderProbeSkill(skill), { flag: "wx" });
+    const selectedAs = skill === target ? experiment.target : skill.name;
+    await writeFile(join(directory, "SKILL.md"), renderProbeSkill(skill, selectedAs), {
+      flag: "wx",
+    });
   }
 }
 
@@ -405,7 +425,11 @@ async function requireCodex(): Promise<string> {
 }
 
 function installedSkillPaths(skills: ReadonlySet<string>): string[] {
-  const roots = [join(homedir(), ".codex", "skills"), join(homedir(), ".agents", "skills")];
+  const roots = [
+    join(homedir(), ".codex", "skills"),
+    join(homedir(), ".codex", "skills", ".system"),
+    join(homedir(), ".agents", "skills"),
+  ];
   return roots.flatMap((root) =>
     [...skills].map((skill) => join(root, skill, "SKILL.md")).filter((path) => existsSync(path)),
   );

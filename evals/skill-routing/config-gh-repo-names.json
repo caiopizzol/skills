@@ -1,0 +1,96 @@
+{
+  "name": "GitHub repository skill name and description holdout",
+  "target": "config-gh-repo",
+  "variants": [
+    {
+      "id": "baseline-name-core",
+      "name": "config-gh-repo",
+      "description": "Configure or check GitHub repository settings."
+    },
+    {
+      "id": "explicit-name-core",
+      "name": "configure-github-merge-settings",
+      "description": "Configure or check GitHub repository settings."
+    },
+    {
+      "id": "vague-name-core",
+      "name": "github-helper",
+      "description": "Configure or check GitHub repository settings."
+    },
+    {
+      "id": "baseline-name-bounded",
+      "name": "config-gh-repo",
+      "description": "Configure or check GitHub merge and pull-request settings: allowed merge methods, auto-merge, branch update suggestions, squash commit titles, merged-branch deletion, and explicit DCO web signoff. Use only when the user wants settings inspected or changed. Do not use for explanations, repository visibility or features, CI, or branch protection."
+    },
+    {
+      "id": "explicit-name-bounded",
+      "name": "configure-github-merge-settings",
+      "description": "Configure or check GitHub merge and pull-request settings: allowed merge methods, auto-merge, branch update suggestions, squash commit titles, merged-branch deletion, and explicit DCO web signoff. Use only when the user wants settings inspected or changed. Do not use for explanations, repository visibility or features, CI, or branch protection."
+    },
+    {
+      "id": "vague-name-bounded",
+      "name": "github-helper",
+      "description": "Configure or check GitHub merge and pull-request settings: allowed merge methods, auto-merge, branch update suggestions, squash commit titles, merged-branch deletion, and explicit DCO web signoff. Use only when the user wants settings inspected or changed. Do not use for explanations, repository visibility or features, CI, or branch protection."
+    }
+  ],
+  "competitors": [
+    {
+      "name": "create-gh-repo",
+      "description": "Create a GitHub repository from an existing local Git repository, or check whether one is connected. Do not use for CI or merge protection."
+    },
+    {
+      "name": "setup-gh-checks",
+      "description": "Add, update, or check a small GitHub Actions workflow that runs the repository's existing check command. Do not use for merge protection."
+    },
+    {
+      "name": "protect-gh-repo",
+      "description": "Protect or check a GitHub default branch using checks and reviews already seen on real pull requests. Use only after CI and review tools have run successfully."
+    },
+    {
+      "name": "setup-gh-repo",
+      "description": "Set up or check a GitHub repository's merge settings, CI, Cubic review, and branch protection. Use a child skill when only one area is needed."
+    }
+  ],
+  "cases": [
+    {
+      "id": "disable-merge-commits",
+      "prompt": "Turn off merge commits but leave squash merging available for pull requests.",
+      "expected": "config-gh-repo"
+    },
+    {
+      "id": "delete-head-branches",
+      "prompt": "Automatically remove a pull request's head branch after the pull request is merged.",
+      "expected": "config-gh-repo"
+    },
+    {
+      "id": "check-merge-options",
+      "prompt": "Can you check which pull request merge options this repository currently allows?",
+      "expected": "config-gh-repo"
+    },
+    {
+      "id": "auto-merge-portuguese",
+      "prompt": "Confira se o auto-merge está habilitado neste repositório, sem alterar nada.",
+      "expected": "config-gh-repo"
+    },
+    {
+      "id": "archive-repository",
+      "prompt": "Archive this GitHub repository so it becomes read-only.",
+      "expected": null
+    },
+    {
+      "id": "explain-branch-cleanup",
+      "prompt": "Why do teams delete pull request branches after merging? I only want an explanation.",
+      "expected": null
+    },
+    {
+      "id": "add-workflow",
+      "prompt": "Create a GitHub Actions workflow that runs the existing project check on pull requests.",
+      "expected": "setup-gh-checks"
+    },
+    {
+      "id": "block-force-pushes",
+      "prompt": "Protect main from force pushes and branch deletion.",
+      "expected": "protect-gh-repo"
+    }
+  ]
+}

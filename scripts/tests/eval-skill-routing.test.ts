@@ -6,7 +6,7 @@ import {
   renderProbeSkill,
   scoreRuns,
   type RoutingRun,
-} from "../eval-skill-routing.ts";
+} from "../../skills/development/improve-skill-metadata/scripts/evaluate.ts";
 
 function output(response: string, overrides: { exitCode?: number; timedOut?: boolean } = {}) {
   return {
@@ -31,6 +31,14 @@ describe("skill routing experiment input", () => {
     };
 
     expect(parseExperiment(base).target).toBe("target-skill");
+    expect(
+      parseExperiment({
+        ...base,
+        variants: [
+          { id: "renamed", name: "better-target-name", description: "Do the target job." },
+        ],
+      }).variants[0]?.name,
+    ).toBe("better-target-name");
     expect(() =>
       parseExperiment({
         ...base,
@@ -50,6 +58,17 @@ describe("routing probe", () => {
     expect(rendered).toContain('description: "Do a target task when the user asks for it."');
     expect(rendered).toContain(marker("target-skill"));
     expect(rendered).toContain("Do not perform the user's task or call tools.");
+  });
+
+  it("can vary the visible name while reporting the logical target", () => {
+    const rendered = renderProbeSkill(
+      { name: "candidate-name", description: "Do the target job." },
+      "target-skill",
+    );
+
+    expect(rendered).toContain("name: candidate-name");
+    expect(rendered).toContain(marker("target-skill"));
+    expect(rendered).not.toContain(marker("candidate-name"));
   });
 });
 

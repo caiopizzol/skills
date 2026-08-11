@@ -1,0 +1,62 @@
+{
+  "name": "Skill metadata improvement routing",
+  "target": "improve-skill-metadata",
+  "variants": [
+    {
+      "id": "candidate",
+      "description": "Evaluate and improve a skill's frontmatter name and description with labeled implicit-routing trials against the real Codex catalog. Use when diagnosing missed or false skill activation, comparing metadata variants, testing a proposed rename, or rewriting routing metadata from evidence. Do not use to revise the skill body or judge workflow execution."
+    }
+  ],
+  "competitors": [
+    {
+      "name": "skill-creator",
+      "description": "Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an existing skill) that extends Codex's capabilities with specialized knowledge, workflows, or tool integrations."
+    },
+    {
+      "name": "openai-docs",
+      "description": "Use for Codex models, skills, settings, setup, troubleshooting, customization, automations, self-knowledge, OpenAI APIs, and evals. Do not use for generic software tasks that merely mention Codex."
+    }
+  ],
+  "cases": [
+    {
+      "id": "false-activation",
+      "prompt": "This skill keeps firing when users only ask for an explanation. Evaluate its routing and improve the description.",
+      "expected": "improve-skill-metadata"
+    },
+    {
+      "id": "missed-paraphrase",
+      "prompt": "Codex is not picking up my skill when people paraphrase the request. Test a few metadata variants.",
+      "expected": "improve-skill-metadata"
+    },
+    {
+      "id": "compare-names",
+      "prompt": "Compare config-gh-repo and configure-github-merge-settings as names using actual routing trials.",
+      "expected": "improve-skill-metadata"
+    },
+    {
+      "id": "rewrite-from-evidence",
+      "prompt": "Use labeled activation failures to rewrite this SKILL.md name and description.",
+      "expected": "improve-skill-metadata"
+    },
+    {
+      "id": "create-new-skill",
+      "prompt": "Create a new skill that rotates PDF pages.",
+      "expected": "skill-creator"
+    },
+    {
+      "id": "rewrite-body",
+      "prompt": "Rewrite the workflow steps in this existing skill body and add a helper script.",
+      "expected": "skill-creator"
+    },
+    {
+      "id": "explain-activation",
+      "prompt": "Explain how implicit skill activation works in Codex.",
+      "expected": "openai-docs"
+    },
+    {
+      "id": "review-migration-output",
+      "prompt": "Review this SQL migration for correctness and data-loss risks.",
+      "expected": null
+    }
+  ]
+}
