@@ -1,9 +1,8 @@
-// Replace skill bodies with fixed labels so the experiment measures routing without running them.
+// Run routing trials with only fixed-label probe skills active.
 
 import { createHash } from "node:crypto";
-import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, realpath, writeFile } from "node:fs/promises";
-import { homedir, tmpdir } from "node:os";
+import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
 const SKILL_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -32,6 +31,12 @@ export interface RoutingExperiment {
   variants: MetadataVariant[];
   competitors: RoutingSkill[];
   cases: RoutingCase[];
+}
+
+export interface CatalogSkill {
+  name: string;
+  kind: string;
+  locator: string;
 }
 
 export type RunOutcome =
@@ -151,6 +156,69 @@ export function marker(skillName_: string): string {
   return `${MARKER_PREFIX}${skillName_}`;
 }
 
+export function parseSkillCatalog(stdout: string): CatalogSkill[] {
+  let prompt: unknown;
+  try {
+    prompt = JSON.parse(stdout);
+  } catch {
+    throw new Error("routing catalog preflight returned invalid JSON");
+  }
+
+  const sections = inputTexts(prompt).filter((value) => value.includes("<skills_instructions>"));
+  if (sections.length !== 1) {
+    throw new Error("routing catalog preflight did not expose one skill catalog");
+  }
+
+  const section = sections[0]!;
+  const startMarker = "### Available skills\n";
+  const start = section.indexOf(startMarker);
+  const end = section.indexOf("</skills_instructions>", start + startMarker.length);
+  if (start === -1 || end === -1) {
+    throw new Error("routing catalog preflight returned an incomplete skill catalog");
+  }
+
+  const skills = section
+    .slice(start + startMarker.length, end)
+    .split("\n")
+    .filter((line) => line.startsWith("- "))
+    .map(parseCatalogLine);
+  const names = new Set<string>();
+  for (const skill of skills) {
+    if (names.has(skill.name)) {
+      throw new Error(`routing catalog listed ${skill.name} more than once`);
+    }
+    names.add(skill.name);
+  }
+  return skills;
+}
+
+export function isolationConfig(catalog: CatalogSkill[]): string | null {
+  for (const skill of catalog) {
+    if (skill.kind !== "file") {
+      throw new Error(`routing catalog cannot disable ${skill.name} (${skill.kind})`);
+    }
+  }
+  return tomlSkillConfig([...new Set(catalog.map((skill) => skill.locator))].sort());
+}
+
+export function assertProbeCatalog(
+  catalog: CatalogSkill[],
+  expected: ReadonlyMap<string, string>,
+): void {
+  for (const skill of catalog) {
+    const expectedPath = expected.get(skill.name);
+    if (!expectedPath) throw new Error(`routing catalog contains unexpected skill ${skill.name}`);
+    if (skill.kind !== "file" || skill.locator !== expectedPath) {
+      throw new Error(`routing catalog loaded ${skill.name} from an unexpected source`);
+    }
+  }
+  for (const [name, path] of expected) {
+    if (!catalog.some((skill) => skill.name === name && skill.locator === path)) {
+      throw new Error(`routing catalog did not load ${name} from ${path}`);
+    }
+  }
+}
+
 export function classifyCodexOutput(
   result: ProcessResult,
   knownSkills: ReadonlySet<string>,
@@ -246,18 +314,21 @@ async function main(): Promise<void> {
     experiment.target,
     ...experiment.competitors.map((skill) => skill.name),
   ]);
-  const sourceSkillNames = new Set([
-    ...knownSkills,
-    ...experiment.variants.flatMap((variant) => (variant.name ? [variant.name] : [])),
-  ]);
-  const disabledPaths = installedSkillPaths(sourceSkillNames);
-  const skillConfig = tomlSkillConfig(disabledPaths);
+  const catalogWorkspace = join(artifactsDirectory, "catalog");
+  await mkdir(catalogWorkspace);
+  const installedCatalog = await readCatalog(
+    await realpath(catalogWorkspace),
+    null,
+    options.timeoutMs,
+  );
+  const skillConfig = isolationConfig(installedCatalog);
   const records: RunRecord[] = [];
 
   console.log(`Experiment: ${experiment.name}`);
   console.log(`Model: ${options.model}`);
   console.log(`Codex: ${codexVersion}`);
   console.log(`Artifacts: ${artifactsDirectory}`);
+  console.log(`Catalog: disabled ${installedCatalog.length} installed skills`);
 
   for (const variant of variants) {
     const workspace = join(artifactsDirectory, "workspaces", variant.id);
@@ -265,10 +336,11 @@ async function main(): Promise<void> {
     // macOS exposes /var through /private/var. Codex reports canonical source paths, so compare and
     // execute with the canonical workspace rather than treating those aliases as different catalogs.
     const canonicalWorkspace = await realpath(workspace);
-    const catalogSkills = new Set([
-      variant.name ?? experiment.target,
-      ...experiment.competitors.map((skill) => skill.name),
-    ]);
+    const catalogSkills = new Map(
+      [variant.name ?? experiment.target, ...experiment.competitors.map((skill) => skill.name)].map(
+        (skill) => [skill, join(canonicalWorkspace, ".agents", "skills", skill, "SKILL.md")],
+      ),
+    );
     await verifyCatalog(canonicalWorkspace, catalogSkills, skillConfig, options.timeoutMs);
 
     for (const case_ of cases) {
@@ -336,10 +408,18 @@ async function materializeWorkspace(
 
 async function verifyCatalog(
   workspace: string,
-  knownSkills: ReadonlySet<string>,
+  expected: ReadonlyMap<string, string>,
   skillConfig: string | null,
   timeoutMs: number,
 ): Promise<void> {
+  assertProbeCatalog(await readCatalog(workspace, skillConfig, timeoutMs), expected);
+}
+
+async function readCatalog(
+  workspace: string,
+  skillConfig: string | null,
+  timeoutMs: number,
+): Promise<CatalogSkill[]> {
   const arguments_ = ["debug", "prompt-input"];
   if (skillConfig) arguments_.push("-c", skillConfig);
   arguments_.push("routing catalog preflight");
@@ -347,12 +427,7 @@ async function verifyCatalog(
   if (result.timedOut) throw new Error("routing catalog preflight timed out");
   if (result.exitCode !== 0)
     throw new Error(result.stderr.trim() || "routing catalog preflight failed");
-  for (const skill of knownSkills) {
-    const expected = join(workspace, ".agents", "skills", skill, "SKILL.md");
-    if (!result.stdout.includes(`(file: ${expected})`)) {
-      throw new Error(`routing catalog preflight did not load ${skill} from ${expected}`);
-    }
-  }
+  return parseSkillCatalog(result.stdout);
 }
 
 async function runCodex(input: {
@@ -422,21 +497,35 @@ async function requireCodex(): Promise<string> {
   return result.stdout.trim();
 }
 
-function installedSkillPaths(skills: ReadonlySet<string>): string[] {
-  const roots = [
-    join(homedir(), ".codex", "skills"),
-    join(homedir(), ".codex", "skills", ".system"),
-    join(homedir(), ".agents", "skills"),
-  ];
-  return roots.flatMap((root) =>
-    [...skills].map((skill) => join(root, skill, "SKILL.md")).filter((path) => existsSync(path)),
-  );
-}
-
 function tomlSkillConfig(paths: string[]): string | null {
   if (paths.length === 0) return null;
   const entries = paths.map((path) => `{path=${JSON.stringify(path)},enabled=false}`);
   return `skills.config=[${entries.join(",")}]`;
+}
+
+function parseCatalogLine(line: string): CatalogSkill {
+  const nameEnd = line.indexOf(": ", 2);
+  const locatorStart = line.lastIndexOf(" (");
+  if (nameEnd === -1 || locatorStart === -1 || !line.endsWith(")")) {
+    throw new Error(`routing catalog could not parse skill entry: ${line}`);
+  }
+  const locator = line.slice(locatorStart + 2, -1);
+  const kindEnd = locator.indexOf(": ");
+  if (kindEnd === -1) throw new Error(`routing catalog could not parse skill locator: ${line}`);
+  return {
+    name: line.slice(2, nameEnd),
+    kind: locator.slice(0, kindEnd),
+    locator: locator.slice(kindEnd + 2),
+  };
+}
+
+function inputTexts(value: unknown): string[] {
+  if (Array.isArray(value)) return value.flatMap(inputTexts);
+  const source = recordOrNull(value);
+  if (!source) return [];
+  const own =
+    source["type"] === "input_text" && typeof source["text"] === "string" ? [source["text"]] : [];
+  return [...own, ...Object.values(source).flatMap(inputTexts)];
 }
 
 function parseArguments(arguments_: string[]): CliOptions {

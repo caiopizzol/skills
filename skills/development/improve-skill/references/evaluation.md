@@ -72,8 +72,9 @@ bun --no-env-file <skill-directory>/scripts/evaluate.ts \
   [--variant ID] [--case ID] [--timeout-ms N] [--artifacts-dir PATH]
 ```
 
-The evaluator replaces each skill body with a fixed label. It checks the catalog, runs Codex in a read-only
-sandbox, and writes JSONL and `report.json` outside the repository.
+The evaluator disables every installed skill, then checks that only the fixed-label probes remain. It stops
+if a skill cannot be disabled. It runs Codex in a read-only sandbox and writes JSONL and `report.json`
+outside the repository.
 
 ## Compare variants
 

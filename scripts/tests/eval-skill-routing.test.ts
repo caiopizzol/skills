@@ -1,8 +1,11 @@
 import { describe, expect, it } from "bun:test";
 import {
+  assertProbeCatalog,
+  isolationConfig,
   classifyCodexOutput,
   marker,
   parseExperiment,
+  parseSkillCatalog,
   renderProbeSkill,
   scoreRuns,
   type RoutingRun,
@@ -18,6 +21,21 @@ function output(response: string, overrides: { exitCode?: number; timedOut?: boo
     })}\n`,
     stderr: "",
   };
+}
+
+function catalogOutput(lines: string[]): string {
+  return JSON.stringify([
+    {
+      type: "message",
+      role: "developer",
+      content: [
+        {
+          type: "input_text",
+          text: `<skills_instructions>\n## Skills\n### Available skills\n${lines.join("\n")}\n</skills_instructions>`,
+        },
+      ],
+    },
+  ]);
 }
 
 describe("skill routing experiment input", () => {
@@ -69,6 +87,55 @@ describe("routing probe", () => {
     expect(rendered).toContain("name: candidate-name");
     expect(rendered).toContain(marker("target-skill"));
     expect(rendered).not.toContain(marker("candidate-name"));
+  });
+});
+
+describe("skill catalog isolation", () => {
+  const target = "- target-skill: Do the target job. (file: /tmp/probes/target-skill/SKILL.md)";
+  const production = "- review-code: Review code. (file: /installed/review-code/SKILL.md)";
+
+  it("reads file skills, including namespaced skills, from Codex prompt input", () => {
+    const catalog = parseSkillCatalog(
+      catalogOutput([
+        target,
+        "- chrome:control-chrome: Control Chrome. (file: /plugins/chrome/SKILL.md)",
+      ]),
+    );
+
+    expect(catalog).toEqual([
+      { name: "target-skill", kind: "file", locator: "/tmp/probes/target-skill/SKILL.md" },
+      {
+        name: "chrome:control-chrome",
+        kind: "file",
+        locator: "/plugins/chrome/SKILL.md",
+      },
+    ]);
+  });
+
+  it("disables every file skill and refuses sources it cannot disable", () => {
+    expect(isolationConfig(parseSkillCatalog(catalogOutput([production])))).toBe(
+      'skills.config=[{path="/installed/review-code/SKILL.md",enabled=false}]',
+    );
+    expect(() =>
+      isolationConfig(
+        parseSkillCatalog(
+          catalogOutput([
+            "- remote-skill: Use a remote skill. (environment resource: skill://remote)",
+          ]),
+        ),
+      ),
+    ).toThrow("cannot disable remote-skill");
+  });
+
+  it("accepts only the expected probes", () => {
+    const expected = new Map([["target-skill", "/tmp/probes/target-skill/SKILL.md"]]);
+
+    expect(() =>
+      assertProbeCatalog(parseSkillCatalog(catalogOutput([target])), expected),
+    ).not.toThrow();
+    expect(() =>
+      assertProbeCatalog(parseSkillCatalog(catalogOutput([target, production])), expected),
+    ).toThrow("unexpected skill review-code");
   });
 });
 
