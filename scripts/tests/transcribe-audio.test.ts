@@ -3,7 +3,10 @@ import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "bun:test";
-import { transcribeWithGroq } from "../../skills/files/transcribe-audio/scripts/transcribe-groq.ts";
+import {
+  transcribeWithWhisper,
+  type ExecBoundary,
+} from "../../skills/files/transcribe-audio/scripts/transcribe-whisper.ts";
 
 const temporary: string[] = [];
 
@@ -11,68 +14,72 @@ afterEach(async () => {
   await Promise.all(temporary.splice(0).map((path) => rm(path, { recursive: true, force: true })));
 });
 
-async function fixture(
-  extension = "wav",
-): Promise<{ inputPath: string; sha256: string; root: string }> {
+async function fixture(): Promise<{
+  inputPath: string;
+  modelPath: string;
+  sha256: string;
+  root: string;
+}> {
   const root = await mkdtemp(join(tmpdir(), "transcribe-audio-"));
   temporary.push(root);
-  const inputPath = join(root, `audio.${extension}`);
+  const inputPath = join(root, "audio.mp3");
+  const modelPath = join(root, "ggml-large-v3-turbo.bin");
   const bytes = Buffer.from("audio bytes");
   await writeFile(inputPath, bytes);
+  await writeFile(modelPath, "model bytes");
   return {
     inputPath,
+    modelPath,
     sha256: createHash("sha256").update(bytes).digest("hex"),
     root,
   };
 }
 
-function groqResponse(): Response {
-  return Response.json({
-    text: "First segment. Second segment.",
-    language: "en",
-    duration: 4,
-    segments: [
-      { start: 0, end: 2, text: "First segment." },
-      { start: 2, end: 4, text: "Second segment." },
-    ],
-  });
+function workingExec(requests: string[][]): ExecBoundary {
+  return async (command, args) => {
+    requests.push([command, ...args]);
+    if (args.includes("--version"))
+      return {
+        outcome: "ok",
+        exitCode: 0,
+        stdout: "whisper.cpp version: 1.9.2\n",
+        stderr: "",
+      };
+    const outputPrefix = args[args.indexOf("-of") + 1];
+    if (!outputPrefix) throw new Error("missing output prefix");
+    await writeFile(
+      `${outputPrefix}.json`,
+      JSON.stringify({
+        model: {
+          vocab: 51866,
+          audio: { layer: 32 },
+          text: { layer: 4 },
+        },
+        result: { language: "en" },
+        transcription: [
+          { offsets: { from: 0, to: 2000 }, text: "First segment." },
+          { offsets: { from: 2000, to: 4000 }, text: "Second segment." },
+        ],
+      }),
+    );
+    return { outcome: "ok", exitCode: 0, stdout: "", stderr: "" };
+  };
 }
 
-describe("Groq audio transcription", () => {
-  it("requires explicit authorization before reading credentials or calling Groq", async () => {
-    const { inputPath, sha256, root } = await fixture();
-    let called = false;
-
-    const result = await transcribeWithGroq({
-      inputPath,
-      expectedSha256: sha256,
-      artifactsDirectory: join(root, "artifacts"),
-      allowHosted: false,
-      apiKey: "test-key",
-      fetcher: async () => {
-        called = true;
-        return groqResponse();
-      },
-    });
-
-    expect(result.outcome).toBe("access-denied");
-    expect(called).toBe(false);
-  });
-
-  it("stops on a source hash mismatch before creating artifacts or calling Groq", async () => {
-    const { inputPath, root } = await fixture();
+describe("local Whisper transcription", () => {
+  it("stops on a source hash mismatch before creating artifacts or running tools", async () => {
+    const { inputPath, modelPath, root } = await fixture();
     const artifactsDirectory = join(root, "artifacts");
     let called = false;
 
-    const result = await transcribeWithGroq({
+    const result = await transcribeWithWhisper({
       inputPath,
       expectedSha256: "a".repeat(64),
       artifactsDirectory,
-      allowHosted: true,
-      apiKey: "test-key",
-      fetcher: async () => {
+      modelPath,
+      exec: async () => {
         called = true;
-        return groqResponse();
+        return { outcome: "ok", exitCode: 0, stdout: "", stderr: "" };
       },
     });
 
@@ -81,64 +88,96 @@ describe("Groq audio transcription", () => {
     expect(await readdir(artifactsDirectory).catch(() => [])).toEqual([]);
   });
 
-  it("requests segment timestamps and writes a source-bound transcript", async () => {
-    const { inputPath, sha256, root } = await fixture("mp3");
-    const artifactsDirectory = join(root, "artifacts");
+  it("reports a missing local model without running whisper-cli", async () => {
+    const { inputPath, sha256, root } = await fixture();
+    let called = false;
 
-    const result = await transcribeWithGroq({
+    const result = await transcribeWithWhisper({
       inputPath,
       expectedSha256: sha256,
-      artifactsDirectory,
-      allowHosted: true,
-      apiKey: "test-key",
-      fetcher: async (input, init) => {
-        expect(input).toBe("https://api.groq.com/openai/v1/audio/transcriptions");
-        expect(init?.headers).toEqual({ Authorization: "Bearer test-key" });
-        const body = init?.body;
-        if (!(body instanceof FormData)) throw new Error("expected multipart form data");
-        expect(body.get("model")).toBe("whisper-large-v3-turbo");
-        expect(body.get("response_format")).toBe("verbose_json");
-        expect(body.get("timestamp_granularities[]")).toBe("segment");
-        return groqResponse();
+      artifactsDirectory: join(root, "artifacts"),
+      modelPath: join(root, "missing-model.bin"),
+      exec: async () => {
+        called = true;
+        return { outcome: "ok", exitCode: 0, stdout: "", stderr: "" };
       },
     });
 
+    expect(result.outcome).toBe("tool-unavailable");
+    expect(called).toBe(false);
+  });
+
+  it("runs whisper-cli without a shell and writes a source-bound timestamped transcript", async () => {
+    const { inputPath, modelPath, sha256, root } = await fixture();
+    const requests: string[][] = [];
+
+    const result = await transcribeWithWhisper({
+      inputPath,
+      expectedSha256: sha256,
+      artifactsDirectory: join(root, "artifacts"),
+      modelPath,
+      language: "en",
+      threads: 6,
+      exec: workingExec(requests),
+    });
+
+    expect(requests[0]).toEqual(["whisper-cli", "--version"]);
+    expect(requests[1]).toEqual(
+      expect.arrayContaining([
+        "whisper-cli",
+        "-m",
+        modelPath,
+        "-f",
+        inputPath,
+        "-l",
+        "en",
+        "-t",
+        "6",
+        "-oj",
+        "-np",
+      ]),
+    );
     expect(result).toMatchObject({
       outcome: "ok",
-      coverage: { processedRangeSeconds: [0, 4], segmentCount: 2 },
+      engineVersion: "1.9.2",
+      model: { name: "large-v3-turbo" },
+      segmentRangeSeconds: [0, 4],
+      segmentCount: 2,
     });
     if (result.outcome !== "ok") throw new Error("expected transcription success");
     const transcript = JSON.parse(await readFile(result.transcript.path, "utf8"));
     expect(transcript).toMatchObject({
-      provider: "Groq",
-      model: "whisper-large-v3-turbo",
+      engine: "whisper.cpp",
+      engineVersion: "1.9.2",
       source: { path: inputPath, sha256 },
+      model: { path: modelPath, name: "large-v3-turbo" },
       segments: [
         { start: 0, end: 2, text: "First segment." },
         { start: 2, end: 4, text: "Second segment." },
       ],
     });
+    expect(await readdir(result.transcript.path.replace(/\/transcript\.json$/, ""))).toEqual([
+      "transcript.json",
+    ]);
   });
 
-  it("refuses an oversized input before calling Groq", async () => {
-    const { inputPath, sha256, root } = await fixture("raw");
-    let called = false;
-
-    const result = await transcribeWithGroq({
+  it("keeps timeout distinct and removes partial output", async () => {
+    const { inputPath, modelPath, sha256, root } = await fixture();
+    let calls = 0;
+    const result = await transcribeWithWhisper({
       inputPath,
       expectedSha256: sha256,
       artifactsDirectory: join(root, "artifacts"),
-      allowHosted: true,
-      apiKey: "test-key",
-      maxUploadBytes: 4,
-      fetcher: async () => {
-        called = true;
-        return groqResponse();
+      modelPath,
+      exec: async () => {
+        calls++;
+        return calls === 1
+          ? { outcome: "ok", exitCode: 0, stdout: "whisper.cpp version: 1.9.2", stderr: "" }
+          : { outcome: "timeout", exitCode: 143, stdout: "", stderr: "" };
       },
     });
 
-    expect(result).toMatchObject({ outcome: "unsupported-input" });
-    expect(called).toBe(false);
-    expect(await readdir(join(root, "artifacts")).catch(() => [])).toEqual([]);
+    expect(result.outcome).toBe("timeout");
+    expect(await readdir(join(root, "artifacts"))).toEqual([]);
   });
 });

@@ -60,8 +60,8 @@ export function planAudioStreams(
 }
 
 export function buildExtractAudioArgs(inputPath: string, outputPath: string): string[] {
-  // This derivative exists for speech transcription. Compact mono MP3 keeps ordinary long videos
-  // within hosted speech-to-text upload limits; PCM WAV does not.
+  // This derivative exists for speech transcription. Compact mono MP3 is accepted directly by
+  // whisper.cpp and avoids writing an unnecessarily large PCM copy of long videos.
   return [
     "-hide_banner",
     "-loglevel",

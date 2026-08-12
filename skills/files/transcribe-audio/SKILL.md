@@ -1,6 +1,6 @@
 ---
 name: transcribe-audio
-description: Transcribe one exact local audio file with timestamps, source identity, capability provenance, and explicit coverage gaps. Use for local audio or an audio derivative delegated by another skill such as read-video, including authorized Groq Whisper transcription.
+description: Transcribe one exact local audio file with local Whisper, timestamps, source identity, capability provenance, and explicit coverage gaps. Use for local audio or an audio derivative delegated by another skill such as read-video.
 ---
 
 # Transcribe audio
@@ -15,9 +15,8 @@ language, speaker hints, and duration or cost bound. Do not download or extract 
 1. Hash the original and stop on an expected-hash mismatch.
 2. Inspect duration, container, codec, sample rate, and channels when possible. Missing metadata does not
    make transcription unavailable.
-3. Prefer an existing local speech-to-text capability with timestamps. Otherwise, when this exact audio
-   may be uploaded to Groq, use the bundled [Groq Whisper runner](references/groq.md). Name the provider
-   and model before sending bytes. When neither route is available and authorized, report the checks.
+3. Use the bundled [local Whisper runner](references/local-whisper.md). Name the tool and model. When the
+   tool or model is unavailable, report the failed check.
 4. Transcribe the full file unless the caller set a duration or cost bound. Preserve timestamps, speaker
    labels, and uncertainty when available. Never invent missing metadata.
 5. Compare returned ranges with the observed duration. Report overlaps, out-of-range timestamps, and
@@ -32,13 +31,13 @@ the machine to provision a route.
 
 - File identity: absolute path, bytes, SHA-256, and expected-hash result when supplied.
 - Metadata: duration, container, codec, sample rate, channels, or the reason they are unavailable.
-- Capability: tool, provider, model, local or hosted, and timestamp or speaker-label support.
+- Capability: tool, version, model, and timestamp or speaker-label support.
 - Transcript: timestamped segments, or one explicitly untimed transcript.
 - Coverage: covered ranges and every omitted or unproved interval, never a percentage.
 - Gaps: unsupported inputs, bounds, missing metadata, unavailable diarization, uncertainty, and failures.
 
-Never modify the original. Write the transcript only beneath the artifacts directory. Local transcription
-sends nothing outside the runtime. Hosted transcription requires explicit authorization for this audio.
+Never modify the original. Write the transcript only beneath the artifacts directory. Transcription sends
+nothing outside the runtime.
 
-Preserve `ok`, `tool-unavailable`, `access-denied`, `unsupported-input`, `transcription-failed`, and
-`timeout` as distinct outcomes. A partial response remains partial and carries explicit coverage gaps.
+Preserve `ok`, `tool-unavailable`, `unsupported-input`, `transcription-failed`, and `timeout` as distinct
+outcomes. A partial response remains partial and carries explicit coverage gaps.
