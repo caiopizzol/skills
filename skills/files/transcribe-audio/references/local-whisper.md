@@ -10,5 +10,13 @@ bun --no-env-file <skill-directory>/scripts/transcribe-whisper.ts <audio-path> \
   [--model <ggml-model-path>] [--language <code>] [--timeout-ms <milliseconds>]
 ```
 
-Use `WHISPER_MODEL_PATH` instead of `--model` when already configured. Exit `0` writes a timestamped
-transcript. Exit `2` returns a named capability or transcription failure. Exit `1` means invalid arguments.
+Use `WHISPER_MODEL_PATH` when configured. Otherwise, on macOS, check these existing files in order:
+
+1. `$HOME/Library/Caches/whisper.cpp/ggml-large-v3-turbo.bin`
+2. `$HOME/Library/Caches/whisper.cpp/ggml-large-v3.bin`
+
+Pass the first file found with `--model`. If neither exists, ask the user for the local model path. Never
+download a model.
+
+Exit `0` writes a timestamped transcript. Exit `2` returns a named capability or transcription failure.
+Exit `1` means invalid arguments.
