@@ -87,10 +87,10 @@ verifying the source, routing formats safely, covering animations, and reporting
 
 ### Media
 
-| Skill                                                                    | Type      | Purpose                                           |
-| ------------------------------------------------------------------------ | --------- | ------------------------------------------------- |
-| [`download-youtube-video`](skills/media/download-youtube-video/SKILL.md) | Focused   | Download one public video as an exact local file  |
-| [`summarize-youtube`](skills/media/summarize-youtube/SKILL.md)           | Composite | Summarize spoken and visual evidence from YouTube |
+| Skill                                                                    | Type      | Purpose                                              |
+| ------------------------------------------------------------------------ | --------- | ---------------------------------------------------- |
+| [`download-youtube-video`](skills/media/download-youtube-video/SKILL.md) | Focused   | Download one accessible video as an exact local file |
+| [`summarize-youtube`](skills/media/summarize-youtube/SKILL.md)           | Composite | Summarize spoken and visual evidence from YouTube    |
 
 ## Install
 
