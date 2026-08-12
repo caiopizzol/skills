@@ -44,6 +44,28 @@ function missing(command: string): Error {
 }
 
 describe("prepareVideo capability reporting", () => {
+  it("extracts frames at exact times", async () => {
+    const directory = await temporaryDirectory();
+    const inputPath = join(directory, "clip.mp4");
+    await writeFile(inputPath, "video bytes");
+
+    const result = await prepareVideo(
+      {
+        command: "prepare",
+        inputPath,
+        artifactsDirectory: join(directory, "artifacts"),
+        only: "frames",
+        timestampsSeconds: [3, 1],
+      },
+      { cwd: directory, hostExec: workingExec() },
+    );
+
+    if (result.frames?.outcome !== "ok") throw new Error("expected prepared frames");
+    expect(result.frames.sampling.timestampsSeconds).toEqual([1, 3]);
+    expect(result.audio).toBeNull();
+    expect(isComplete(result)).toBe(true);
+  });
+
   it("creates and reports a temporary artifacts directory when the caller omits one", async () => {
     const directory = await temporaryDirectory();
     const inputPath = join(directory, "clip.mp4");
@@ -217,7 +239,12 @@ describe("prepareVideo audio coverage", () => {
     });
 
     const result = await prepareVideo(
-      { command: "prepare", inputPath, artifactsDirectory: join(directory, "artifacts") },
+      {
+        command: "prepare",
+        inputPath,
+        artifactsDirectory: join(directory, "artifacts"),
+        only: "audio",
+      },
       {
         cwd: directory,
         hostExec: async (request) => {
@@ -233,12 +260,54 @@ describe("prepareVideo audio coverage", () => {
     );
 
     if (result.audio?.outcome !== "ok") throw new Error("expected an extracted audio lane");
+    expect(result.frames).toBeNull();
     expect(result.audio.selection.omittedStreamIndexes).toEqual([]);
     expect(isComplete(result)).toBe(true);
   });
 });
 
 describe("prepareVideo source identity", () => {
+  it("stops before tooling when the source changes between passes", async () => {
+    const directory = await temporaryDirectory();
+    const inputPath = join(directory, "clip.mp4");
+    const artifactsDirectory = join(directory, "artifacts");
+    await writeFile(inputPath, "first video bytes");
+    const first = await prepareVideo(
+      { command: "prepare", inputPath, artifactsDirectory, only: "audio" },
+      { cwd: directory, hostExec: workingExec() },
+    );
+    await writeFile(inputPath, "different video bytes");
+    let called = false;
+
+    const second = await prepareVideo(
+      {
+        command: "prepare",
+        inputPath,
+        artifactsDirectory,
+        expectedSha256: first.file.sha256,
+        only: "frames",
+        timestampsSeconds: [1],
+      },
+      {
+        cwd: directory,
+        hostExec: async () => {
+          called = true;
+          return { exitCode: 0, stdout: "", stderr: "" };
+        },
+      },
+    );
+
+    expect(second.inputChanged).toMatchObject({
+      outcome: "input-changed",
+      initialSha256: first.file.sha256,
+      finalSha256: second.file.sha256,
+    });
+    expect(second.frames).toBeNull();
+    expect(second.audio).toBeNull();
+    expect(called).toBe(false);
+    expect(isComplete(second)).toBe(false);
+  });
+
   it("discards every derivative and reports input-changed when the original moved underneath it", async () => {
     const directory = await temporaryDirectory();
     const inputPath = join(directory, "clip.mp4");

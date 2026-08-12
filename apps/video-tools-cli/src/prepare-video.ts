@@ -76,6 +76,21 @@ export async function prepareVideo(
     audio: null,
     inputChanged: null,
   };
+  if (args.expectedSha256 !== undefined && args.expectedSha256 !== identity.sha256) {
+    return {
+      ...empty,
+      capability: null,
+      capabilityGap: null,
+      inputChanged: {
+        outcome: "input-changed",
+        inputPath,
+        message:
+          "the original file no longer matches the expected SHA-256, so no derivatives were created",
+        initialSha256: args.expectedSha256,
+        finalSha256: identity.sha256,
+      },
+    };
+  }
 
   let exec = options.hostExec ?? execWithBun;
   let image: ContainerIdentity | undefined;
@@ -131,29 +146,37 @@ export async function prepareVideo(
   if (probe.outcome !== "ok") return { ...empty, capability, capabilityGap: null, probe };
 
   const written: string[] = [];
-  const frames = await extractFrames({
-    inputPath,
-    parentSha256: identity.sha256,
-    artifactsDirectory,
-    durationSeconds: probe.probe.durationSeconds,
-    ...(args.frameCount === undefined ? {} : { frameCount: args.frameCount }),
-    cwd,
-    exec,
-    ...(args.maxFrames === undefined ? {} : { maxFrames: args.maxFrames }),
-    ...(args.timeoutMs === undefined ? {} : { timeoutMs: args.timeoutMs }),
-  });
-  if (frames.outcome === "ok") written.push(...frames.frames.map((frame) => frame.derivative.path));
-  const audio = probe.probe.hasAudioStream
-    ? await extractAudio({
-        inputPath,
-        parentSha256: identity.sha256,
-        artifactsDirectory,
-        probe: probe.probe,
-        cwd,
-        exec,
-        ...(args.timeoutMs === undefined ? {} : { timeoutMs: args.timeoutMs }),
-      })
-    : null;
+  const frames =
+    args.only === "audio"
+      ? null
+      : await extractFrames({
+          inputPath,
+          parentSha256: identity.sha256,
+          artifactsDirectory,
+          durationSeconds: probe.probe.durationSeconds,
+          ...(args.frameCount === undefined ? {} : { frameCount: args.frameCount }),
+          ...(args.timestampsSeconds === undefined
+            ? {}
+            : { timestampsSeconds: args.timestampsSeconds }),
+          cwd,
+          exec,
+          ...(args.maxFrames === undefined ? {} : { maxFrames: args.maxFrames }),
+          ...(args.timeoutMs === undefined ? {} : { timeoutMs: args.timeoutMs }),
+        });
+  if (frames?.outcome === "ok")
+    written.push(...frames.frames.map((frame) => frame.derivative.path));
+  const audio =
+    args.only !== "frames" && probe.probe.hasAudioStream
+      ? await extractAudio({
+          inputPath,
+          parentSha256: identity.sha256,
+          artifactsDirectory,
+          probe: probe.probe,
+          cwd,
+          exec,
+          ...(args.timeoutMs === undefined ? {} : { timeoutMs: args.timeoutMs }),
+        })
+      : null;
   if (audio?.outcome === "ok") written.push(audio.derivative.path);
 
   const inputChanged = await detectInputChange({ identity, writtenPaths: written });
@@ -173,9 +196,11 @@ export async function prepareVideo(
 
 export function isComplete(result: PrepareVideoResult): boolean {
   if (result.capabilityGap !== null || result.inputChanged !== null) return false;
-  if (result.probe?.outcome !== "ok" || result.frames?.outcome !== "ok") return false;
-  if (!result.probe.probe.hasAudioStream) return true;
-  if (result.audio?.outcome !== "ok") return false;
+  if (result.probe?.outcome !== "ok") return false;
+  if (result.frames !== null && result.frames.outcome !== "ok") return false;
+  if (result.audio !== null && result.audio.outcome !== "ok") return false;
+  if (result.frames === null && result.audio === null) return !result.probe.probe.hasAudioStream;
+  if (result.audio === null) return true;
   // A source with several audio streams is not fully read after one of them. Reporting complete
   // coverage here is the same overclaim the frame lane already refuses to make.
   return result.audio.selection.omittedStreamIndexes.length === 0;

@@ -37,6 +37,62 @@ describe("parseArguments", () => {
       inputPath: "fixture.mp4",
     });
   });
+
+  it("parses an audio-only preparation", () => {
+    expect(
+      parseArguments([
+        "prepare",
+        "fixture.mp4",
+        "--expected-sha256",
+        digest.toUpperCase(),
+        "--only",
+        "audio",
+      ]),
+    ).toEqual({
+      command: "prepare",
+      inputPath: "fixture.mp4",
+      expectedSha256: digest,
+      only: "audio",
+    });
+  });
+
+  it("parses exact frame times", () => {
+    expect(
+      parseArguments([
+        "prepare",
+        "fixture.mp4",
+        "--only",
+        "frames",
+        "--frame-time",
+        "0",
+        "--frame-time",
+        "12.5",
+      ]),
+    ).toEqual({
+      command: "prepare",
+      inputPath: "fixture.mp4",
+      only: "frames",
+      timestampsSeconds: [0, 12.5],
+    });
+  });
+
+  it("refuses ambiguous and invalid frame times", () => {
+    expect(() =>
+      parseArguments(["prepare", "fixture.mp4", "--frame-count", "3", "--frame-time", "1"]),
+    ).toThrow("cannot be used together");
+    expect(() => parseArguments(["prepare", "fixture.mp4", "--frame-time", "-1"])).toThrow(
+      "non-negative number",
+    );
+    expect(() => parseArguments(["prepare", "fixture.mp4", "--frame-time", " "])).toThrow(
+      "non-negative number",
+    );
+    expect(() =>
+      parseArguments(["prepare", "fixture.mp4", "--only", "audio", "--frame-time", "1"]),
+    ).toThrow("frame options");
+    expect(() =>
+      parseArguments(["prepare", "fixture.mp4", "--expected-sha256", "not-a-hash"]),
+    ).toThrow("64 hexadecimal characters");
+  });
 });
 
 describe("parsePinnedImage", () => {

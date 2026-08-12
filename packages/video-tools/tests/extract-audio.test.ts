@@ -18,7 +18,15 @@ const probe = parseProbeOutput(readProbeFixture("mp4"));
 const silentProbe = parseProbeOutput(
   JSON.stringify({
     format: { format_name: "mp4", duration: "6.000000" },
-    streams: [{ index: 0, codec_type: "video", codec_name: "h264", width: 640, height: 360 }],
+    streams: [
+      {
+        index: 0,
+        codec_type: "video",
+        codec_name: "h264",
+        width: 640,
+        height: 360,
+      },
+    ],
   }),
 );
 
@@ -34,7 +42,7 @@ function options(overrides: Partial<Parameters<typeof extractAudio>[0]> = {}) {
 }
 
 describe("extractAudio", () => {
-  it("builds an ffmpeg argv that writes a mono 16 kHz WAV derivative", async () => {
+  it("builds an ffmpeg argv that writes a speech-optimized MP3 derivative", async () => {
     const boundary = fakeExec(() => ok());
     const outputs = fakeOutputs();
 
@@ -58,11 +66,11 @@ describe("extractAudio", () => {
       "1",
       "-ar",
       "16000",
-      "-acodec",
-      "pcm_s16le",
+      "-b:a",
+      "48k",
       "-f",
-      "wav",
-      `${ARTIFACTS_DIRECTORY}/audio.wav`,
+      "mp3",
+      `${ARTIFACTS_DIRECTORY}/audio.mp3`,
     ]);
   });
 
@@ -75,7 +83,7 @@ describe("extractAudio", () => {
     expect(result).toMatchObject({
       outcome: "ok",
       derivative: {
-        path: `${ARTIFACTS_DIRECTORY}/audio.wav`,
+        path: `${ARTIFACTS_DIRECTORY}/audio.mp3`,
         bytes: 128,
         operation: "extract-audio",
         parentSha256: PARENT_SHA256,
@@ -101,7 +109,10 @@ describe("extractAudio", () => {
       options({ probe: silentProbe, exec: boundary.exec, ...outputs }),
     );
 
-    expect(result).toMatchObject({ outcome: "unsupported-input", operation: "extract-audio" });
+    expect(result).toMatchObject({
+      outcome: "unsupported-input",
+      operation: "extract-audio",
+    });
     expect(boundary.requests).toHaveLength(0);
     expect(outputs.prepared).toEqual([]);
   });
@@ -116,7 +127,7 @@ describe("extractAudio", () => {
 
     expect(result).toMatchObject({ outcome: "tool-unavailable" });
     expect(result).not.toHaveProperty("derivative");
-    expect(outputs.discarded).toEqual([`${ARTIFACTS_DIRECTORY}/audio.wav`]);
+    expect(outputs.discarded).toEqual([`${ARTIFACTS_DIRECTORY}/audio.mp3`]);
   });
 
   it("classifies a non-zero exit as extract-failed", async () => {
@@ -129,7 +140,7 @@ describe("extractAudio", () => {
       outcome: "extract-failed",
       message: expect.stringContaining("matches no streams"),
     });
-    expect(outputs.discarded).toEqual([`${ARTIFACTS_DIRECTORY}/audio.wav`]);
+    expect(outputs.discarded).toEqual([`${ARTIFACTS_DIRECTORY}/audio.mp3`]);
   });
 
   it("classifies an exceeded deadline as timeout and discards partial output", async () => {
@@ -147,7 +158,7 @@ describe("extractAudio", () => {
 
     expect(result).toMatchObject({ outcome: "timeout" });
     expect(result).not.toHaveProperty("derivative");
-    expect(outputs.discarded).toEqual([`${ARTIFACTS_DIRECTORY}/audio.wav`]);
+    expect(outputs.discarded).toEqual([`${ARTIFACTS_DIRECTORY}/audio.mp3`]);
   });
 
   it("classifies an empty output file as extract-failed rather than a complete derivative", async () => {
@@ -160,6 +171,6 @@ describe("extractAudio", () => {
       outcome: "extract-failed",
       message: expect.stringContaining("empty file"),
     });
-    expect(outputs.discarded).toEqual([`${ARTIFACTS_DIRECTORY}/audio.wav`]);
+    expect(outputs.discarded).toEqual([`${ARTIFACTS_DIRECTORY}/audio.mp3`]);
   });
 });

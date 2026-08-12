@@ -1,4 +1,4 @@
 interface:
   display_name: "Download YouTube Video"
-  short_description: "Download one public YouTube video"
-  default_prompt: "Use $download-youtube-video to download this public YouTube video as an exact local artifact."
+  short_description: "Download an accessible YouTube video"
+  default_prompt: "Use $download-youtube-video to download this YouTube video as an exact local artifact, using my signed-in browser session if YouTube requires it."

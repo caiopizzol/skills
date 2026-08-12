@@ -1,11 +1,12 @@
 ---
 name: summarize-youtube
-description: Summarize one public YouTube video from spoken and visual evidence while preserving coverage gaps. Use when the user wants its content or key points.
+description: Summarize one YouTube video the user can access from spoken and visual evidence while preserving coverage gaps. Use when the user wants its content or key points.
 ---
 
 # Summarize a YouTube video
 
-1. Invoke `$download-youtube-video`. Stop unless it returns `retrieved`.
+1. Invoke `$download-youtube-video`. Relay its requested user action when it returns `action_required`.
+   Stop on every result except `retrieved`.
 2. Pass its exact path and SHA-256 to `$read-video`.
 3. Summarize only the evidence `$read-video` returns. Do not invoke its child skills directly.
 

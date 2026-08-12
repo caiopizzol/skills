@@ -3,10 +3,14 @@ import { parseArguments } from "./arguments.ts";
 import { isComplete, prepareVideo } from "./prepare-video.ts";
 
 const usage = `Usage:
-  video-tools prepare <video-path> [--artifacts-dir <directory>] [--frame-count <count>] [--max-frames <count>] [--timeout-ms <milliseconds>] [--container-image <name@sha256:digest>]
+  video-tools prepare <video-path> [--artifacts-dir <directory>] [--expected-sha256 <sha256>] [--only <audio|frames>] [--frame-count <count> | --frame-time <seconds>...] [--max-frames <count>] [--timeout-ms <milliseconds>] [--container-image <name@sha256:digest>]
 
 When --artifacts-dir is omitted, the command creates an isolated temporary directory and reports
 its location in the JSON result. Temporary derivatives are retained for the caller to inspect.
+
+Repeat --frame-time to extract exact moments. Do not combine it with --frame-count.
+Use --only when the other media lane is not needed.
+Pass --expected-sha256 to prove a later pass reads the same source bytes.
 
 --timeout-ms bounds each tool invocation, not the total run. A preparation that runs several
 stages may therefore exceed it in aggregate.
