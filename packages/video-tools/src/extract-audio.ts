@@ -60,6 +60,8 @@ export function planAudioStreams(
 }
 
 export function buildExtractAudioArgs(inputPath: string, outputPath: string): string[] {
+  // This derivative exists for speech transcription. Compact mono MP3 keeps ordinary long videos
+  // within hosted speech-to-text upload limits; PCM WAV does not.
   return [
     "-hide_banner",
     "-loglevel",
@@ -75,10 +77,10 @@ export function buildExtractAudioArgs(inputPath: string, outputPath: string): st
     String(AUDIO_CHANNELS),
     "-ar",
     String(AUDIO_SAMPLE_RATE_HZ),
-    "-acodec",
-    "pcm_s16le",
+    "-b:a",
+    "48k",
     "-f",
-    "wav",
+    "mp3",
     outputPath,
   ];
 }
@@ -102,7 +104,7 @@ export async function extractAudio(options: ExtractAudioOptions): Promise<Extrac
   const outputPath = resolveWriteTarget({
     inputPath,
     artifactsDirectory: options.artifactsDirectory,
-    relativePath: options.relativePath ?? "audio.wav",
+    relativePath: options.relativePath ?? "audio.mp3",
     cwd: options.cwd,
   });
   await prepareOutput(outputPath);
@@ -126,13 +128,23 @@ export async function extractAudio(options: ExtractAudioOptions): Promise<Extrac
       };
     }
     if (run.kind === "timeout") {
-      return { outcome: "timeout", operation: "extract-audio", inputPath, message: run.message };
+      return {
+        outcome: "timeout",
+        operation: "extract-audio",
+        inputPath,
+        message: run.message,
+      };
     }
     const message =
       run.kind === "result"
         ? `ffmpeg exited with code ${run.result.exitCode}: ${run.result.stderr.trim() || "no stderr"}`
         : run.message;
-    return { outcome: "extract-failed", operation: "extract-audio", inputPath, message };
+    return {
+      outcome: "extract-failed",
+      operation: "extract-audio",
+      inputPath,
+      message,
+    };
   }
   try {
     const derivative = await describeDerivative(
@@ -146,7 +158,10 @@ export async function extractAudio(options: ExtractAudioOptions): Promise<Extrac
       operation: "extract-audio",
       inputPath,
       selection,
-      derivative: { ...derivative, sourceStreamIndex: selection.selectedStreamIndexes[0] ?? 0 },
+      derivative: {
+        ...derivative,
+        sourceStreamIndex: selection.selectedStreamIndexes[0] ?? 0,
+      },
     };
   } catch (error) {
     await discardOutput(outputPath);

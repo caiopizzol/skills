@@ -93,7 +93,7 @@ describe("original preservation", () => {
     });
 
     const outputPath = boundary.requests[0]?.args.at(-1);
-    expect(outputPath).toBe(`${ARTIFACTS_DIRECTORY}/audio.wav`);
+    expect(outputPath).toBe(`${ARTIFACTS_DIRECTORY}/audio.mp3`);
     expect(outputPath).not.toBe(HOSTILE_PATH);
     expect(outputs.prepared).not.toContain(HOSTILE_PATH);
   });

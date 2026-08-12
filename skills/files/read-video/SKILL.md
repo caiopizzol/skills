@@ -16,9 +16,9 @@ path is missing or ambiguous.
 1. Hash the original. Stop and report both hashes when an expected SHA-256 does not match.
 2. Use `video-tools prepare --only audio`. Follow [deterministic tooling](references/tooling.md). Pass the
    caller's artifacts directory, or report the temporary directory the tool creates. Stop if probing fails.
-3. If audio exists, invoke `$transcribe-audio` with its exact path, SHA-256, role, and objective. Request
-   the full transcript unless the caller set a bound. Preserve timestamps, coverage, capability, and gaps.
-   Name every audio stream not read.
+3. If audio exists, invoke `$transcribe-audio` with its exact path, SHA-256, artifacts directory, role,
+   and objective. Request the full transcript unless the caller set a bound. Preserve timestamps,
+   coverage, capability, and gaps. Name every audio stream not read.
 4. Choose only frame times that help answer the objective. Use transcript timestamps when available;
    otherwise sample evenly. Follow [bounded sampling](references/sampling.md).
 5. Reuse the reported artifacts directory and source SHA-256 with `video-tools prepare --only frames`.
