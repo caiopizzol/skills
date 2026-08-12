@@ -17,8 +17,9 @@ bound. Do not download or choose another file.
    caller's artifacts directory, or report the temporary directory. Stop if probing fails.
 3. If audio exists, invoke `$transcribe-audio` with its path, SHA-256, artifacts directory, and objective.
    Preserve its transcript, timestamps, coverage, capability, and gaps. Name every audio stream not read.
-4. Choose only frame times that help answer the objective. Use transcript timestamps when available;
-   otherwise sample evenly. Follow [bounded sampling](references/sampling.md).
+4. Review every transcript segment before choosing frames. Use transcript timestamps when they identify
+   enough distinct visual moments for the frame bound; otherwise sample evenly. Follow
+   [bounded sampling](references/sampling.md).
 5. Run `video-tools prepare --only frames` with the same artifacts directory, source SHA-256, and chosen
    times. Invoke `$read-image` for each frame with its path, SHA-256, timestamp, and objective. Preserve
    its observations and gaps.

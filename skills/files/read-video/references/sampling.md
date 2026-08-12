@@ -1,17 +1,20 @@
 # Bounded sampling
 
-A frame shows one instant. Use the caller's bound, default to three, and never exceed twelve.
+A frame shows one instant. Use the caller's bound, default to five, and never exceed twelve.
 
 ## Choose timestamps
 
-Use transcript timestamps for demonstrations, slides, charts, interfaces, visible text, or visual changes.
-Skip presenter-only frames unless the presenter matters.
+Review the complete timestamped transcript. When it identifies enough distinct demonstrations, slides,
+charts, interfaces, visible text, or visual changes for the applied bound, choose one moment from each.
+Spread the choices across the recording and its main topics. Skip presenter-only moments unless the
+presenter matters.
 
 Sample inside the relevant segment. If the frame misses the visual, replace it with a nearby time from the
 same segment without increasing the bound.
 
-Without usable timestamps, spread three frames from the start to just before the end. For a six-second
-video, use 0, 2.95, and 5.9 seconds.
+When the transcript is unavailable, untimed, or does not identify enough distinct visual moments, spread
+the bounded number of frames evenly from the start to just before the end. With the default five frames,
+use 0, 1.475, 2.95, 4.425, and 5.9 seconds for a six-second video.
 
 Sort and deduplicate explicit timestamps. Reject times outside the duration; never clamp them. A
 non-positive duration or no valid time is `unsupported-input`.
