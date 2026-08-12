@@ -149,6 +149,38 @@ export async function transcribeWithWhisper(
     "-np",
   ];
   const run = await exec(WHISPER_COMMAND, args, timeoutMs);
+  let finalFile: FileIdentity;
+  let finalModel: FileIdentity;
+  try {
+    [finalFile, finalModel] = await Promise.all([identify(file.path), identify(model.path)]);
+  } catch {
+    await rm(runDirectory, { recursive: true, force: true });
+    return {
+      ...base,
+      outcome: "input-changed",
+      message: "audio or model became unavailable during transcription",
+    };
+  }
+  if (finalFile.sha256 !== file.sha256 || finalModel.sha256 !== model.sha256) {
+    await rm(runDirectory, { recursive: true, force: true });
+    return {
+      ...base,
+      file: finalFile,
+      outcome: "input-changed",
+      message:
+        finalFile.sha256 !== file.sha256
+          ? `audio changed during transcription: ${file.sha256} became ${finalFile.sha256}`
+          : `model changed during transcription: ${model.sha256} became ${finalModel.sha256}`,
+    };
+  }
+  if (unsupportedAudioDiagnostic(run.stderr)) {
+    await rm(runDirectory, { recursive: true, force: true });
+    return {
+      ...base,
+      outcome: "unsupported-input",
+      message: lastDiagnostic(run.stderr),
+    };
+  }
   if (run.outcome !== "ok") {
     await rm(runDirectory, { recursive: true, force: true });
     return {
@@ -159,7 +191,7 @@ export async function transcribeWithWhisper(
           ? "local Whisper transcription timed out"
           : run.outcome === "tool-unavailable"
             ? "whisper-cli is unavailable"
-            : `whisper-cli exited with code ${run.exitCode ?? "unknown"}`,
+            : `whisper-cli exited with code ${run.exitCode ?? "unknown"}: ${lastDiagnostic(run.stderr)}`,
     };
   }
 
@@ -168,19 +200,6 @@ export async function transcribeWithWhisper(
       JSON.parse(await readFile(`${outputPrefix}.json`, "utf8")) as unknown,
     );
     await rm(`${outputPrefix}.json`, { force: true });
-    const [finalFile, finalModel] = await Promise.all([identify(file.path), identify(model.path)]);
-    if (finalFile.sha256 !== file.sha256 || finalModel.sha256 !== model.sha256) {
-      await rm(runDirectory, { recursive: true, force: true });
-      return {
-        ...base,
-        file: finalFile,
-        outcome: "input-changed",
-        message:
-          finalFile.sha256 !== file.sha256
-            ? `audio changed during transcription: ${file.sha256} became ${finalFile.sha256}`
-            : `model changed during transcription: ${model.sha256} became ${finalModel.sha256}`,
-      };
-    }
     const identifiedModel = { ...model, name: native.modelName };
     const document: TranscriptDocument = {
       formatVersion: 1,
@@ -284,22 +303,39 @@ async function execCommand(
     timedOut = true;
     process.kill();
   }, timeoutMs);
-  const [exitCode, stdout, stderr] = await Promise.all([
-    process.exited,
-    new Response(process.stdout).text(),
-    new Response(process.stderr).text(),
-  ]);
-  clearTimeout(timer);
-  return {
-    outcome: timedOut ? "timeout" : exitCode === 0 ? "ok" : "failed",
-    exitCode,
-    stdout,
-    stderr,
-  };
+  try {
+    const [exitCode, stdout, stderr] = await Promise.all([
+      process.exited,
+      new Response(process.stdout).text(),
+      new Response(process.stderr).text(),
+    ]);
+    return {
+      outcome: timedOut ? "timeout" : exitCode === 0 ? "ok" : "failed",
+      exitCode,
+      stdout,
+      stderr,
+    };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function parseVersion(output: string): string {
   return output.match(/whisper\.cpp version:\s*([^\s]+)/)?.[1] ?? "unknown";
+}
+
+function unsupportedAudioDiagnostic(stderr: string): boolean {
+  return /failed to read audio (?:data|file)/i.test(stderr);
+}
+
+function lastDiagnostic(stderr: string): string {
+  return (
+    stderr
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .at(-1) ?? "no diagnostic"
+  );
 }
 
 function defaultThreads(): number {

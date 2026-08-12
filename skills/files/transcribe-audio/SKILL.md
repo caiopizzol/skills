@@ -35,5 +35,5 @@ Never install tools, download model weights, or alter the machine.
 
 Never modify the original. Write only beneath the artifacts directory. Send nothing outside the runtime.
 
-Preserve `ok`, `tool-unavailable`, `unsupported-input`, `transcription-failed`, and `timeout` as distinct
-outcomes. A partial response remains partial and carries explicit coverage gaps.
+Preserve `ok`, `input-changed`, `tool-unavailable`, `unsupported-input`, `transcription-failed`, and
+`timeout` as distinct outcomes. A partial response remains partial and carries explicit coverage gaps.

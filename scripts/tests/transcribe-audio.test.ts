@@ -182,4 +182,92 @@ describe("local Whisper transcription", () => {
     expect(result.outcome).toBe("timeout");
     expect(await readdir(join(root, "artifacts"))).toEqual([]);
   });
+
+  it("classifies Whisper audio decode failures as unsupported input", async () => {
+    const { inputPath, modelPath, sha256, root } = await fixture();
+    let calls = 0;
+    const result = await transcribeWithWhisper({
+      inputPath,
+      expectedSha256: sha256,
+      artifactsDirectory: join(root, "artifacts"),
+      modelPath,
+      exec: async () => {
+        calls++;
+        return calls === 1
+          ? { outcome: "ok", exitCode: 0, stdout: "whisper.cpp version: 1.9.2", stderr: "" }
+          : {
+              outcome: "ok",
+              exitCode: 0,
+              stdout: "",
+              stderr:
+                "read_audio_data: failed to read audio data\nerror: failed to read audio file",
+            };
+      },
+    });
+
+    expect(result).toMatchObject({
+      outcome: "unsupported-input",
+      message: "error: failed to read audio file",
+    });
+    expect(await readdir(join(root, "artifacts"))).toEqual([]);
+  });
+
+  it("preserves the final Whisper failure diagnostic", async () => {
+    const { inputPath, modelPath, sha256, root } = await fixture();
+    let calls = 0;
+    const result = await transcribeWithWhisper({
+      inputPath,
+      expectedSha256: sha256,
+      artifactsDirectory: join(root, "artifacts"),
+      modelPath,
+      exec: async () => {
+        calls++;
+        return calls === 1
+          ? { outcome: "ok", exitCode: 0, stdout: "whisper.cpp version: 1.9.2", stderr: "" }
+          : {
+              outcome: "failed",
+              exitCode: 2,
+              stdout: "",
+              stderr: "backend details\nerror: model evaluation failed\n",
+            };
+      },
+    });
+
+    expect(result).toMatchObject({
+      outcome: "transcription-failed",
+      message: "whisper-cli exited with code 2: error: model evaluation failed",
+    });
+  });
+
+  it.each(["audio", "model"] as const)(
+    "reports input changed when the %s disappears during transcription",
+    async (removed) => {
+      const { inputPath, modelPath, sha256, root } = await fixture();
+      let calls = 0;
+      const result = await transcribeWithWhisper({
+        inputPath,
+        expectedSha256: sha256,
+        artifactsDirectory: join(root, "artifacts"),
+        modelPath,
+        exec: async () => {
+          calls++;
+          if (calls === 1)
+            return {
+              outcome: "ok",
+              exitCode: 0,
+              stdout: "whisper.cpp version: 1.9.2",
+              stderr: "",
+            };
+          await rm(removed === "audio" ? inputPath : modelPath);
+          return { outcome: "failed", exitCode: 1, stdout: "", stderr: "input vanished" };
+        },
+      });
+
+      expect(result).toMatchObject({
+        outcome: "input-changed",
+        message: "audio or model became unavailable during transcription",
+      });
+      expect(await readdir(join(root, "artifacts"))).toEqual([]);
+    },
+  );
 });
