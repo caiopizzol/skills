@@ -13,5 +13,5 @@ If YouTube requests sign-in, return `action_required`:
 > Sign in to YouTube in `<browser>`, confirm that `<video URL>` plays there, then tell me to retry.
 
 If the authenticated account cannot access the video, return `access_denied`. Do not ask for a password or
-cookie file. If cookie extraction fails, return `action_required` with the downloader error and ask the user
-to run the same command in their terminal and provide its output or the downloaded file path.
+cookie file. If cookie extraction fails, describe the failure without including signed URLs, cookies, or
+other secrets. Ask the user to run the same command and provide the downloaded file path.

@@ -140,6 +140,9 @@ export async function transcribeWithWhisper(
     options.language ?? "auto",
     "-t",
     String(options.threads ?? defaultThreads()),
+    // Long recordings can otherwise repeat carried text context instead of advancing through the audio.
+    "--max-context",
+    "0",
     "-oj",
     "-of",
     outputPrefix,

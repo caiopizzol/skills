@@ -133,6 +133,8 @@ describe("local Whisper transcription", () => {
         "en",
         "-t",
         "6",
+        "--max-context",
+        "0",
         "-oj",
         "-np",
       ]),
