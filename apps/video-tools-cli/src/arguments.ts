@@ -2,6 +2,7 @@ export interface PrepareArguments {
   command: "prepare";
   inputPath: string;
   artifactsDirectory?: string;
+  expectedSha256?: string;
   only?: "audio" | "frames";
   frameCount?: number;
   timestampsSeconds?: number[];
@@ -24,6 +25,7 @@ export function parseArguments(argv: readonly string[]): CliArguments {
   }
 
   let artifactsDirectory: string | undefined;
+  let expectedSha256: string | undefined;
   let only: "audio" | "frames" | undefined;
   let frameCount: number | undefined;
   const timestampsSeconds: number[] = [];
@@ -37,6 +39,9 @@ export function parseArguments(argv: readonly string[]): CliArguments {
     switch (option) {
       case "--artifacts-dir":
         artifactsDirectory = value;
+        break;
+      case "--expected-sha256":
+        expectedSha256 = sha256(value, option);
         break;
       case "--only":
         only = mediaLane(value);
@@ -75,6 +80,7 @@ export function parseArguments(argv: readonly string[]): CliArguments {
     command: "prepare",
     inputPath,
     ...(artifactsDirectory === undefined ? {} : { artifactsDirectory }),
+    ...(expectedSha256 === undefined ? {} : { expectedSha256 }),
     ...(only === undefined ? {} : { only }),
     ...(frameCount === undefined ? {} : { frameCount }),
     ...(timestampsSeconds.length === 0 ? {} : { timestampsSeconds }),
@@ -101,10 +107,17 @@ function positiveInteger(value: string, option: string): number {
 }
 
 function nonNegativeNumber(value: string, option: string): number {
+  if (value.trim() === "") throw new Error(`${option} requires a non-negative number`);
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed < 0)
     throw new Error(`${option} requires a non-negative number`);
   return parsed;
+}
+
+function sha256(value: string, option: string): string {
+  if (!/^[a-f0-9]{64}$/i.test(value))
+    throw new Error(`${option} requires 64 hexadecimal characters`);
+  return value.toLowerCase();
 }
 
 function mediaLane(value: string): "audio" | "frames" {

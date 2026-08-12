@@ -12,7 +12,8 @@ video-tools prepare <video-path> --only audio [--artifacts-dir <directory>]
 Then reuse the reported artifacts directory to extract transcript-selected frames:
 
 ```sh
-video-tools prepare <video-path> --artifacts-dir <directory> --only frames \
+video-tools prepare <video-path> --artifacts-dir <directory> \
+  --expected-sha256 <source-sha256> --only frames \
   --frame-time <seconds> [--frame-time <seconds>...]
 ```
 

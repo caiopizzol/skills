@@ -76,6 +76,21 @@ export async function prepareVideo(
     audio: null,
     inputChanged: null,
   };
+  if (args.expectedSha256 !== undefined && args.expectedSha256 !== identity.sha256) {
+    return {
+      ...empty,
+      capability: null,
+      capabilityGap: null,
+      inputChanged: {
+        outcome: "input-changed",
+        inputPath,
+        message:
+          "the original file no longer matches the expected SHA-256, so no derivatives were created",
+        initialSha256: args.expectedSha256,
+        finalSha256: identity.sha256,
+      },
+    };
+  }
 
   let exec = options.hostExec ?? execWithBun;
   let image: ContainerIdentity | undefined;

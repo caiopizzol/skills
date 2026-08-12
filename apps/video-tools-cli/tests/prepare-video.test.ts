@@ -267,6 +267,47 @@ describe("prepareVideo audio coverage", () => {
 });
 
 describe("prepareVideo source identity", () => {
+  it("stops before tooling when the source changes between passes", async () => {
+    const directory = await temporaryDirectory();
+    const inputPath = join(directory, "clip.mp4");
+    const artifactsDirectory = join(directory, "artifacts");
+    await writeFile(inputPath, "first video bytes");
+    const first = await prepareVideo(
+      { command: "prepare", inputPath, artifactsDirectory, only: "audio" },
+      { cwd: directory, hostExec: workingExec() },
+    );
+    await writeFile(inputPath, "different video bytes");
+    let called = false;
+
+    const second = await prepareVideo(
+      {
+        command: "prepare",
+        inputPath,
+        artifactsDirectory,
+        expectedSha256: first.file.sha256,
+        only: "frames",
+        timestampsSeconds: [1],
+      },
+      {
+        cwd: directory,
+        hostExec: async () => {
+          called = true;
+          return { exitCode: 0, stdout: "", stderr: "" };
+        },
+      },
+    );
+
+    expect(second.inputChanged).toMatchObject({
+      outcome: "input-changed",
+      initialSha256: first.file.sha256,
+      finalSha256: second.file.sha256,
+    });
+    expect(second.frames).toBeNull();
+    expect(second.audio).toBeNull();
+    expect(called).toBe(false);
+    expect(isComplete(second)).toBe(false);
+  });
+
   it("discards every derivative and reports input-changed when the original moved underneath it", async () => {
     const directory = await temporaryDirectory();
     const inputPath = join(directory, "clip.mp4");

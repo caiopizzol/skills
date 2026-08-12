@@ -39,9 +39,19 @@ describe("parseArguments", () => {
   });
 
   it("parses an audio-only preparation", () => {
-    expect(parseArguments(["prepare", "fixture.mp4", "--only", "audio"])).toEqual({
+    expect(
+      parseArguments([
+        "prepare",
+        "fixture.mp4",
+        "--expected-sha256",
+        digest.toUpperCase(),
+        "--only",
+        "audio",
+      ]),
+    ).toEqual({
       command: "prepare",
       inputPath: "fixture.mp4",
+      expectedSha256: digest,
       only: "audio",
     });
   });
@@ -73,9 +83,15 @@ describe("parseArguments", () => {
     expect(() => parseArguments(["prepare", "fixture.mp4", "--frame-time", "-1"])).toThrow(
       "non-negative number",
     );
+    expect(() => parseArguments(["prepare", "fixture.mp4", "--frame-time", " "])).toThrow(
+      "non-negative number",
+    );
     expect(() =>
       parseArguments(["prepare", "fixture.mp4", "--only", "audio", "--frame-time", "1"]),
     ).toThrow("frame options");
+    expect(() =>
+      parseArguments(["prepare", "fixture.mp4", "--expected-sha256", "not-a-hash"]),
+    ).toThrow("64 hexadecimal characters");
   });
 });
 

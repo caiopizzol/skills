@@ -21,8 +21,9 @@ path is missing or ambiguous.
    Name every audio stream not read.
 4. Choose only frame times that help answer the objective. Use transcript timestamps when available;
    otherwise sample evenly. Follow [bounded sampling](references/sampling.md).
-5. Use `video-tools prepare --only frames` with those times. Invoke `$read-image` for each frame, passing
-   its exact path, SHA-256, timestamp, and objective. Preserve each child's observations and gaps.
+5. Reuse the reported artifacts directory and source SHA-256 with `video-tools prepare --only frames`.
+   Pass the chosen times and `--expected-sha256`. Invoke `$read-image` for each frame with its exact path,
+   SHA-256, timestamp, and objective. Preserve each child's observations and gaps.
 6. Report audio and frames separately before combining them. A cross-lane claim is only as strong as its
    weaker lane.
 
