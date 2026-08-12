@@ -44,6 +44,28 @@ function missing(command: string): Error {
 }
 
 describe("prepareVideo capability reporting", () => {
+  it("extracts frames at exact times", async () => {
+    const directory = await temporaryDirectory();
+    const inputPath = join(directory, "clip.mp4");
+    await writeFile(inputPath, "video bytes");
+
+    const result = await prepareVideo(
+      {
+        command: "prepare",
+        inputPath,
+        artifactsDirectory: join(directory, "artifacts"),
+        only: "frames",
+        timestampsSeconds: [3, 1],
+      },
+      { cwd: directory, hostExec: workingExec() },
+    );
+
+    if (result.frames?.outcome !== "ok") throw new Error("expected prepared frames");
+    expect(result.frames.sampling.timestampsSeconds).toEqual([1, 3]);
+    expect(result.audio).toBeNull();
+    expect(isComplete(result)).toBe(true);
+  });
+
   it("creates and reports a temporary artifacts directory when the caller omits one", async () => {
     const directory = await temporaryDirectory();
     const inputPath = join(directory, "clip.mp4");
@@ -217,7 +239,12 @@ describe("prepareVideo audio coverage", () => {
     });
 
     const result = await prepareVideo(
-      { command: "prepare", inputPath, artifactsDirectory: join(directory, "artifacts") },
+      {
+        command: "prepare",
+        inputPath,
+        artifactsDirectory: join(directory, "artifacts"),
+        only: "audio",
+      },
       {
         cwd: directory,
         hostExec: async (request) => {
@@ -233,6 +260,7 @@ describe("prepareVideo audio coverage", () => {
     );
 
     if (result.audio?.outcome !== "ok") throw new Error("expected an extracted audio lane");
+    expect(result.frames).toBeNull();
     expect(result.audio.selection.omittedStreamIndexes).toEqual([]);
     expect(isComplete(result)).toBe(true);
   });

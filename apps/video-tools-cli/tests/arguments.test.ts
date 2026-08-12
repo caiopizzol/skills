@@ -37,6 +37,46 @@ describe("parseArguments", () => {
       inputPath: "fixture.mp4",
     });
   });
+
+  it("parses an audio-only preparation", () => {
+    expect(parseArguments(["prepare", "fixture.mp4", "--only", "audio"])).toEqual({
+      command: "prepare",
+      inputPath: "fixture.mp4",
+      only: "audio",
+    });
+  });
+
+  it("parses exact frame times", () => {
+    expect(
+      parseArguments([
+        "prepare",
+        "fixture.mp4",
+        "--only",
+        "frames",
+        "--frame-time",
+        "0",
+        "--frame-time",
+        "12.5",
+      ]),
+    ).toEqual({
+      command: "prepare",
+      inputPath: "fixture.mp4",
+      only: "frames",
+      timestampsSeconds: [0, 12.5],
+    });
+  });
+
+  it("refuses ambiguous and invalid frame times", () => {
+    expect(() =>
+      parseArguments(["prepare", "fixture.mp4", "--frame-count", "3", "--frame-time", "1"]),
+    ).toThrow("cannot be used together");
+    expect(() => parseArguments(["prepare", "fixture.mp4", "--frame-time", "-1"])).toThrow(
+      "non-negative number",
+    );
+    expect(() =>
+      parseArguments(["prepare", "fixture.mp4", "--only", "audio", "--frame-time", "1"]),
+    ).toThrow("frame options");
+  });
 });
 
 describe("parsePinnedImage", () => {
