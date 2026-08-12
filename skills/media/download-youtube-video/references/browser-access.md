@@ -1,17 +1,17 @@
 # Signed-in browser access
 
-Use `yt-dlp --cookies-from-browser <browser>` only after YouTube rejects the unauthenticated request.
-This uses access the user already has. It does not bypass account permissions.
+Use `yt-dlp --cookies-from-browser <browser>` to download with the user's YouTube session.
 
-Use the browser the user named. If none was named and the browser is unclear, ask which browser they use
-for YouTube. Never print, persist, or return cookies. Use the session only to download the video; do not
-read the transcript from the browser.
+Use the browser the user named. Otherwise return `action_required`:
 
-Retry the same URL and destination once with the browser session. If YouTube still requests sign-in,
-return `action_required` with this action:
+> Tell me which browser is signed in to YouTube and can play `<video URL>`.
+
+Never print, persist, or return cookies.
+
+If YouTube requests sign-in, return `action_required`:
 
 > Sign in to YouTube in `<browser>`, confirm that `<video URL>` plays there, then tell me to retry.
 
 If the authenticated account cannot access the video, return `access_denied`. Do not ask for a password or
-cookie file. If browser-cookie access itself fails, preserve the diagnostic and ask for one specific action
-that can resolve it instead of substituting another access method.
+cookie file. If cookie extraction fails, return `action_required` with the downloader error and ask the user
+to run the same command in their terminal and provide its output or the downloaded file path.
