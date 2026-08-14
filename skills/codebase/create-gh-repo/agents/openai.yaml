@@ -1,4 +1,0 @@
-interface:
-  display_name: "Create GitHub repository"
-  short_description: "Create, connect, or assess a GitHub repository"
-  default_prompt: "Use $create-gh-repo to assess whether this local project is connected to GitHub, then create and connect a repository for it."
