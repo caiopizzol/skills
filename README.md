@@ -1,6 +1,7 @@
 # Skills
 
-Composable agent skills for inspecting files and setting up repositories.
+Composable agent skills for gathering context, inspecting local files, monitoring pull requests, and
+working with YouTube videos.
 
 [![Release](https://img.shields.io/github/v/release/caiopizzol/skills)](https://github.com/caiopizzol/skills/releases/latest)
 [![Checks](https://github.com/caiopizzol/skills/actions/workflows/check.yml/badge.svg)](https://github.com/caiopizzol/skills/actions/workflows/check.yml)
@@ -16,17 +17,6 @@ This is closer to functions calling functions than a fixed level hierarchy. Cate
 source tree only. Installing a composite resolves its full dependency graph automatically.
 
 ```text
-setup-project
-├── setup-vite-plus
-├── setup-typescript
-├── setup-tests
-└── setup-gh-repo
-    ├── create-gh-repo
-    ├── config-gh-repo
-    ├── setup-gh-checks
-    ├── setup-cubic
-    └── protect-gh-repo
-
 summarize-youtube
 ├── download-youtube-video
 └── read-video
@@ -37,22 +27,6 @@ summarize-youtube
 ## Skill catalog
 
 Start with a composite for an end-to-end outcome, or choose a focused skill for one capability.
-
-### Codebase
-
-| Skill                                                           | Type      | Purpose                                            |
-| --------------------------------------------------------------- | --------- | -------------------------------------------------- |
-| [`config-gh-repo`](skills/codebase/config-gh-repo/SKILL.md)     | Focused   | Configure merge and pull-request settings          |
-| [`create-gh-repo`](skills/codebase/create-gh-repo/SKILL.md)     | Focused   | Create and connect a GitHub repository             |
-| [`protect-gh-repo`](skills/codebase/protect-gh-repo/SKILL.md)   | Focused   | Protect merges using observed checks and reviewers |
-| [`setup-changesets`](skills/codebase/setup-changesets/SKILL.md) | Focused   | Add reviewed releases from the default branch      |
-| [`setup-cubic`](skills/codebase/setup-cubic/SKILL.md)           | Focused   | Configure focused Cubic code review                |
-| [`setup-gh-checks`](skills/codebase/setup-gh-checks/SKILL.md)   | Focused   | Run an existing local check in GitHub Actions      |
-| [`setup-gh-repo`](skills/codebase/setup-gh-repo/SKILL.md)       | Composite | Set up GitHub settings, checks, and protection     |
-| [`setup-project`](skills/codebase/setup-project/SKILL.md)       | Composite | Create, assess, or complete a project's setup      |
-| [`setup-tests`](skills/codebase/setup-tests/SKILL.md)           | Focused   | Establish one reliable local test path             |
-| [`setup-typescript`](skills/codebase/setup-typescript/SKILL.md) | Focused   | Set up strict TypeScript configuration             |
-| [`setup-vite-plus`](skills/codebase/setup-vite-plus/SKILL.md)   | Focused   | Set up the Vite+ toolchain                         |
 
 ### Context
 

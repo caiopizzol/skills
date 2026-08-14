@@ -1,4 +1,0 @@
-interface:
-  display_name: "Configure GitHub repository"
-  short_description: "Configure or assess GitHub merge settings"
-  default_prompt: "Use $config-gh-repo to assess this repository's merge and pull-request settings, then apply a minimal policy."
