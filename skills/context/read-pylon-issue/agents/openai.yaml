@@ -1,0 +1,4 @@
+interface:
+  display_name: "Read Pylon Issue"
+  short_description: "Read one Pylon issue and its files"
+  default_prompt: "Use $read-pylon-issue to read this Pylon issue completely."

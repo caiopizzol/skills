@@ -37,6 +37,7 @@ Start with a composite for an end-to-end outcome, or choose a focused skill for 
 | [`read-github-pr`](skills/context/read-github-pr/SKILL.md)                       | Focused | Read one exact pull request, reviews, changed files   |
 | [`read-github-resource`](skills/context/read-github-resource/SKILL.md)           | Focused | Retrieve complete GitHub evidence through `gh`        |
 | [`read-linear-issue`](skills/context/read-linear-issue/SKILL.md)                 | Focused | Read one exact Linear issue and its relationships     |
+| [`read-pylon-issue`](skills/context/read-pylon-issue/SKILL.md)                   | Focused | Read one exact Pylon issue and its files              |
 | [`read-slack-thread`](skills/context/read-slack-thread/SKILL.md)                 | Focused | Read one Slack thread and selected supported files    |
 
 ### Development
