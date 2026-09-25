@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "bun:test";
 import {
@@ -112,6 +113,91 @@ describe("atomic Stack publication", () => {
     });
   });
 
+  it("classifies a timed-out push from verified remote state", async () => {
+    const request = await fixture<AtomicPushRequest>("success.json");
+    const landed = gitSimulation(request, { pushFailure: "timed-out-applied" });
+    const stalled = gitSimulation(request, { pushFailure: "timed-out-unchanged" });
+
+    expect(await pushGitHubStackAtomically(request, { runner: landed.runner })).toEqual({
+      outcome: "ok",
+      remote: request.remote,
+      branches: request.branches.map((branch) => ({
+        name: branch.name,
+        previousSha: branch.expectedRemoteSha,
+        pushedSha: branch.localSha,
+      })),
+    });
+    expect(await pushGitHubStackAtomically(request, { runner: stalled.runner })).toEqual({
+      outcome: "timeout",
+      error: "Atomic Git push timed out: Git timed out after 1000ms",
+    });
+  });
+
+  // The simulated runner above proves classification; this proves the default runner reports a
+  // timeout instead of throwing past the readback. A slow pre-receive hook on a local bare remote
+  // lets the push land after the deadline, which is the case that used to report `timeout`.
+  it("reads back a real push that lands after the deadline", async () => {
+    const root = await mkdtemp(join(tmpdir(), "push-pr-stack-timeout-"));
+    const previous = process.cwd();
+    try {
+      const remote = join(root, "remote.git");
+      const work = join(root, "work");
+      await git(root, ["init", "-q", "--bare", remote]);
+      await git(root, ["init", "-q", "-b", "main", work]);
+      await git(work, [
+        "-c",
+        "user.email=t@t",
+        "-c",
+        "user.name=t",
+        "commit",
+        "-q",
+        "--allow-empty",
+        "-m",
+        "base",
+      ]);
+      await git(work, ["branch", "feature/foundation"]);
+      await git(work, ["remote", "add", "origin", remote]);
+      await git(work, ["push", "-q", "origin", "feature/foundation"]);
+      const expectedRemoteSha = await git(work, ["rev-parse", "feature/foundation"]);
+      await git(work, [
+        "-c",
+        "user.email=t@t",
+        "-c",
+        "user.name=t",
+        "commit",
+        "-q",
+        "--allow-empty",
+        "-m",
+        "next",
+      ]);
+      const localSha = await git(work, ["rev-parse", "HEAD"]);
+      await git(work, ["branch", "-f", "feature/foundation", localSha]);
+      const hook = join(remote, "hooks", "pre-receive");
+      await writeFile(hook, "#!/bin/sh\nsleep 2\n");
+      await chmod(hook, 0o755);
+
+      process.chdir(work);
+      const result = await pushGitHubStackAtomically(
+        {
+          remote: "origin",
+          branches: [{ name: "feature/foundation", localSha, expectedRemoteSha }],
+        },
+        { timeoutMs: 500 },
+      );
+
+      expect(result).toEqual({
+        outcome: "ok",
+        remote: "origin",
+        branches: [
+          { name: "feature/foundation", previousSha: expectedRemoteSha, pushedSha: localSha },
+        ],
+      });
+    } finally {
+      process.chdir(previous);
+      await rm(root, { force: true, recursive: true });
+    }
+  }, 20_000);
+
   it("preserves push diagnostics when post-push verification cannot complete", async () => {
     const request = await fixture<AtomicPushRequest>("success.json");
     const verificationUnavailable = gitSimulation(request, {
@@ -143,7 +229,12 @@ function gitSimulation(
   changes: {
     localChanged?: string;
     remoteChanged?: string;
-    pushFailure?: "unchanged" | "remote-changed" | "applied";
+    pushFailure?:
+      | "unchanged"
+      | "remote-changed"
+      | "applied"
+      | "timed-out-applied"
+      | "timed-out-unchanged";
     postPushReadFailure?: "transport" | "missing";
   } = {},
 ): { runner: GitRunner; pushes: string[][] } {
@@ -209,11 +300,30 @@ function gitSimulation(
       if (changes.pushFailure === "applied") {
         return { exitCode: 1, stdout: "", stderr: "error: remote hung up unexpectedly" };
       }
+      if (changes.pushFailure === "timed-out-unchanged") {
+        for (const branch of request.branches) {
+          remote.set(branch.name, branch.expectedRemoteSha);
+        }
+      }
+      if (changes.pushFailure?.startsWith("timed-out")) {
+        return { exitCode: 1, stdout: "", stderr: "", timedOut: 1000 };
+      }
       return success("");
     }
     return { exitCode: 1, stdout: "", stderr: `Unexpected Git command: ${arguments_.join(" ")}` };
   };
   return { runner, pushes };
+}
+
+async function git(cwd: string, arguments_: string[]): Promise<string> {
+  const child = Bun.spawn(["git", ...arguments_], { cwd, stdout: "pipe", stderr: "pipe" });
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(child.stdout).text(),
+    new Response(child.stderr).text(),
+    child.exited,
+  ]);
+  if (exitCode !== 0) throw new Error(`git ${arguments_.join(" ")} failed: ${stderr}`);
+  return stdout.trim();
 }
 
 function success(stdout: string): { exitCode: number; stdout: string; stderr: string } {

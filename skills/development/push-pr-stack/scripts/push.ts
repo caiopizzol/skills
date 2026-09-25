@@ -22,6 +22,8 @@ export interface GitResult {
   exitCode: number;
   stdout: string;
   stderr: string;
+  /** The deadline in milliseconds when the runner killed Git for exceeding it. */
+  timedOut?: number;
 }
 
 export type GitRunner = (arguments_: readonly string[]) => Promise<GitResult>;
@@ -144,14 +146,22 @@ export async function pushGitHubStackAtomically(
     }
     const pushed = await runner(pushArguments);
     let remoteAfter: Map<string, string> | undefined;
-    if (pushed.exitCode !== 0) {
-      const detail = safeDetail(pushed.stderr);
+    // A timed-out push may still have landed, so it is classified from the remote heads like any
+    // other failed push rather than reported as a timeout that a retry would then see as a race.
+    if (pushed.exitCode !== 0 || pushed.timedOut !== undefined) {
+      const detail =
+        pushed.timedOut === undefined
+          ? safeDetail(pushed.stderr)
+          : `Git timed out after ${pushed.timedOut}ms`;
       remoteAfter = await readRemoteHeadsAfterPushFailure(runner, request, detail);
       const allPushed = request.branches.every(
         (branch) => remoteAfter?.get(branch.name) === branch.localSha,
       );
       if (allPushed) {
         return successfulResult(request);
+      }
+      if (pushed.timedOut !== undefined) {
+        throw new PushFailure("timeout", `Atomic Git push timed out: ${detail}`);
       }
       const remoteChanged = request.branches.some(
         (branch) => remoteAfter?.get(branch.name) !== branch.expectedRemoteSha,
@@ -243,6 +253,9 @@ async function requireSuccess(
   outcome: Exclude<AtomicPushOutcome, "ok"> = "provider-error",
 ): Promise<GitResult> {
   const result = await runner(arguments_);
+  if (result.timedOut !== undefined) {
+    throw new PushFailure("timeout", `Git timed out after ${result.timedOut}ms`);
+  }
   if (result.exitCode !== 0) {
     const detail = safeDetail(result.stderr);
     throw new PushFailure(outcome, `${message}${detail ? `: ${detail}` : ""}`);
@@ -276,8 +289,9 @@ function createGitRunner(timeoutMs: number): GitRunner {
     } finally {
       clearTimeout(timer);
     }
-    if (timedOut) throw new PushFailure("timeout", `Git timed out after ${timeoutMs}ms`);
-    return { exitCode, stdout, stderr };
+    return timedOut
+      ? { exitCode, stdout, stderr, timedOut: timeoutMs }
+      : { exitCode, stdout, stderr };
   };
 }
 
