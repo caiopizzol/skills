@@ -7,8 +7,9 @@ description: Protect or check a GitHub default branch using checks and reviews a
 
 Require only rules the repository has already proved it can pass.
 
-For a check-only request, report `ready`, `gap`, `not-applicable`, or `unverified` with evidence. Reading
-all active rules needs admin access. If any rule cannot be read, report `unverified` and stop.
+For a check-only request, report `ready`, `gap`, `not-applicable`, or `unverified` with evidence. Do not
+change anything. Reading all active rules needs admin access. If any rule cannot be read, report
+`unverified` and stop.
 
 ## Steps
 
