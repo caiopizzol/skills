@@ -21,7 +21,8 @@ bun --no-env-file <skill-directory>/scripts/push.ts \
 The publisher verifies every local branch and remote lease, pushes the exact supplied commits through
 one `git push --atomic`, and reads the remote heads back. After a failed push, it classifies the result
 from those heads rather than ambiguous Git error wording: changed leases are `input-changed`, unchanged
-leases are `provider-error`, and every requested head already present is verified success. Treat
+leases are `provider-error`, and every requested head already present is verified success. A timed-out
+push is read back the same way: it is `ok` when every head landed and `timeout` otherwise. Treat
 `input-changed` as a stale observation: re-read the Stack and revalidate the intended changes instead of
 retrying with fresh leases. If post-push verification itself fails, retain its structured outcome and
 both sanitized diagnostics; never recover a classification from the push error wording.
