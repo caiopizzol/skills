@@ -1,7 +1,7 @@
 # Skills
 
-Composable agent skills for working on codebases: taking pull requests to ready, reading GitHub
-evidence, and inspecting the files it contains.
+Composable agent skills for working on codebases: setting up GitHub repositories, taking pull
+requests to ready, reading GitHub evidence, and inspecting the files it contains.
 
 [![Release](https://img.shields.io/github/v/release/caiopizzol/skills)](https://github.com/caiopizzol/skills/releases/latest)
 [![Checks](https://github.com/caiopizzol/skills/actions/workflows/check.yml/badge.svg)](https://github.com/caiopizzol/skills/actions/workflows/check.yml)
@@ -34,6 +34,20 @@ monitor-pr
 ## Skill catalog
 
 Start with a composite for an end-to-end outcome, or choose a focused skill for one capability.
+
+### Codebase
+
+Every setup skill has a check-only mode that reports each area as `ready`, `gap`, `not-applicable`,
+or `unverified` with evidence, without changing anything.
+
+| Skill                                                         | Type      | Purpose                                           |
+| ------------------------------------------------------------- | --------- | ------------------------------------------------- |
+| [`config-gh-repo`](skills/codebase/config-gh-repo/SKILL.md)   | Focused   | Check or change GitHub merge settings             |
+| [`create-gh-repo`](skills/codebase/create-gh-repo/SKILL.md)   | Focused   | Check, create, or connect a GitHub repository     |
+| [`protect-gh-repo`](skills/codebase/protect-gh-repo/SKILL.md) | Focused   | Protect merges with checks already seen           |
+| [`setup-cubic`](skills/codebase/setup-cubic/SKILL.md)         | Focused   | Check or configure Cubic review                   |
+| [`setup-gh-checks`](skills/codebase/setup-gh-checks/SKILL.md) | Focused   | Run local checks in GitHub Actions                |
+| [`setup-gh-repo`](skills/codebase/setup-gh-repo/SKILL.md)     | Composite | Set up merge settings, CI, review, and protection |
 
 ### Development
 
