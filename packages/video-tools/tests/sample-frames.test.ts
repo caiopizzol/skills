@@ -11,6 +11,14 @@ describe("planFrameSampling", () => {
     expect(plan.boundedBy).toBe("requested");
   });
 
+  it("samples five evenly spaced frames when no count is requested", () => {
+    const plan = planFrameSampling({ durationSeconds: 6 });
+
+    expect(plan.requestedCount).toBe(5);
+    expect(plan.timestampsSeconds).toEqual([0, 1.475, 2.95, 4.425, 5.9]);
+    expect(plan.boundedBy).toBe("requested");
+  });
+
   it("is deterministic for the same inputs", () => {
     const first = planFrameSampling({ durationSeconds: 6.008, frameCount: 5 });
     const second = planFrameSampling({ durationSeconds: 6.008, frameCount: 5 });

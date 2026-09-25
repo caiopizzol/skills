@@ -1,6 +1,7 @@
 import type { FrameSamplingPlan, SampledInterval } from "./types.ts";
 
 export const DEFAULT_MAX_FRAMES = 12;
+export const DEFAULT_FRAME_COUNT = 5;
 
 // ffmpeg cannot seek to the exact end of a stream reliably, so the last sample sits just inside it.
 const END_MARGIN_SECONDS = 0.1;
@@ -122,7 +123,7 @@ function normalizeMaxFrames(value: number | undefined): number {
 }
 
 function normalizeRequestedCount(value: number | undefined, maxFrames: number): number {
-  if (value === undefined) return Math.min(3, maxFrames);
+  if (value === undefined) return Math.min(DEFAULT_FRAME_COUNT, maxFrames);
   if (!Number.isSafeInteger(value) || value <= 0)
     throw new Error("frameCount must be a positive integer");
   return value;
