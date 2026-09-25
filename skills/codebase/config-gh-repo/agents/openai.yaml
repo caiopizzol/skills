@@ -1,0 +1,4 @@
+interface:
+  display_name: "Configure GitHub repository"
+  short_description: "Check or change GitHub merge settings"
+  default_prompt: "Use $config-gh-repo to check and configure this repository's merge settings."

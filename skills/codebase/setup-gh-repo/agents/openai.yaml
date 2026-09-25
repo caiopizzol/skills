@@ -1,0 +1,4 @@
+interface:
+  display_name: "Set up GitHub repository"
+  short_description: "Set up GitHub checks and protection"
+  default_prompt: "Use $setup-gh-repo to check or set up this project's GitHub repository."
