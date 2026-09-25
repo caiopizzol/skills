@@ -212,7 +212,39 @@ describe("GitHub pull request collection", () => {
     expect(result.laneCompleteness.reviewThreads).toBe(false);
     expect(result.gaps).toContain("1 review-thread comments had no retrieved inline comment");
   });
+
+  // `gh api -F` converts integer-looking values to JSON numbers, so a repository named `2048` would
+  // reach the `String!` variable as a number and GitHub would reject the whole query.
+  it("sends owner and repository as raw strings to the review-thread query", async () => {
+    const routes = pullRoutes();
+    const graphqlCalls: string[][] = [];
+    const route = routeRunner(routes);
+
+    await collectGitHubResource(PR_URL, {
+      expectedKind: "pull_request",
+      artifactsDirectory: await temporaryDirectory(),
+      runner: async (arguments_) => {
+        if (arguments_[1] === "graphql") graphqlCalls.push([...arguments_]);
+        return route(arguments_);
+      },
+    });
+
+    expect(graphqlCalls).toHaveLength(1);
+    const fields = pairs(graphqlCalls[0] ?? []);
+    expect(fields).toContainEqual(["-f", `owner=${OWNER}`]);
+    expect(fields).toContainEqual(["-f", `repository=${REPOSITORY}`]);
+    expect(fields).toContainEqual(["-F", "number=7"]);
+  });
 });
+
+function pairs(arguments_: readonly string[]): Array<[string, string]> {
+  const found: Array<[string, string]> = [];
+  for (let index = 0; index < arguments_.length - 1; index += 1) {
+    const flag = arguments_[index];
+    if (flag === "-f" || flag === "-F") found.push([flag, arguments_[index + 1] ?? ""]);
+  }
+  return found;
+}
 
 describe("GitHub attachment routing", () => {
   it("acquires file attachments whose UUID precedes the filename", async () => {
