@@ -81,11 +81,16 @@ describe("prepareVideo capability reporting", () => {
     expect(result.artifacts.directory).not.toBe(directory);
     expect(result.frames?.outcome).toBe("ok");
     if (result.frames?.outcome !== "ok") throw new Error("expected prepared frames");
+    // The 4-second fixture fits four frames one second apart, so the five-frame default is
+    // duration-limited here.
+    expect(result.frames.frames).toHaveLength(4);
     expect(
-      result.frames.frames.map(
-        (frame) => relative(result.artifacts.directory, frame.derivative.path).split(sep)[0],
+      new Set(
+        result.frames.frames.map(
+          (frame) => relative(result.artifacts.directory, frame.derivative.path).split(sep)[0],
+        ),
       ),
-    ).toEqual(["frames", "frames", "frames"]);
+    ).toEqual(new Set(["frames"]));
   });
 
   it("reports a caller-provided artifacts directory", async () => {
