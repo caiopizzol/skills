@@ -1,7 +1,7 @@
 # Skills
 
-Composable agent skills for gathering context, inspecting local files, monitoring pull requests, and
-working with YouTube videos.
+Composable agent skills for working on codebases: taking pull requests to ready, reading GitHub
+evidence, and inspecting the files it contains.
 
 [![Release](https://img.shields.io/github/v/release/caiopizzol/skills)](https://github.com/caiopizzol/skills/releases/latest)
 [![Checks](https://github.com/caiopizzol/skills/actions/workflows/check.yml/badge.svg)](https://github.com/caiopizzol/skills/actions/workflows/check.yml)
@@ -17,35 +17,34 @@ This is closer to functions calling functions than a fixed level hierarchy. Cate
 source tree only. Installing a composite resolves its full dependency graph automatically.
 
 ```text
-summarize-youtube
-├── download-youtube-video
-└── read-video
+monitor-pr
+├── push-pr-stack
+├── resolve-pr-thread
+└── read-github-pr
+    ├── read-github-issue
+    ├── read-github-resource
     ├── read-image
-    └── transcribe-audio
+    ├── read-text-file
+    ├── transcribe-audio
+    └── read-video
+        ├── read-image
+        └── transcribe-audio
 ```
 
 ## Skill catalog
 
 Start with a composite for an end-to-end outcome, or choose a focused skill for one capability.
 
-### Context
-
-| Skill                                                                            | Type    | Purpose                                               |
-| -------------------------------------------------------------------------------- | ------- | ----------------------------------------------------- |
-| [`read-discord-conversation`](skills/context/read-discord-conversation/SKILL.md) | Focused | Read one exact Discord message, thread, or forum post |
-| [`read-github-issue`](skills/context/read-github-issue/SKILL.md)                 | Focused | Read one exact GitHub issue conversation              |
-| [`read-github-pr`](skills/context/read-github-pr/SKILL.md)                       | Focused | Read one exact pull request, reviews, changed files   |
-| [`read-github-resource`](skills/context/read-github-resource/SKILL.md)           | Focused | Retrieve complete GitHub evidence through `gh`        |
-| [`read-linear-issue`](skills/context/read-linear-issue/SKILL.md)                 | Focused | Read one exact Linear issue and its relationships     |
-| [`read-slack-thread`](skills/context/read-slack-thread/SKILL.md)                 | Focused | Read one Slack thread and selected supported files    |
-
 ### Development
 
-| Skill                                                                | Type      | Purpose                                           |
-| -------------------------------------------------------------------- | --------- | ------------------------------------------------- |
-| [`monitor-pr`](skills/development/monitor-pr/SKILL.md)               | Composite | Take a PR or Stack through checks and review      |
-| [`push-pr-stack`](skills/development/push-pr-stack/SKILL.md)         | Focused   | Push rewritten pull request Stack branches safely |
-| [`resolve-pr-thread`](skills/development/resolve-pr-thread/SKILL.md) | Focused   | Close one validated PR review conversation        |
+| Skill                                                                      | Type      | Purpose                                             |
+| -------------------------------------------------------------------------- | --------- | --------------------------------------------------- |
+| [`monitor-pr`](skills/development/monitor-pr/SKILL.md)                     | Composite | Take a PR or Stack through checks and review        |
+| [`push-pr-stack`](skills/development/push-pr-stack/SKILL.md)               | Focused   | Push rewritten pull request Stack branches safely   |
+| [`read-github-issue`](skills/development/read-github-issue/SKILL.md)       | Focused   | Read one exact GitHub issue conversation            |
+| [`read-github-pr`](skills/development/read-github-pr/SKILL.md)             | Focused   | Read one exact pull request, reviews, changed files |
+| [`read-github-resource`](skills/development/read-github-resource/SKILL.md) | Focused   | Retrieve complete GitHub evidence through `gh`      |
+| [`resolve-pr-thread`](skills/development/resolve-pr-thread/SKILL.md)       | Focused   | Close one validated PR review conversation          |
 
 ### Files
 
@@ -58,13 +57,6 @@ verifying the source, routing formats safely, covering animations, and reporting
 | [`read-text-file`](skills/files/read-text-file/SKILL.md)     | Focused   | Read bounded text and structured-data files      |
 | [`read-video`](skills/files/read-video/SKILL.md)             | Composite | Inspect a video's visual and audio lanes         |
 | [`transcribe-audio`](skills/files/transcribe-audio/SKILL.md) | Focused   | Transcribe audio with explicit temporal coverage |
-
-### Media
-
-| Skill                                                                    | Type      | Purpose                                              |
-| ------------------------------------------------------------------------ | --------- | ---------------------------------------------------- |
-| [`download-youtube-video`](skills/media/download-youtube-video/SKILL.md) | Focused   | Download one accessible video as an exact local file |
-| [`summarize-youtube`](skills/media/summarize-youtube/SKILL.md)           | Composite | Summarize spoken and visual evidence from YouTube    |
 
 ## Install
 
@@ -87,7 +79,7 @@ overwritten.
 ## Tooling
 
 Image and video inspection use ImageMagick and FFmpeg when available. Missing tools are reported, not
-installed or downloaded. Audio transcription comes from the agent runtime and may use a hosted service.
+installed or downloaded. Audio transcription uses local Whisper and sends nothing outside the runtime.
 
 ## Development
 
