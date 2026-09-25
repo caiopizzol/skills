@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.5.1](https://github.com/caiopizzol/skills/compare/v0.5.0...v0.5.1) (2026-09-25)
+
+
+### Bug Fixes
+
+* **push-pr-stack:** read back pushes that time out ([#81](https://github.com/caiopizzol/skills/issues/81)) ([14cb48a](https://github.com/caiopizzol/skills/commit/14cb48ad771b835d7b08e07fdbd8051eae80fdf2))
+* **read-github-resource:** send repository names as strings ([#79](https://github.com/caiopizzol/skills/issues/79)) ([c6970ce](https://github.com/caiopizzol/skills/commit/c6970ce19c01067cce13e4050c80e3d8904a0a06))
+* **video-tools:** default to five sampled frames ([#82](https://github.com/caiopizzol/skills/issues/82)) ([72ebdac](https://github.com/caiopizzol/skills/commit/72ebdac96d521275ec5231839496b198c9df1a8e))
+
 ## [0.5.0](https://github.com/caiopizzol/skills/compare/v0.4.0...v0.5.0) (2026-08-14)
 
 
