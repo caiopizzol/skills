@@ -8,7 +8,7 @@ import {
   parseGitHubResourceUrl,
   type Fetcher,
   type GhRunner,
-} from "../../skills/context/read-github-resource/scripts/collector.ts";
+} from "../../skills/development/read-github-resource/scripts/collector.ts";
 
 const OWNER = "fixture-owner";
 const REPOSITORY = "fixture-repository";
