@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.6.0](https://github.com/caiopizzol/skills/compare/v0.5.1...v0.6.0) (2026-09-26)
+
+
+### Features
+
+* **codebase:** add enforce-codebase-constraint skill ([#87](https://github.com/caiopizzol/skills/issues/87)) ([6fc8d35](https://github.com/caiopizzol/skills/commit/6fc8d35aea75ab4526f60ac28c9fd33cb5c517b1))
+* **codebase:** add GitHub repository setup skills ([#84](https://github.com/caiopizzol/skills/issues/84)) ([dfffc8b](https://github.com/caiopizzol/skills/commit/dfffc8b2a9f07977a502932d217c4f57ef5967ab))
+* **codebase:** add verify-surfaces skill ([#86](https://github.com/caiopizzol/skills/issues/86)) ([41615f5](https://github.com/caiopizzol/skills/commit/41615f55647358a6623e103c2c3e9f605ca6f72f))
+
 ## [0.5.1](https://github.com/caiopizzol/skills/compare/v0.5.0...v0.5.1) (2026-09-25)
 
 
