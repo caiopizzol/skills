@@ -1,7 +1,7 @@
 # Skills
 
-Composable agent skills for working on codebases: setting up GitHub repositories, taking pull
-requests to ready, reading GitHub evidence, and inspecting the files it contains.
+Composable agent skills for working on codebases: verifying public surfaces, enforcing codebase
+rules, taking pull requests to ready, reading GitHub evidence, and inspecting the files it contains.
 
 [![Release](https://img.shields.io/github/v/release/caiopizzol/skills)](https://github.com/caiopizzol/skills/releases/latest)
 [![Checks](https://github.com/caiopizzol/skills/actions/workflows/check.yml/badge.svg)](https://github.com/caiopizzol/skills/actions/workflows/check.yml)
@@ -40,17 +40,13 @@ Start with a composite for an end-to-end outcome, or choose a focused skill for 
 Every skill here has a check-only mode that reports each area's status with evidence, without
 changing anything.
 
-| Skill                                                                                 | Type      | Purpose                                           |
-| ------------------------------------------------------------------------------------- | --------- | ------------------------------------------------- |
-| [`audit-agent-guardrails`](skills/codebase/audit-agent-guardrails/SKILL.md)           | Composite | Find which written rules no check enforces        |
-| [`config-gh-repo`](skills/codebase/config-gh-repo/SKILL.md)                           | Focused   | Check or change GitHub merge settings             |
-| [`create-gh-repo`](skills/codebase/create-gh-repo/SKILL.md)                           | Focused   | Check, create, or connect a GitHub repository     |
-| [`enforce-codebase-constraint`](skills/codebase/enforce-codebase-constraint/SKILL.md) | Focused   | Make one known bad pattern fail automatically     |
-| [`protect-gh-repo`](skills/codebase/protect-gh-repo/SKILL.md)                         | Focused   | Protect merges with checks already seen           |
-| [`setup-cubic`](skills/codebase/setup-cubic/SKILL.md)                                 | Focused   | Check or configure Cubic review                   |
-| [`setup-gh-checks`](skills/codebase/setup-gh-checks/SKILL.md)                         | Focused   | Run local checks in GitHub Actions                |
-| [`setup-gh-repo`](skills/codebase/setup-gh-repo/SKILL.md)                             | Composite | Set up merge settings, CI, review, and protection |
-| [`verify-surfaces`](skills/codebase/verify-surfaces/SKILL.md)                         | Focused   | Pin every public surface to its exact behavior    |
+| Skill                                                                                 | Type      | Purpose                                        |
+| ------------------------------------------------------------------------------------- | --------- | ---------------------------------------------- |
+| [`audit-agent-guardrails`](skills/codebase/audit-agent-guardrails/SKILL.md)           | Composite | Find which written rules no check enforces     |
+| [`enforce-codebase-constraint`](skills/codebase/enforce-codebase-constraint/SKILL.md) | Focused   | Make one known bad pattern fail automatically  |
+| [`protect-gh-repo`](skills/codebase/protect-gh-repo/SKILL.md)                         | Focused   | Protect merges with checks already seen        |
+| [`setup-gh-checks`](skills/codebase/setup-gh-checks/SKILL.md)                         | Focused   | Run local checks in GitHub Actions             |
+| [`verify-surfaces`](skills/codebase/verify-surfaces/SKILL.md)                         | Focused   | Pin every public surface to its exact behavior |
 
 ### Development
 
