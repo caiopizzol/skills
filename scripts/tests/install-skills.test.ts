@@ -520,6 +520,22 @@ describe("this repository's own catalog", () => {
     ]);
   });
 
+  it("installs audit-agent-guardrails with the constraint skill it hands off to", async () => {
+    const destination = join(await scratch(), "skills");
+
+    const run = await installFrom(
+      resolve(import.meta.dirname, "..", ".."),
+      destination,
+      "audit-agent-guardrails",
+    );
+
+    expect(run.exitCode).toBe(0);
+    expect((await readdir(destination)).sort()).toEqual([
+      "audit-agent-guardrails",
+      "enforce-codebase-constraint",
+    ]);
+  });
+
   it("installs monitor-pr with its complete operating closure", async () => {
     const destination = join(await scratch(), "skills");
 

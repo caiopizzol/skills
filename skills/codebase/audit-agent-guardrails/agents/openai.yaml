@@ -1,0 +1,4 @@
+interface:
+  display_name: "Audit Agent Guardrails"
+  short_description: "Find soft rules that need hard checks"
+  default_prompt: "Use $audit-agent-guardrails to audit this repository and identify one guardrail worth enforcing."
