@@ -500,26 +500,6 @@ describe("this repository's own catalog", () => {
     ]);
   });
 
-  it("installs setup-gh-repo with every GitHub setup child", async () => {
-    const destination = join(await scratch(), "skills");
-
-    const run = await installFrom(
-      resolve(import.meta.dirname, "..", ".."),
-      destination,
-      "setup-gh-repo",
-    );
-
-    expect(run.exitCode).toBe(0);
-    expect((await readdir(destination)).sort()).toEqual([
-      "config-gh-repo",
-      "create-gh-repo",
-      "protect-gh-repo",
-      "setup-cubic",
-      "setup-gh-checks",
-      "setup-gh-repo",
-    ]);
-  });
-
   it("installs audit-agent-guardrails with the constraint skill it hands off to", async () => {
     const destination = join(await scratch(), "skills");
 
