@@ -1,0 +1,4 @@
+interface:
+  display_name: "Verify Surfaces"
+  short_description: "Pin every public surface to its exact behavior"
+  default_prompt: "Use $verify-surfaces to check or build tests for every public surface of this repository."
