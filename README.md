@@ -37,8 +37,8 @@ Start with a composite for an end-to-end outcome, or choose a focused skill for 
 
 ### Codebase
 
-Every setup skill has a check-only mode that reports each area as `ready`, `gap`, `not-applicable`,
-or `unverified` with evidence, without changing anything.
+Every skill here has a check-only mode that reports each area's status with evidence, without
+changing anything.
 
 | Skill                                                         | Type      | Purpose                                           |
 | ------------------------------------------------------------- | --------- | ------------------------------------------------- |
@@ -48,6 +48,7 @@ or `unverified` with evidence, without changing anything.
 | [`setup-cubic`](skills/codebase/setup-cubic/SKILL.md)         | Focused   | Check or configure Cubic review                   |
 | [`setup-gh-checks`](skills/codebase/setup-gh-checks/SKILL.md) | Focused   | Run local checks in GitHub Actions                |
 | [`setup-gh-repo`](skills/codebase/setup-gh-repo/SKILL.md)     | Composite | Set up merge settings, CI, review, and protection |
+| [`verify-surfaces`](skills/codebase/verify-surfaces/SKILL.md) | Focused   | Pin every public surface to its exact behavior    |
 
 ### Development
 
