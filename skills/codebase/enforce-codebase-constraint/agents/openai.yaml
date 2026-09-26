@@ -1,0 +1,4 @@
+interface:
+  display_name: "Enforce a Codebase Constraint"
+  short_description: "Turn recurring code rules into hard checks"
+  default_prompt: "Use $enforce-codebase-constraint to make this repository reject a known bad pattern automatically."
