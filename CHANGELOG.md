@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/caiopizzol/skills/compare/v0.6.0...v0.7.0) (2026-09-26)
+
+
+### Features
+
+* **codebase:** add audit-agent-guardrails skill ([#88](https://github.com/caiopizzol/skills/issues/88)) ([f8028fb](https://github.com/caiopizzol/skills/commit/f8028fb956742db8f5ee087e05ce7884e3c4197c))
+
 ## [0.6.0](https://github.com/caiopizzol/skills/compare/v0.5.1...v0.6.0) (2026-09-26)
 
 
