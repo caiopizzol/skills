@@ -42,6 +42,7 @@ changing anything.
 
 | Skill                                                                                 | Type      | Purpose                                           |
 | ------------------------------------------------------------------------------------- | --------- | ------------------------------------------------- |
+| [`audit-agent-guardrails`](skills/codebase/audit-agent-guardrails/SKILL.md)           | Composite | Find which written rules no check enforces        |
 | [`config-gh-repo`](skills/codebase/config-gh-repo/SKILL.md)                           | Focused   | Check or change GitHub merge settings             |
 | [`create-gh-repo`](skills/codebase/create-gh-repo/SKILL.md)                           | Focused   | Check, create, or connect a GitHub repository     |
 | [`enforce-codebase-constraint`](skills/codebase/enforce-codebase-constraint/SKILL.md) | Focused   | Make one known bad pattern fail automatically     |
