@@ -3,7 +3,8 @@ description: >-
   Fails when a pull request weakens its tests or test gate (a deleted test file, an unconditional
   skip or focus, or a gate that runs less). Adding the `tests-changed-ok` label accepts the pull
   request's current head only; any later push is checked again, and the label must be removed and
-  added again to accept it. Reads git only; it never checks out or runs the pull request's code.
+  added again to accept it. Rerunning that run does not accept it again. Reads git only; it never
+  checks out or runs the pull request's code.
   Call it from a pull_request_target workflow on `opened`, `synchronize`, `reopened`, `edited`
   (a new base branch changes the diff), `labeled`, and `unlabeled`, with a job `timeout-minutes`.
   A title edit or another label keeps the earlier verdict only when the workflow grants
@@ -83,8 +84,9 @@ runs:
         BASE_SHA: ${{ github.event.pull_request.base.sha }}
         HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         # Only the run started by adding the label accepts the change. A label that stays on the
-        # pull request does not carry over to later pushes, which are checked again.
-        TESTS_CHANGED_OK: ${{ github.event.action == 'labeled' && github.event.label.name == 'tests-changed-ok' }}
+        # pull request does not carry over to later pushes, which are checked again. A rerun replays
+        # the original event even after the label is removed, so only the first attempt accepts.
+        TESTS_CHANGED_OK: ${{ github.event.action == 'labeled' && github.event.label.name == 'tests-changed-ok' && github.run_attempt == '1' }}
         # Verdicts are reused only by the same detector, identified by the action's own commit.
         TEST_INTEGRITY_VERSION: ${{ github.action_ref }}
         PR_NUMBER: ${{ github.event.pull_request.number }}
