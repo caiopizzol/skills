@@ -812,11 +812,19 @@ test("an unconditional pytest or unittest skip or expected failure blocks, in ev
     '    raise unittest.SkipTest("later")',
     "__test__ = False",
     "    __test__ = False",
-    'collect_ignore = ["test_slow.py"]',
-    'collect_ignore_glob.append("integration/*")',
   ]) {
     expect(rules(diff("tests/test_a.py", [marker]))).toEqual(["skip-or-focus-added"]);
   }
+});
+
+test("collect_ignore stops collection only in a conftest, so only there is it a skip", () => {
+  for (const line of ['collect_ignore = ["test_slow.py"]', 'collect_ignore_glob.append("it/*")']) {
+    expect(rules(diff("tests/conftest.py", [line]))).toEqual(["skip-or-focus-added"]);
+    expect(rules(diff("tests/test_a.py", [line]))).toEqual([]);
+  }
+  expect(rules(diff("tests/conftest.py", ["# collect_ignore used to list slow files"]))).toEqual(
+    [],
+  );
 });
 
 test("a skip that always holds, or that cannot be shown to depend on the run, blocks", () => {
@@ -833,6 +841,9 @@ test("a skip that always holds, or that cannot be shown to depend on the run, bl
     '@unittest.skipUnless(sys.platform == "win32" and sys.platform == "linux", "never")',
     '@pytest.mark.skipif(os.name != "posix", reason=explain())',
     '@pytest.mark.skipif(os.name != "posix", reason=f"needs {SIGNAL}")',
+    '@pytest.mark.skipif(condition=True, reason="later")',
+    '@pytest.mark.skipif(reason="x", reason="y")',
+    '@pytest.mark.skipif(condition=os.name != "posix", "x")',
   ]) {
     expect(rules(diff("tests/test_a.py", [marker]))).toEqual(["skip-or-focus-added"]);
   }
@@ -850,6 +861,8 @@ test("a skip conditioned on the platform or the environment is reported, not blo
     '@unittest.skipUnless(sys.platform == "linux" or sys.platform == "darwin", "needs Unix")',
     '@pytest.mark.xfail(sys.platform == "darwin", reason="known on macOS")',
     '@pytest.mark.skipif(sys.platform == "win32" or sys.platform == "cygwin", reason="no fork")',
+    '@pytest.mark.skipif(condition=os.name != "posix", reason="Requires SIGKILL")',
+    '@pytest.mark.skipif(reason="Requires SIGKILL", condition=os.name != "posix")',
   ]) {
     expect(rules(diff("tests/test_a.py", [marker]))).toEqual(["conditional-skip-added"]);
   }
@@ -895,6 +908,9 @@ test("an added bare return in a Python test blocks", () => {
     "early-exit-added",
   ]);
   expect(rules(diff("tests/test_a.py", ["    return  # not ready"]))).toEqual(["early-exit-added"]);
+  for (const line of ["    return;", "    return None;", "    if skip: return;  # later"]) {
+    expect(rules(diff("tests/test_a.py", [line]))).toEqual(["early-exit-added"]);
+  }
   // `return None` is a bare return, even where a helper uses it as an answer.
   expect(rules(diff("tests/test_a.py", ["    return None"]))).toEqual(["early-exit-added"]);
 });

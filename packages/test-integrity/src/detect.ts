@@ -537,33 +537,51 @@ function isConditionalSkip(lines: string[], at: number): boolean {
 // `@mark.xfail`, `@unittest.skip`, `@skip`), as marks (`pytestmark = pytest.mark.skip`,
 // `pytest.param(…, marks=pytest.mark.skip)`), and as calls or exceptions (`pytest.skip()`,
 // `pytest.xfail()`, `pytest.importorskip()`, `self.skipTest()`, `raise unittest.SkipTest`), and
-// the settings that stop pytest collecting a module or class (`__test__ = False`) or a path
-// (`collect_ignore` in a conftest). A comment line is not a marker.
+// the setting that stops pytest collecting a module or class (`__test__ = False`). A comment line is
+// not a marker.
 const PYTHON_SKIP =
-  /^\s*@(?:\w+\.)*(?:skip|skipif|skipIf|skipUnless|xfail|expectedFailure)\b|\bmark\.(?:skip|skipif|xfail)\b|\bpytest\.(?:skip|xfail|importorskip)\b|\bskipTest\s*\(|\bSkipTest\b|^\s*__test__\s*=\s*False\b|\bcollect_ignore(?:_glob)?\b/g;
+  /^\s*@(?:\w+\.)*(?:skip|skipif|skipIf|skipUnless|xfail|expectedFailure)\b|\bmark\.(?:skip|skipif|xfail)\b|\bpytest\.(?:skip|xfail|importorskip)\b|\bskipTest\s*\(|\bSkipTest\b|^\s*__test__\s*=\s*False\b/g;
 const pythonMarkers = (line: string) =>
   /^\s*#/.test(line) ? 0 : (line.match(PYTHON_SKIP)?.length ?? 0);
-// A skip that names its condition first and then only a reason, positional or `reason=`:
-// `@pytest.mark.skipif(os.name != "posix", reason="Requires SIGKILL")`. The reason may be adjacent
-// string literals or a named constant. The call may continue on later lines. A line with another
-// marker beside it is not read as conditional.
+// pytest reads `collect_ignore` and `collect_ignore_glob`, which stop it collecting paths, only from
+// a `conftest.py`. Elsewhere they are ordinary names.
+const CONFTEST = /(^|\/)conftest\.py$/;
+const COLLECT_IGNORE = /^\s*[^#]*\bcollect_ignore(?:_glob)?\b/;
+// A skip that names a condition and a reason, and nothing else:
+// `@pytest.mark.skipif(os.name != "posix", reason="Requires SIGKILL")`. Each may be positional, in
+// that order, or named (`condition=`, `reason=`) in any order. The reason may be adjacent string
+// literals or a named constant. The call may continue on later lines. A line with another marker
+// beside it is not read as conditional.
 const PYTHON_CONDITIONAL = /\b(?:skipif|skipIf|skipUnless|xfail)\s*\(/;
-const PYTHON_REASON =
-  /^(?:reason\s*=\s*)?(?:(?:(?:"(?:[^"\\\n]|\\.)+"|'(?:[^'\\\n]|\\.)+')\s*)+|[A-Za-z_]\w*)$/;
+const PYTHON_REASON = /^(?:(?:(?:"(?:[^"\\\n]|\\.)+"|'(?:[^'\\\n]|\\.)+')\s*)+|[A-Za-z_]\w*)$/;
+function conditionAndReason(args: string[]): [string, string] | undefined {
+  if (args.length !== 2) return undefined;
+  const named = args.map((arg) => /^(condition|reason)\s*=(?!=)\s*([\s\S]*)$/.exec(arg));
+  const [first, second] = named;
+  if (!first && !second) return [args[0] ?? "", args[1] ?? ""];
+  if (!first && second?.[1] === "reason") return [args[0] ?? "", second[2] ?? ""];
+  if (first && second && first[1] !== second[1]) {
+    return first[1] === "condition"
+      ? [first[2] ?? "", second[2] ?? ""]
+      : [second[2] ?? "", first[2] ?? ""];
+  }
+  return undefined;
+}
 function isConditionalPythonSkip(lines: string[], at: number): boolean {
   const line = lines[at] ?? "";
   const marker = PYTHON_CONDITIONAL.exec(line);
   if (!marker || pythonMarkers(line) !== 1) return false;
   const text = lines.slice(at, at + 6).join("\n");
   const args = callArguments(text, marker.index + marker[0].length - 1);
-  if (args?.length !== 2) return false;
-  const [condition = "", reason = ""] = args;
+  const read = args && conditionAndReason(args);
+  if (!read) return false;
+  const [condition, reason] = read;
   const negated = marker[0].startsWith("skipUnless");
   return isRuntimeCondition(condition, PYTHON_CONDITION, negated) && PYTHON_REASON.test(reason);
 }
 // Python has no braces, so any added bare `return` in a test file gives up early, on its own line
 // or after `if …:`. `return None` is the same statement, so it counts too, even in a helper.
-const PYTHON_EARLY_EXIT = /^\s*(?:if\s.+:\s*)?return(?:\s+None)?\s*(?:#.*)?$/;
+const PYTHON_EARLY_EXIT = /^\s*(?:if\s.+:\s*)?return(?:\s+None)?\s*;?\s*(?:#.*)?$/;
 const pythonEarlyExits = (lines: string[]) =>
   lines.filter((line) => PYTHON_EARLY_EXIT.test(line)).map((line) => line.trim());
 // `assert` statements, unittest's `self.assert…()`, mocks' `.assert_called…()`, and
@@ -574,7 +592,7 @@ const PYTHON_ASSERTION =
 // How each language marks a skipped test and gives up early. Python for `.py` files, JavaScript's
 // rules for every other test file.
 interface Language {
-  isMarker: (line: string) => boolean;
+  isMarker: (line: string, path: string) => boolean;
   isConditional: (lines: string[], at: number) => boolean;
   earlyExits: (lines: string[]) => string[];
   assertion: RegExp;
@@ -586,7 +604,8 @@ const JAVASCRIPT: Language = {
   assertion: ASSERTION,
 };
 const PYTHON: Language = {
-  isMarker: (line) => pythonMarkers(line) > 0,
+  isMarker: (line, path) =>
+    pythonMarkers(line) > 0 || (CONFTEST.test(path) && COLLECT_IGNORE.test(line)),
   isConditional: isConditionalPythonSkip,
   earlyExits: pythonEarlyExits,
   assertion: PYTHON_ASSERTION,
@@ -614,7 +633,8 @@ export function detect(diff: string, head: Head = {}): Finding[] {
     if (isTest) {
       const language = path.endsWith(".py") ? PYTHON : JAVASCRIPT;
       file.added.forEach((line, at) => {
-        if (!language.isMarker(line) || file.removed.some((r) => r.trim() === line.trim())) return;
+        if (!language.isMarker(line, path) || file.removed.some((r) => r.trim() === line.trim()))
+          return;
         add(
           language.isConditional(file.added, at) ? "conditional-skip-added" : "skip-or-focus-added",
           path,
