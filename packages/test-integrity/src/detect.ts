@@ -377,16 +377,67 @@ const count = (lines: string[], pattern: RegExp) =>
 // formatting.
 const meaningful = (lines: string[]) => lines.filter((line) => line.trim() !== "");
 
+// The arguments of the call whose opening parenthesis is at `open`, split at top-level commas, or
+// undefined when the call does not close. Strings are skipped, so their commas and parentheses do
+// not count.
+function callArguments(text: string, open: number): string[] | undefined {
+  const args: string[] = [];
+  let depth = 0;
+  let start = open + 1;
+  for (let at = open; at < text.length; at++) {
+    const char = text[at];
+    if (char === '"' || char === "'" || char === "`") {
+      const end = text.indexOf(char, at + 1);
+      if (end === -1) return undefined;
+      at = end;
+    } else if (char === "(" || char === "[" || char === "{") depth++;
+    else if (char === ")" || char === "]" || char === "}") {
+      depth--;
+      if (depth === 0) {
+        args.push(text.slice(start, at).trim());
+        return args.filter((arg, index) => arg !== "" || index < args.length - 1);
+      }
+    } else if (char === "," && depth === 1) {
+      args.push(text.slice(start, at).trim());
+      start = at + 1;
+    }
+  }
+  return undefined;
+}
+
+// A condition a skip may use: something the run decides, compared with a string, such as
+// `info.project.name === "desktop"` or `process.platform !== "darwin"`, or such comparisons joined
+// with `||` or `&&`. Whether an arbitrary expression can be false cannot be read from its text
+// (`!!1`, or a constant set to `true`, never is), so any other condition counts as unconditional.
+// The values each runtime can take are not known, so a comparison with an impossible value
+// (`process.platform !== "windows"`) still counts as conditional. Conditional skips are reported,
+// not blocked, so a person reviews them.
+// Joined comparisons of the same value can be always true (`p === "a" || p !== "a"`, or
+// `p !== "a" || p !== "b"`), so `||` may join comparisons of different values only.
+const RUNTIME_COMPARISON =
+  /^((?:test)?[iI]nfo\.project\.name|process\.platform|process\.env\.[A-Z_][A-Z0-9_]*|browserName)\s*[!=]==?\s*(?:"[^"]*"|'[^']*')$/;
+function isRuntimeCondition(condition: string): boolean {
+  const joiners = condition.match(/\|\||&&/g) ?? [];
+  if (new Set(joiners).size > 1) return false;
+  const parts = condition
+    .split(/\s*(?:\|\||&&)\s*/)
+    .map((part) => RUNTIME_COMPARISON.exec(part.trim()));
+  if (!parts.every(Boolean)) return false;
+  const values = parts.map((part) => (part?.[1] ?? "").replace(/^testInfo/, "info"));
+  return joiners[0] !== "||" || new Set(values).size === values.length;
+}
+const PLAIN_REASON = /^(?:"[^"]+"|'[^']+'|`[^`$]+`|[A-Za-z_$][\w$]*)$/;
+
 // A Playwright conditional skip names a condition and a reason instead of a title and a body:
-// `test.skip(info.project.name === "desktop", "Covered separately.")`. The call's text starts at the
-// marker line and may continue on the lines that follow it.
+// `test.skip(info.project.name === "desktop", "Covered separately.")`. The reason may be a string or
+// a named constant. The call starts at the marker line and may continue on later lines.
 function isConditionalSkip(lines: string[], at: number): boolean {
   if (!CONDITIONAL_SKIP_START.test(lines[at] ?? "")) return false;
-  const call = lines.slice(at, at + 6).join(" ");
-  const args = call.slice(call.indexOf("test.skip(") + "test.skip(".length);
-  const hasReason = /,\s*["'`][^"'`]+["'`]\s*,?\s*\)/.test(args);
-  const hasBody = /=>|function\s*\(/.test(args.split(")")[0] ?? "");
-  return hasReason && !hasBody;
+  const text = lines.slice(at, at + 6).join("\n");
+  const args = callArguments(text, text.indexOf("(", text.indexOf("test.skip")));
+  if (args?.length !== 2) return false;
+  const [condition = "", reason = ""] = args;
+  return isRuntimeCondition(condition) && PLAIN_REASON.test(reason);
 }
 
 // `head` supplies what the diff does not show (see cli.ts). Every changed workflow must be in it.
