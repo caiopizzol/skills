@@ -98,6 +98,14 @@
         "vite-plus": "catalog:",
       },
     },
+    "packages/test-integrity": {
+      "name": "@caiopizzol/test-integrity",
+      "devDependencies": {
+        "@types/bun": "^1.3.0",
+        "typescript": "7.0.2",
+        "vite-plus": "catalog:",
+      },
+    },
     "packages/text-tools": {
       "name": "@caiopizzol/text-tools",
       "devDependencies": {
@@ -143,6 +151,8 @@
     "@caiopizzol/image-tools-cli": ["@caiopizzol/image-tools-cli@workspace:apps/image-tools-cli"],
 
     "@caiopizzol/media-exec": ["@caiopizzol/media-exec@workspace:packages/media-exec"],
+
+    "@caiopizzol/test-integrity": ["@caiopizzol/test-integrity@workspace:packages/test-integrity"],
 
     "@caiopizzol/text-tools": ["@caiopizzol/text-tools@workspace:packages/text-tools"],
 

@@ -1,0 +1,17 @@
+{
+  "name": "@caiopizzol/test-integrity",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/detect.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vp test run"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.0",
+    "typescript": "7.0.2",
+    "vite-plus": "catalog:"
+  }
+}

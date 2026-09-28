@@ -1,0 +1,42 @@
+name: Test integrity
+description: >-
+  Fails when a pull request weakens its tests or test gate (a deleted test file, an unconditional
+  skip or focus, or a gate that runs less) unless the `tests-changed-ok` label is present. Reads
+  git only; it never checks out or runs the pull request's code. Call it from a
+  pull_request_target workflow.
+runs:
+  using: composite
+  steps:
+    - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      with:
+        bun-version: 1.3.14
+
+    - name: Fetch the base and pull request commits without checking them out
+      shell: bash
+      env:
+        REPOSITORY: ${{ github.repository }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+        [[ "$PR_NUMBER" =~ ^[0-9]+$ ]] || { echo "Not a pull request event" >&2; exit 2; }
+        [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ && "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "Missing commit SHAs" >&2; exit 2; }
+        dir="$RUNNER_TEMP/test-integrity-repo"
+        git init -q "$dir"
+        # The token is passed per command, never written to the repository's config.
+        auth="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$TOKEN" | base64 | tr -d '\n')"
+        git -C "$dir" -c "http.extraheader=$auth" fetch -q --filter=blob:none \
+          "https://github.com/${REPOSITORY}.git" "$BASE_SHA" "+refs/pull/${PR_NUMBER}/head:refs/remotes/pr"
+        [ "$(git -C "$dir" rev-parse refs/remotes/pr)" = "$HEAD_SHA" ] || { echo "Pull request head moved; rerun" >&2; exit 2; }
+        git -C "$dir" merge-base "$BASE_SHA" "$HEAD_SHA" >/dev/null || { echo "No common history with the base" >&2; exit 2; }
+        echo "TEST_INTEGRITY_REPO=$dir" >> "$GITHUB_ENV"
+
+    - name: Check the change
+      shell: bash
+      env:
+        BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        TESTS_CHANGED_OK: ${{ contains(github.event.pull_request.labels.*.name, 'tests-changed-ok') }}
+      run: bun "$GITHUB_ACTION_PATH/../../../packages/test-integrity/src/cli.ts" "$BASE_SHA" "$HEAD_SHA" "$TEST_INTEGRITY_REPO"
