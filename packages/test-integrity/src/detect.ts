@@ -63,7 +63,10 @@ export interface Head {
   workflows?: Map<string, WorkflowVersions>;
 }
 
-const TEST_FILE = /(^|\/)(__tests__|tests?|browser-tests)\/|\.(test|spec|e2e)\.[cm]?[jt]sx?$/;
+// Test directories, JavaScript test files, and the files pytest collects by default
+// (`test_*.py`, `*_test.py`) with its shared fixtures (`conftest.py`).
+const TEST_FILE =
+  /(^|\/)(__tests__|tests?|browser-tests)\/|\.(test|spec|e2e)\.[cm]?[jt]sx?$|(^|\/)(test_[^/]*|[^/]*_test|conftest)\.py$/;
 const EXPECTED_OUTPUT = /(^|\/)(__snapshots__|expected)\/|\.snap$/;
 const RUNNER_CONFIG = /(^|\/)(playwright|vitest|jest)\.config\.[cm]?[jt]s$|(^|\/)bunfig\.toml$/;
 const AGENT_GATE = /(^|\/)\.agent-gate$/;
@@ -427,9 +430,39 @@ function callArguments(text: string, open: number): string[] | undefined {
 // `p !== "a" || p !== "b"`), so `||` may join comparisons of different values only.
 // Under `||`, a value may repeat only in `===` comparisons with different strings (`b === "x" ||
 // b === "y"`): those can all be false together.
-const RUNTIME_VALUE =
-  /^(?:(?:test)?[iI]nfo\.project\.name|process\.platform|process\.env\.[A-Z_][A-Z0-9_]*|browserName)/;
 const STRING_LITERAL = /^(?:"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*')/;
+// How a language writes a runtime value, a comparison, and `or` / `and`. `key` names a value so two
+// spellings of the same one compare as the same.
+interface ConditionSyntax {
+  value: RegExp;
+  operator: RegExp;
+  joiner: RegExp;
+  or: string;
+  key: (value: string) => string;
+}
+const JAVASCRIPT_CONDITION: ConditionSyntax = {
+  value:
+    /^(?:(?:test)?[iI]nfo\.project\.name|process\.platform|process\.env\.[A-Z_][A-Z0-9_]*|browserName)/,
+  operator: /^[!=]==?/,
+  joiner: /^(?:\|\||&&)/,
+  or: "||",
+  key: (value) => value.replace(/^testInfo/, "info"),
+};
+// `sys.platform`, `os.name`, `platform.system()`, or an environment variable read with
+// `os.environ.get("NAME")`, `os.getenv("NAME")`, or `os.environ["NAME"]`.
+const ENVIRONMENT_NAME = String.raw`\s*(?:"[A-Z_][A-Z0-9_]*"|'[A-Z_][A-Z0-9_]*')\s*`;
+const PYTHON_CONDITION: ConditionSyntax = {
+  value: new RegExp(
+    String.raw`^(?:sys\.platform|os\.name|platform\.system\(\)|os\.environ\.get\(${ENVIRONMENT_NAME}\)|os\.getenv\(${ENVIRONMENT_NAME}\)|os\.environ\[${ENVIRONMENT_NAME}\])`,
+  ),
+  operator: /^[!=]=(?!=)/,
+  joiner: /^(?:or|and)(?!\w)/,
+  or: "or",
+  key: (value) => {
+    const name = /["']([A-Z_][A-Z0-9_]*)["']/.exec(value)?.[1];
+    return name ? `env:${name}` : value;
+  },
+};
 interface Comparison {
   value: string;
   equal: boolean;
@@ -437,23 +470,26 @@ interface Comparison {
 }
 // The condition as comparisons and the one operator joining them, read token by token so quotes and
 // operators inside strings are not mistaken for structure. Undefined for anything else.
-function comparisons(condition: string): { parts: Comparison[]; joiner?: string } | undefined {
+function comparisons(
+  condition: string,
+  syntax: ConditionSyntax,
+): { parts: Comparison[]; joiner?: string } | undefined {
   const parts: Comparison[] = [];
   const joiners = new Set<string>();
   let rest = condition.trim();
   while (true) {
-    const value = RUNTIME_VALUE.exec(rest)?.[0];
+    const value = syntax.value.exec(rest)?.[0];
     if (!value) return undefined;
     rest = rest.slice(value.length).trimStart();
-    const operator = /^[!=]==?/.exec(rest)?.[0];
+    const operator = syntax.operator.exec(rest)?.[0];
     if (!operator) return undefined;
     rest = rest.slice(operator.length).trimStart();
     const text = STRING_LITERAL.exec(rest)?.[0];
     if (!text) return undefined;
     rest = rest.slice(text.length).trimStart();
-    parts.push({ value: value.replace(/^testInfo/, "info"), equal: operator[0] === "=", text });
+    parts.push({ value: syntax.key(value), equal: operator[0] === "=", text });
     if (rest === "") break;
-    const joiner = /^(?:\|\||&&)/.exec(rest)?.[0];
+    const joiner = syntax.joiner.exec(rest)?.[0];
     if (!joiner) return undefined;
     joiners.add(joiner);
     rest = rest.slice(joiner.length).trimStart();
@@ -461,10 +497,10 @@ function comparisons(condition: string): { parts: Comparison[]; joiner?: string 
   if (joiners.size > 1) return undefined;
   return { parts, joiner: [...joiners][0] };
 }
-function isRuntimeCondition(condition: string): boolean {
-  const read = comparisons(condition);
+function isRuntimeCondition(condition: string, syntax: ConditionSyntax): boolean {
+  const read = comparisons(condition, syntax);
   if (!read) return false;
-  if (read.joiner !== "||") return true;
+  if (read.joiner !== syntax.or) return true;
   const byValue = new Map<string, Comparison[]>();
   for (const part of read.parts)
     byValue.set(part.value, [...(byValue.get(part.value) ?? []), part]);
@@ -486,8 +522,65 @@ function isConditionalSkip(lines: string[], at: number): boolean {
   const args = callArguments(text, text.indexOf("(", text.indexOf("test.skip")));
   if (args?.length !== 2) return false;
   const [condition = "", reason = ""] = args;
-  return isRuntimeCondition(condition) && PLAIN_REASON.test(reason);
+  return isRuntimeCondition(condition, JAVASCRIPT_CONDITION) && PLAIN_REASON.test(reason);
 }
+
+// Python: pytest and unittest skip and expected-failure markers, as decorators (`@pytest.mark.skip`,
+// `@mark.xfail`, `@unittest.skip`, `@skip`), as marks (`pytestmark = pytest.mark.skip`,
+// `pytest.param(…, marks=pytest.mark.skip)`), and as calls or exceptions (`pytest.skip()`,
+// `pytest.xfail()`, `pytest.importorskip()`, `self.skipTest()`, `raise unittest.SkipTest`).
+// A comment line is not a marker.
+const PYTHON_SKIP =
+  /^\s*@(?:\w+\.)*(?:skip|skipif|skipIf|skipUnless|xfail|expectedFailure)\b|\bmark\.(?:skip|skipif|xfail)\b|\bpytest\.(?:skip|xfail|importorskip)\b|\bskipTest\s*\(|\bSkipTest\b/g;
+const pythonMarkers = (line: string) =>
+  /^\s*#/.test(line) ? 0 : (line.match(PYTHON_SKIP)?.length ?? 0);
+// A skip that names its condition first and then only a reason, positional or `reason=`:
+// `@pytest.mark.skipif(os.name != "posix", reason="Requires SIGKILL")`. The reason may be adjacent
+// string literals or a named constant. The call may continue on later lines. A line with another
+// marker beside it is not read as conditional.
+const PYTHON_CONDITIONAL = /\b(?:skipif|skipIf|skipUnless|xfail)\s*\(/;
+const PYTHON_REASON =
+  /^(?:reason\s*=\s*)?(?:(?:(?:"(?:[^"\\\n]|\\.)+"|'(?:[^'\\\n]|\\.)+')\s*)+|[A-Za-z_]\w*)$/;
+function isConditionalPythonSkip(lines: string[], at: number): boolean {
+  const line = lines[at] ?? "";
+  const marker = PYTHON_CONDITIONAL.exec(line);
+  if (!marker || pythonMarkers(line) !== 1) return false;
+  const text = lines.slice(at, at + 6).join("\n");
+  const args = callArguments(text, marker.index + marker[0].length - 1);
+  if (args?.length !== 2) return false;
+  const [condition = "", reason = ""] = args;
+  return isRuntimeCondition(condition, PYTHON_CONDITION) && PYTHON_REASON.test(reason);
+}
+// Python has no braces, so any added bare `return` in a test file gives up early, on its own line
+// or after `if …:`. `return None` answers a helper's caller, like any other value.
+const PYTHON_EARLY_EXIT = /^\s*(?:if\s.+:\s*)?return\s*(?:#.*)?$/;
+const pythonEarlyExits = (lines: string[]) =>
+  lines.filter((line) => PYTHON_EARLY_EXIT.test(line)).map((line) => line.trim());
+// `assert` statements, unittest's `self.assert…()`, mocks' `.assert_called…()`, and
+// `pytest.raises()` or `pytest.warns()`.
+const PYTHON_ASSERTION =
+  /^\s*assert\b|\bself\.assert\w*\s*\(|\.assert_\w+\s*\(|\bpytest\.(?:raises|warns)\s*\(/g;
+
+// How each language marks a skipped test and gives up early. Python for `.py` files, JavaScript's
+// rules for every other test file.
+interface Language {
+  isMarker: (line: string) => boolean;
+  isConditional: (lines: string[], at: number) => boolean;
+  earlyExits: (lines: string[]) => string[];
+  assertion: RegExp;
+}
+const JAVASCRIPT: Language = {
+  isMarker: (line) => SKIP_OR_FOCUS.test(line),
+  isConditional: isConditionalSkip,
+  earlyExits,
+  assertion: ASSERTION,
+};
+const PYTHON: Language = {
+  isMarker: (line) => pythonMarkers(line) > 0,
+  isConditional: isConditionalPythonSkip,
+  earlyExits: pythonEarlyExits,
+  assertion: PYTHON_ASSERTION,
+};
 
 // `head` supplies what the diff does not show (see cli.ts). Every changed workflow must be in it.
 export function detect(diff: string, head: Head = {}): Finding[] {
@@ -509,22 +602,23 @@ export function detect(diff: string, head: Head = {}): Finding[] {
 
     if (isTest && file.deleted) add("test-file-deleted", path, "test file deleted");
     if (isTest) {
+      const language = path.endsWith(".py") ? PYTHON : JAVASCRIPT;
       file.added.forEach((line, at) => {
-        if (!SKIP_OR_FOCUS.test(line) || file.removed.some((r) => r.trim() === line.trim())) return;
+        if (!language.isMarker(line) || file.removed.some((r) => r.trim() === line.trim())) return;
         add(
-          isConditionalSkip(file.added, at) ? "conditional-skip-added" : "skip-or-focus-added",
+          language.isConditional(file.added, at) ? "conditional-skip-added" : "skip-or-focus-added",
           path,
           line.trim(),
         );
       });
       // An added guard that returns early skips the test's assertions silently, like a skip.
-      const existing = new Set(earlyExits(file.removed));
-      for (const guard of earlyExits(file.added)) {
+      const existing = new Set(language.earlyExits(file.removed));
+      for (const guard of language.earlyExits(file.added)) {
         if (!existing.has(guard)) add("early-exit-added", path, guard);
       }
       // Counted per file: assertions added to one file do not hide ones removed from another.
-      const added = count(file.added, ASSERTION);
-      const removedAssertions = count(file.removed, ASSERTION);
+      const added = count(file.added, language.assertion);
+      const removedAssertions = count(file.removed, language.assertion);
       if (!file.deleted && removedAssertions > added) {
         add(
           "assertions-decreased",

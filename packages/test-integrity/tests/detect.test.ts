@@ -779,3 +779,147 @@ test("a changed run block counts only in a shell that stops on the first failure
   };
   expect(workflowChange(workflow([run(block)]), moved)).toEqual(["gate-weakened"]);
 });
+
+test("pytest's test files and shared fixtures are test files, and deleting one blocks", () => {
+  for (const path of ["tests/test_main.py", "apps/api/test_sql_guard.py", "pkg/cli_test.py"]) {
+    expect(rules(diff(path, [], ["def test_a():", "    assert 1"], true))).toEqual([
+      "test-file-deleted",
+    ]);
+  }
+  expect(rules(diff("tests/conftest.py", [], ["@pytest.fixture"], true))).toEqual([
+    "test-file-deleted",
+  ]);
+  // Production modules and a test data helper outside test paths are not test files.
+  expect(rules(diff("processor.py", [], ["def run():"], true))).toEqual([]);
+  expect(rules(diff("scripts/testing.py", [], ["x = 1"], true))).toEqual([]);
+});
+
+test("an unconditional pytest or unittest skip or expected failure blocks, in every common form", () => {
+  for (const marker of [
+    "@pytest.mark.skip",
+    '@pytest.mark.skip(reason="flaky")',
+    "@pytest.mark.xfail",
+    "@mark.skip",
+    '@unittest.skip("later")',
+    "@unittest.expectedFailure",
+    '@skip("later")',
+    "pytestmark = pytest.mark.skip",
+    "    pytest.param(3, marks=pytest.mark.xfail),",
+    '    pytest.skip("not ready")',
+    '    pytest.xfail("known")',
+    '    pytest.importorskip("sentry_sdk")',
+    '        self.skipTest("later")',
+    '    raise unittest.SkipTest("later")',
+  ]) {
+    expect(rules(diff("tests/test_a.py", [marker]))).toEqual(["skip-or-focus-added"]);
+  }
+});
+
+test("a skip that always holds, or that cannot be shown to depend on the run, blocks", () => {
+  for (const marker of [
+    '@pytest.mark.skipif(True, reason="later")',
+    '@pytest.mark.skipif(1 == 1, reason="later")',
+    '@pytest.mark.skipif("sys.platform", reason="later")',
+    '@pytest.mark.skipif(SLOW, reason="later")',
+    '@pytest.mark.skipif(not IMAGE, reason="later")',
+    '@pytest.mark.skipif(os.name != "posix")',
+    '@pytest.mark.skipif(os.name == "nt" or os.name != "nt", reason="always")',
+    '@unittest.skipUnless(_DEPS, "needs the image")',
+    '@pytest.mark.skipif(os.name != "posix", reason=explain())',
+    '@pytest.mark.skipif(os.name != "posix", reason=f"needs {SIGNAL}")',
+  ]) {
+    expect(rules(diff("tests/test_a.py", [marker]))).toEqual(["skip-or-focus-added"]);
+  }
+});
+
+test("a skip conditioned on the platform or the environment is reported, not blocked", () => {
+  for (const marker of [
+    '@pytest.mark.skipif(os.name != "posix", reason="Requires SIGKILL")',
+    "@pytest.mark.skipif(sys.platform == 'win32', reason='no fork')",
+    '@pytest.mark.skipif(platform.system() == "Darwin", "not on macOS")',
+    '@pytest.mark.skipif(os.environ.get("CI") == "true", reason=NEEDS_NETWORK)',
+    '@pytest.mark.skipif(os.getenv("DB") != "postgres", reason="postgres only")',
+    '@unittest.skipIf(sys.platform == "win32", "no fork")',
+    '@pytest.mark.xfail(sys.platform == "darwin", reason="known on macOS")',
+    '@pytest.mark.skipif(sys.platform == "win32" or sys.platform == "cygwin", reason="no fork")',
+  ]) {
+    expect(rules(diff("tests/test_a.py", [marker]))).toEqual(["conditional-skip-added"]);
+  }
+  // The same skip spread over lines, with adjacent strings as the reason.
+  expect(
+    rules(
+      diff("tests/test_a.py", [
+        "@pytest.mark.skipif(",
+        '    os.name != "posix",',
+        '    reason="Requires SIGKILL "',
+        '    "to stop the database",',
+        ")",
+      ]),
+    ),
+  ).toEqual(["conditional-skip-added"]);
+});
+
+test("a conditional marker beside an unconditional one on the same line blocks", () => {
+  expect(
+    rules(
+      diff("tests/test_a.py", [
+        '    pytest.param(1, marks=[pytest.mark.skipif(os.name != "posix", reason="x"), pytest.mark.skip]),',
+      ]),
+    ),
+  ).toEqual(["skip-or-focus-added"]);
+});
+
+test("a skip in a comment, a moved skip, or a Python file outside the tests is not a skip", () => {
+  expect(rules(diff("tests/test_a.py", ["# pytest.mark.skip once flaked here"]))).toEqual([]);
+  const moved = '@pytest.mark.skipif(not IMAGE, reason="x")';
+  expect(rules(diff("tests/test_a.py", [`${moved}`], [`${moved}  `]))).toEqual([
+    "test-content-changed",
+  ]);
+  expect(rules(diff("processor.py", ["    pytest.skip()"]))).toEqual([]);
+});
+
+test("an added bare return in a Python test blocks", () => {
+  expect(detect(diff("tests/test_a.py", ["    if not ready:", "        return"]))).toEqual([
+    { rule: "early-exit-added", severity: "block", file: "tests/test_a.py", detail: "return" },
+  ]);
+  expect(rules(diff("tests/test_a.py", ["    if os.environ.get('CI'): return"]))).toEqual([
+    "early-exit-added",
+  ]);
+  expect(rules(diff("tests/test_a.py", ["    return  # not ready"]))).toEqual(["early-exit-added"]);
+});
+
+test("returning a value, an existing return, or a return in production code is not an early exit", () => {
+  expect(rules(diff("tests/conftest.py", ["    return Database(url)"]))).toEqual([]);
+  // A helper that answers "no match" returns None as a value.
+  expect(rules(diff("tests/test_a.py", ["        return None"]))).toEqual([]);
+  expect(rules(diff("tests/test_a.py", ["    if cached: return cached"]))).toEqual([]);
+  expect(rules(diff("tests/test_a.py", ["        return", "    "], ["    return"]))).toEqual([
+    "test-content-changed",
+  ]);
+  expect(rules(diff("processor.py", ["    return"]))).toEqual([]);
+});
+
+test("removing Python assertions is reported, counted per statement or call", () => {
+  expect(
+    rules(diff("tests/test_a.py", [], ["    assert out == 1", "    self.assertEqual(a, b)"])),
+  ).toEqual(["assertions-decreased", "test-content-changed"]);
+  for (const assertion of [
+    "    with pytest.raises(ValueError):",
+    "    with pytest.warns(UserWarning):",
+    "    db.close.assert_called_once()",
+    "    mock_download.assert_not_called()",
+  ]) {
+    expect(rules(diff("tests/test_a.py", [], [assertion]))).toEqual([
+      "assertions-decreased",
+      "test-content-changed",
+    ]);
+  }
+  // A changed expected value is changed content, not fewer assertions.
+  expect(rules(diff("tests/test_a.py", ["    assert out == 2"], ["    assert out == 1"]))).toEqual([
+    "test-content-changed",
+  ]);
+  // A variable named like an assertion is not one.
+  expect(rules(diff("tests/test_a.py", [], ["    assertion_count = 3"]))).toEqual([
+    "test-content-changed",
+  ]);
+});
