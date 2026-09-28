@@ -81,6 +81,141 @@ test("a conditional skip that states its condition and reason is reported, not b
   ]);
 });
 
+test("a conditional skip whose reason is a named constant is reported, not blocked", () => {
+  // Seen in a real pull request: every case shared one reason constant.
+  expect(
+    rules(
+      diff("tests/browser/surfaces.e2e.ts", [
+        '  test.skip(info.project.name !== "desktop", desktopOnly);',
+      ]),
+    ),
+  ).toEqual(["conditional-skip-added"]);
+});
+
+test("a skip with no condition, or a literal one, blocks even when a later line has a string call", () => {
+  // The call is read by its own arguments, not by text that follows it.
+  const later = ['  const origin = baseURL ?? "";', '  expect(out).toBe("x", "y");'];
+  for (const call of [
+    "test.skip();",
+    'test.skip(true, "not now");',
+    "test.skip(1, reason);",
+    'test.skip("", "why");',
+  ]) {
+    expect(rules(diff("src/a.test.ts", [`  ${call}`, ...later]))).toEqual(["skip-or-focus-added"]);
+  }
+});
+
+test("a skip whose call does not close within its lines, or takes three arguments, blocks", () => {
+  expect(
+    rules(diff("src/a.test.ts", ['  test.skip(browserName === "webkit", "desktop only"'])),
+  ).toEqual(["skip-or-focus-added"]);
+  expect(
+    rules(diff("src/a.test.ts", ['  test.skip(browserName === "webkit", "why", extra);'])),
+  ).toEqual(["skip-or-focus-added"]);
+});
+
+test("a skip whose condition is always true, or cannot be shown to depend on the run, blocks", () => {
+  for (const condition of [
+    "!!1",
+    "1 === 1",
+    "!false",
+    "Boolean(1)",
+    "ALWAYS",
+    "isMobile || true",
+    '"a" === "a"',
+    'process.platform !== "darwin" || true',
+    '(process.platform !== "darwin") || x',
+    // Always true: the same value compared both ways, or against two values, joined by "or".
+    'info.project.name === "desktop" || info.project.name !== "desktop"',
+    'info.project.name !== "desktop" || info.project.name !== "iphone"',
+    'process.platform === "darwin" || process.platform !== "darwin"',
+    'info.project.name !== "desktop" || testInfo.project.name !== "iphone"',
+    // Mixed "and" and "or" is not read.
+    'process.platform !== "darwin" && info.project.name !== "a" || browserName === "b"',
+  ]) {
+    expect(rules(diff("src/a.test.ts", [`  test.skip(${condition}, "why");`]))).toEqual([
+      "skip-or-focus-added",
+    ]);
+  }
+});
+
+test("conditions that compare the run to a string are conditional skips", () => {
+  for (const condition of [
+    'info.project.name !== "desktop"',
+    'testInfo.project.name === "desktop"',
+    'process.platform !== "darwin"',
+    'browserName === "webkit"',
+    'process.env.CI === "true"',
+    // Seen in a real pull request: two run comparisons joined.
+    'info.project.name !== "iphone" || process.platform !== "darwin"',
+    // "And" over the same value can be never true, which only skips less.
+    'info.project.name !== "desktop" && info.project.name !== "iphone"',
+  ]) {
+    expect(rules(diff("src/a.test.ts", [`  test.skip(${condition}, "why");`]))).toEqual([
+      "conditional-skip-added",
+    ]);
+  }
+});
+
+test("escaped quotes stay inside their string, so they cannot hide or split an argument", () => {
+  // A reason with an escaped quote is still one argument.
+  for (const reason of [String.raw`'It doesn\'t matter'`, String.raw`"He said \"no\""`]) {
+    expect(
+      rules(diff("src/a.test.ts", [`  test.skip(browserName === "webkit", ${reason});`])),
+    ).toEqual(["conditional-skip-added"]);
+  }
+  expect(
+    rules(diff("src/a.test.ts", [String.raw`  test.skip(browserName === "a\"b", "why");`])),
+  ).toEqual(["conditional-skip-added"]);
+  // An escaped quote cannot end a string early and hide an always-true condition after it.
+  expect(
+    rules(diff("src/a.test.ts", [String.raw`  test.skip(browserName === "\")" || true, "why");`])),
+  ).toEqual(["skip-or-focus-added"]);
+});
+
+test("operators inside a compared string are part of the string", () => {
+  for (const text of ['"a || b"', '"a && b"', '"a === b"']) {
+    expect(
+      rules(diff("src/a.test.ts", [`  test.skip(process.env.MODE === ${text}, "why");`])),
+    ).toEqual(["conditional-skip-added"]);
+  }
+});
+
+test("under or, one value may repeat only as equality with different strings", () => {
+  expect(
+    rules(
+      diff("src/a.test.ts", [
+        '  test.skip(browserName === "chromium" || browserName === "firefox", "why");',
+      ]),
+    ),
+  ).toEqual(["conditional-skip-added"]);
+  for (const condition of [
+    'browserName === "chromium" || browserName === "chromium"',
+    'browserName === "chromium" || browserName !== "firefox"',
+  ]) {
+    expect(rules(diff("src/a.test.ts", [`  test.skip(${condition}, "why");`]))).toEqual([
+      "skip-or-focus-added",
+    ]);
+  }
+});
+
+test("a condition and a function body is a skipped test, not a conditional skip", () => {
+  for (const call of [
+    'test.skip(browserName === "webkit", () => {});',
+    'test.skip(browserName === "webkit", function () {});',
+  ]) {
+    expect(rules(diff("src/a.test.ts", [`  ${call}`]))).toEqual(["skip-or-focus-added"]);
+  }
+});
+
+test("commas and parentheses inside a reason string do not change the skip's arguments", () => {
+  for (const reason of ['"phones, tablets"', '"open ( only"', "'close ) early'"]) {
+    expect(
+      rules(diff("src/a.test.ts", [`  test.skip(browserName === "webkit", ${reason});`])),
+    ).toEqual(["conditional-skip-added"]);
+  }
+});
+
 test("a skipped test with a title and body is blocked, even with a condition-like title", () => {
   expect(
     detect(diff("src/a.test.ts", ['test.skip("slow path", () => { expect(1).toBe(1); });']))[0]
