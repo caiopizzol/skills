@@ -7,7 +7,8 @@ description: >-
   Call it from a pull_request_target workflow on `opened`, `synchronize`, `reopened`, `edited`
   (a new base branch changes the diff), `labeled`, and `unlabeled`, with a job `timeout-minutes`.
   A title edit or another label keeps the earlier verdict only when the workflow grants
-  `checks: read` and pins this action by commit SHA; otherwise the change is checked again.
+  `actions: read` and `checks: read` and pins this action by commit SHA; otherwise the change is
+  checked again.
 runs:
   using: composite
   steps:
@@ -39,29 +40,34 @@ runs:
         git -C "$dir" merge-base "$BASE_SHA" "$HEAD_SHA" >/dev/null || { echo "No common history with the base" >&2; exit 2; }
         echo "TEST_INTEGRITY_REPO=$dir" >> "$GITHUB_ENV"
 
-    # Earlier verdicts for this head, which an event that cannot change the verdict may reuse. Needs
-    # `checks: read`; without it the list is empty and the change is evaluated again.
+    # This workflow's earlier runs on the head commit, with the records they wrote, which an event
+    # that cannot change the verdict may reuse. Needs `actions: read` and `checks: read`; without
+    # them, or on any error, the list is empty and the change is evaluated again.
     - name: Read earlier verdicts for this head
       shell: bash
       env:
         REPOSITORY: ${{ github.repository }}
         HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        RUN_ID: ${{ github.run_id }}
         GH_TOKEN: ${{ github.token }}
       run: |
         set -uo pipefail
         out="$RUNNER_TEMP/test-integrity-prior.json"
-        echo '[]' > "$out"
-        runs=$(gh api "repos/$REPOSITORY/commits/$HEAD_SHA/check-runs?check_name=Test%20integrity&filter=all&per_page=100" \
-          --jq '[.check_runs[] | select(.status == "completed") | {id, status, conclusion, completedAt: .completed_at, appId: .app.id}]' 2>/dev/null) || runs='[]'
-        records='[]'
-        for id in $(printf '%s' "$runs" | jq -r '.[].id'); do
-          notes=$(gh api "repos/$REPOSITORY/check-runs/$id/annotations" \
-            --jq "[.[] | select(.annotation_level == \"notice\") | {title: (.title // \"\"), message}] | {id: $id, records: .}" 2>/dev/null) || continue
-          records=$(printf '%s' "$records" | jq -c --argjson n "$notes" '. + [$n]')
-        done
-        printf '%s' "$runs" | jq -c --argjson r "$records" \
-          '[.[] as $run | $run + {records: ([$r[] | select(.id == $run.id) | .records[]])}]' > "$out"
+        echo '{"workflowId":0,"total":0,"runs":[]}' > "$out"
         echo "TEST_INTEGRITY_PRIOR_RUNS=$out" >> "$GITHUB_ENV"
+        api() { gh api "repos/$REPOSITORY/$1" --jq "$2" 2>/dev/null; }
+        workflow=$(api "actions/runs/$RUN_ID" .workflow_id) && [[ "$workflow" =~ ^[0-9]+$ ]] || exit 0
+        listed=$(api "actions/workflows/$workflow/runs?head_sha=$HEAD_SHA&event=pull_request_target&per_page=100" \
+          "{workflowId: $workflow, total: .total_count, runs: [.workflow_runs[] | {id, event, workflowId: .workflow_id, status, conclusion, createdAt: .created_at, records: []}]}") || exit 0
+        for id in $(jq -r --argjson self "$RUN_ID" '.runs[] | select(.id != $self) | .id' <<< "$listed"); do
+          records='[]'
+          for job in $(api "actions/runs/$id/jobs?filter=latest&per_page=100" '.jobs[].check_run_url | split("/") | last') ; do
+            notes=$(api "check-runs/$job/annotations?per_page=100" '[.[] | select(.annotation_level == "notice") | {title: (.title // ""), message}]') || continue 2
+            records=$(jq -c --argjson n "$notes" '. + $n' <<< "$records")
+          done
+          listed=$(jq -c --argjson id "$id" --argjson r "$records" '.runs |= map(if .id == $id then .records = $r else . end)' <<< "$listed")
+        done
+        printf '%s' "$listed" > "$out"
 
     - name: Check the change
       shell: bash
@@ -73,6 +79,7 @@ runs:
         TESTS_CHANGED_OK: ${{ github.event.action == 'labeled' && github.event.label.name == 'tests-changed-ok' }}
         # Verdicts are reused only by the same detector, identified by the action's own commit.
         TEST_INTEGRITY_VERSION: ${{ github.action_ref }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
         TOKEN: ${{ github.token }}
       # The check reads the files it needs, and git fetches each one then. The token reaches those
       # fetches only as git configuration in this process's environment: never on disk or in a

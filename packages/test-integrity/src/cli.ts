@@ -5,7 +5,7 @@
 // error (fail closed). The label is signalled with TESTS_CHANGED_OK=true.
 import { decide, EXCEPTION_LABEL } from "./decide.ts";
 import { detect, parseDiff, WORKFLOW, type WorkflowVersions } from "./detect.ts";
-import { type CheckRun, decidePrior, formatRecord, RECORD_TITLE } from "./prior.ts";
+import { decidePrior, formatRecord, type PriorRuns, RECORD_TITLE } from "./prior.ts";
 
 const MAX_FILE_BYTES = 256 * 1024;
 
@@ -42,12 +42,16 @@ function parse(text: string | undefined, path: string, as: (text: string) => unk
   }
 }
 
-// Every verdict leaves a record on its own check run, as a notice annotation, so a later run on the
-// same base, head, and detector version can reuse it (see prior.ts).
+// Every verdict leaves a record on its own run, as a notice annotation, so a later run of this
+// workflow on the same pull request, base, head, and detector version can reuse it (see prior.ts).
+const pr = Number(process.env.PR_NUMBER);
+const version = process.env.TEST_INTEGRITY_VERSION;
+
 async function finish(pass: boolean, summary: string): Promise<never> {
-  const version = process.env.TEST_INTEGRITY_VERSION;
-  if (version) {
-    console.log(`::notice title=${RECORD_TITLE}::${formatRecord({ base, head, version }, pass)}`);
+  if (Number.isInteger(pr) && pr > 0 && version) {
+    console.log(
+      `::notice title=${RECORD_TITLE}::${formatRecord({ pr, base, head, version }, pass)}`,
+    );
   }
   const summaryFile = process.env.GITHUB_STEP_SUMMARY;
   if (summaryFile) await Bun.write(summaryFile, summary);
@@ -59,17 +63,18 @@ async function finish(pass: boolean, summary: string): Promise<never> {
 // evaluating again, so an approval survives a title edit or an unrelated label.
 async function reusePrior(): Promise<void> {
   const eventPath = process.env.GITHUB_EVENT_PATH;
-  const version = process.env.TEST_INTEGRITY_VERSION;
   const runsFile = process.env.TEST_INTEGRITY_PRIOR_RUNS;
-  if (!eventPath || !version || !runsFile) return;
+  const runId = Number(process.env.GITHUB_RUN_ID);
+  if (!eventPath || !runsFile || !version || !Number.isInteger(pr) || !Number.isInteger(runId))
+    return;
   const payload = JSON.parse(await Bun.file(eventPath).text());
   const event = {
     action: String(payload.action ?? ""),
     label: typeof payload.label?.name === "string" ? payload.label.name : undefined,
     baseChanged: payload.changes?.base?.ref?.from !== undefined,
   };
-  const runs = JSON.parse(await Bun.file(runsFile).text()) as CheckRun[];
-  const decision = decidePrior(event, EXCEPTION_LABEL, { base, head, version }, runs);
+  const prior = JSON.parse(await Bun.file(runsFile).text()) as PriorRuns;
+  const decision = decidePrior(event, EXCEPTION_LABEL, { pr, base, head, version, runId }, prior);
   if (decision.kind === "evaluate") return;
   await finish(
     decision.pass,
