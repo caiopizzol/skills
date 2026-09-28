@@ -497,13 +497,21 @@ function comparisons(
   if (joiners.size > 1) return undefined;
   return { parts, joiner: [...joiners][0] };
 }
-function isRuntimeCondition(condition: string, syntax: ConditionSyntax): boolean {
+// `negated` reads a condition that skips when it is false (`skipUnless`) as its opposite, which
+// skips when true: `a == "x" and a == "y"` is always false, so its opposite always skips.
+function isRuntimeCondition(condition: string, syntax: ConditionSyntax, negated = false): boolean {
   const read = comparisons(condition, syntax);
   if (!read) return false;
-  if (read.joiner !== syntax.or) return true;
+  const parts = negated ? read.parts.map((part) => ({ ...part, equal: !part.equal })) : read.parts;
+  const joiner =
+    negated && read.joiner !== undefined
+      ? read.joiner === syntax.or
+        ? "and"
+        : syntax.or
+      : read.joiner;
+  if (joiner !== syntax.or) return true;
   const byValue = new Map<string, Comparison[]>();
-  for (const part of read.parts)
-    byValue.set(part.value, [...(byValue.get(part.value) ?? []), part]);
+  for (const part of parts) byValue.set(part.value, [...(byValue.get(part.value) ?? []), part]);
   return [...byValue.values()].every(
     (same) =>
       same.length === 1 ||
@@ -528,10 +536,11 @@ function isConditionalSkip(lines: string[], at: number): boolean {
 // Python: pytest and unittest skip and expected-failure markers, as decorators (`@pytest.mark.skip`,
 // `@mark.xfail`, `@unittest.skip`, `@skip`), as marks (`pytestmark = pytest.mark.skip`,
 // `pytest.param(…, marks=pytest.mark.skip)`), and as calls or exceptions (`pytest.skip()`,
-// `pytest.xfail()`, `pytest.importorskip()`, `self.skipTest()`, `raise unittest.SkipTest`).
-// A comment line is not a marker.
+// `pytest.xfail()`, `pytest.importorskip()`, `self.skipTest()`, `raise unittest.SkipTest`), and
+// the settings that stop pytest collecting a module or class (`__test__ = False`) or a path
+// (`collect_ignore` in a conftest). A comment line is not a marker.
 const PYTHON_SKIP =
-  /^\s*@(?:\w+\.)*(?:skip|skipif|skipIf|skipUnless|xfail|expectedFailure)\b|\bmark\.(?:skip|skipif|xfail)\b|\bpytest\.(?:skip|xfail|importorskip)\b|\bskipTest\s*\(|\bSkipTest\b/g;
+  /^\s*@(?:\w+\.)*(?:skip|skipif|skipIf|skipUnless|xfail|expectedFailure)\b|\bmark\.(?:skip|skipif|xfail)\b|\bpytest\.(?:skip|xfail|importorskip)\b|\bskipTest\s*\(|\bSkipTest\b|^\s*__test__\s*=\s*False\b|\bcollect_ignore(?:_glob)?\b/g;
 const pythonMarkers = (line: string) =>
   /^\s*#/.test(line) ? 0 : (line.match(PYTHON_SKIP)?.length ?? 0);
 // A skip that names its condition first and then only a reason, positional or `reason=`:
@@ -549,11 +558,12 @@ function isConditionalPythonSkip(lines: string[], at: number): boolean {
   const args = callArguments(text, marker.index + marker[0].length - 1);
   if (args?.length !== 2) return false;
   const [condition = "", reason = ""] = args;
-  return isRuntimeCondition(condition, PYTHON_CONDITION) && PYTHON_REASON.test(reason);
+  const negated = marker[0].startsWith("skipUnless");
+  return isRuntimeCondition(condition, PYTHON_CONDITION, negated) && PYTHON_REASON.test(reason);
 }
 // Python has no braces, so any added bare `return` in a test file gives up early, on its own line
-// or after `if …:`. `return None` answers a helper's caller, like any other value.
-const PYTHON_EARLY_EXIT = /^\s*(?:if\s.+:\s*)?return\s*(?:#.*)?$/;
+// or after `if …:`. `return None` is the same statement, so it counts too, even in a helper.
+const PYTHON_EARLY_EXIT = /^\s*(?:if\s.+:\s*)?return(?:\s+None)?\s*(?:#.*)?$/;
 const pythonEarlyExits = (lines: string[]) =>
   lines.filter((line) => PYTHON_EARLY_EXIT.test(line)).map((line) => line.trim());
 // `assert` statements, unittest's `self.assert…()`, mocks' `.assert_called…()`, and

@@ -810,6 +810,10 @@ test("an unconditional pytest or unittest skip or expected failure blocks, in ev
     '    pytest.importorskip("sentry_sdk")',
     '        self.skipTest("later")',
     '    raise unittest.SkipTest("later")',
+    "__test__ = False",
+    "    __test__ = False",
+    'collect_ignore = ["test_slow.py"]',
+    'collect_ignore_glob.append("integration/*")',
   ]) {
     expect(rules(diff("tests/test_a.py", [marker]))).toEqual(["skip-or-focus-added"]);
   }
@@ -825,6 +829,8 @@ test("a skip that always holds, or that cannot be shown to depend on the run, bl
     '@pytest.mark.skipif(os.name != "posix")',
     '@pytest.mark.skipif(os.name == "nt" or os.name != "nt", reason="always")',
     '@unittest.skipUnless(_DEPS, "needs the image")',
+    // `skipUnless` skips when its condition is false, and this one never holds.
+    '@unittest.skipUnless(sys.platform == "win32" and sys.platform == "linux", "never")',
     '@pytest.mark.skipif(os.name != "posix", reason=explain())',
     '@pytest.mark.skipif(os.name != "posix", reason=f"needs {SIGNAL}")',
   ]) {
@@ -840,6 +846,8 @@ test("a skip conditioned on the platform or the environment is reported, not blo
     '@pytest.mark.skipif(os.environ.get("CI") == "true", reason=NEEDS_NETWORK)',
     '@pytest.mark.skipif(os.getenv("DB") != "postgres", reason="postgres only")',
     '@unittest.skipIf(sys.platform == "win32", "no fork")',
+    '@unittest.skipUnless(sys.platform == "linux", "needs Linux")',
+    '@unittest.skipUnless(sys.platform == "linux" or sys.platform == "darwin", "needs Unix")',
     '@pytest.mark.xfail(sys.platform == "darwin", reason="known on macOS")',
     '@pytest.mark.skipif(sys.platform == "win32" or sys.platform == "cygwin", reason="no fork")',
   ]) {
@@ -871,6 +879,7 @@ test("a conditional marker beside an unconditional one on the same line blocks",
 
 test("a skip in a comment, a moved skip, or a Python file outside the tests is not a skip", () => {
   expect(rules(diff("tests/test_a.py", ["# pytest.mark.skip once flaked here"]))).toEqual([]);
+  expect(rules(diff("tests/test_a.py", ["__test__ = True"]))).toEqual([]);
   const moved = '@pytest.mark.skipif(not IMAGE, reason="x")';
   expect(rules(diff("tests/test_a.py", [`${moved}`], [`${moved}  `]))).toEqual([
     "test-content-changed",
@@ -886,12 +895,13 @@ test("an added bare return in a Python test blocks", () => {
     "early-exit-added",
   ]);
   expect(rules(diff("tests/test_a.py", ["    return  # not ready"]))).toEqual(["early-exit-added"]);
+  // `return None` is a bare return, even where a helper uses it as an answer.
+  expect(rules(diff("tests/test_a.py", ["    return None"]))).toEqual(["early-exit-added"]);
 });
 
 test("returning a value, an existing return, or a return in production code is not an early exit", () => {
   expect(rules(diff("tests/conftest.py", ["    return Database(url)"]))).toEqual([]);
-  // A helper that answers "no match" returns None as a value.
-  expect(rules(diff("tests/test_a.py", ["        return None"]))).toEqual([]);
+  expect(rules(diff("tests/test_a.py", ["        return False"]))).toEqual([]);
   expect(rules(diff("tests/test_a.py", ["    if cached: return cached"]))).toEqual([]);
   expect(rules(diff("tests/test_a.py", ["        return", "    "], ["    return"]))).toEqual([
     "test-content-changed",
