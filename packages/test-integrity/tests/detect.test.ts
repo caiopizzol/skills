@@ -1100,13 +1100,16 @@ test("pytest settings that keep or widen the run, or a higher coverage minimum, 
   ]) {
     expect(pyprojectChange(pyproject(base), after)).toEqual(["gate-edited"]);
   }
-  // A project configuring pytest for the first time narrows nothing it ran before.
-  expect(
-    pyprojectChange(
-      { project: { name: "pipeline" } },
-      pyproject({ ...base, python_files: "test_*.py" }),
-    ),
-  ).toEqual(["gate-edited"]);
+  // A project configuring pytest for the first time reports, unless it chooses which tests run.
+  const first = { project: { name: "pipeline" } };
+  expect(pyprojectChange(first, pyproject({ addopts: "-v" }))).toEqual(["gate-edited"]);
+  for (const setting of [
+    { testpaths: ["unit"] },
+    { python_files: "test_*.py" },
+    { norecursedirs: ["slow"] },
+  ]) {
+    expect(pyprojectChange(first, pyproject(setting))).toEqual(["gate-weakened"]);
+  }
   expect(pyprojectChange(pyproject(base), coverage(94))).toEqual(["gate-edited"]);
   expect(pyprojectChange(coverage(90), coverage(94))).toEqual(["gate-edited"]);
 });
@@ -1192,4 +1195,27 @@ test("a second coverage threshold on a pytest command could lower it, so it bloc
       workflow([run("uv run pytest --cov --cov-fail-under=94 --cov-fail-under=0")]),
     ),
   ).toEqual(["gate-weakened"]);
+});
+
+test("a task runner file that changes a runner environment variable weakens its gate recipes", () => {
+  const withEnv = (line: string) => `${line}\n${recipes(FULL_CHECK)}`;
+  for (const [before, after] of [
+    [recipes(FULL_CHECK), withEnv('export PYTEST_ADDOPTS := "-k smoke"')],
+    [recipes(FULL_CHECK), withEnv('export PYTEST_DISABLE_PLUGIN_AUTOLOAD := "1"')],
+    [withEnv('export PYTEST_ADDOPTS := "-v"'), withEnv('export PYTEST_ADDOPTS := "-x"')],
+    [recipes(FULL_CHECK), withEnv("set dotenv-load")],
+    [
+      recipes("PYTEST_ADDOPTS=-v uv run --frozen pytest"),
+      recipes("PYTEST_ADDOPTS='-k smoke' uv run --frozen pytest"),
+    ],
+  ]) {
+    expect(taskChange(before, after)).toEqual(["gate-weakened", "gate-weakened"]);
+  }
+  // Another variable, or a comment that names one, does not change which tests run.
+  expect(
+    taskChange(recipes(FULL_CHECK), withEnv('export DATABASE_URL := "postgres://db"')),
+  ).toEqual(["gate-edited"]);
+  expect(taskChange(recipes(FULL_CHECK), withEnv("# PYTEST_ADDOPTS stays unset here"))).toEqual([
+    "gate-edited",
+  ]);
 });

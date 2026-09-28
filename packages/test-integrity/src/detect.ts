@@ -207,11 +207,27 @@ function recipeCommands(
 
 // Gate recipes (`check`, `verify`, `test`) that no longer run a command they ran before. Adding
 // commands is not a weakening; removing or changing one is, as for package scripts.
+// A gate recipe also stops running what it did when the file changes a runner environment variable
+// (`PYTEST_ADDOPTS`, see `RUNNER_ENVIRONMENT`): as an `export`, a `set dotenv-load`, or an
+// assignment, anywhere in the file, since `export` reaches every recipe. Lines that mention one are
+// compared whole.
+const environmentLines = (text: string) =>
+  text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) =>
+      /\b(?:PYTEST_\w*|COVERAGE_\w*|PYTHON\w*)\b|^set\s+(?:dotenv|export)/.test(line),
+    )
+    .filter((line) => !line.startsWith("#"));
 function weakenedRecipes(versions: TextVersions): string[] {
   const before = readRecipes(versions.before ?? "");
   const after = readRecipes(versions.after ?? "");
+  const was = environmentLines(versions.before ?? "");
+  const now = environmentLines(versions.after ?? "");
+  const environmentChanged = was.length !== now.length || was.some((line, at) => line !== now[at]);
   return ["check", "verify", "test"].filter((name) => {
     if (!before.has(name)) return false;
+    if (environmentChanged) return true;
     const kept = after.has(name) ? recipeCommands(after, name) : [];
     return !runsAll(recipeCommands(before, name), kept);
   });
@@ -262,10 +278,7 @@ function narrowedSettings(before: unknown, after: unknown): string[] {
   const was = pytestOptions(before);
   const now = pytestOptions(after);
   const found: string[] = [];
-  // A file with no pytest settings adds its first ones: that configures pytest, and any tests it
-  // stops collecting are reported by the test file rules.
-  const configured = Object.keys(was).length > 0;
-  for (const key of configured ? SELECTING_SETTINGS : []) {
+  for (const key of SELECTING_SETTINGS) {
     if (JSON.stringify(was[key] ?? null) !== JSON.stringify(now[key] ?? null)) found.push(key);
   }
   const oldOptions = words(was.addopts);
