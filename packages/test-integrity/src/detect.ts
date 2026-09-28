@@ -56,11 +56,21 @@ export interface WorkflowVersions {
   after: unknown;
 }
 
+// A changed `justfile` or `Makefile`'s text at the merge base and at the head, `null` where the file
+// does not exist.
+export interface TextVersions {
+  before: string | null;
+  after: string | null;
+}
+
 // What the repository runs after the change, which the diff alone does not show: the root
-// package's scripts, and each changed workflow in full.
+// package's scripts, and each changed workflow, task runner file, and `pyproject.toml` in full.
+// `pyprojects` holds parsed TOML, like `workflows` holds parsed YAML.
 export interface Head {
   scripts?: Map<string, string>;
   workflows?: Map<string, WorkflowVersions>;
+  taskFiles?: Map<string, TextVersions>;
+  pyprojects?: Map<string, WorkflowVersions>;
 }
 
 // Test directories, JavaScript test files, and the files pytest collects by default
@@ -68,15 +78,25 @@ export interface Head {
 const TEST_FILE =
   /(^|\/)(__tests__|tests?|browser-tests)\/|\.(test|spec|e2e)\.[cm]?[jt]sx?$|(^|\/)(test_[^/]*|[^/]*_test|conftest)\.py$/;
 const EXPECTED_OUTPUT = /(^|\/)(__snapshots__|expected)\/|\.snap$/;
-const RUNNER_CONFIG = /(^|\/)(playwright|vitest|jest)\.config\.[cm]?[jt]s$|(^|\/)bunfig\.toml$/;
+// Test runner configuration: JavaScript runners' config files, and pytest's and coverage's own
+// files, where options such as `addopts`, `-k`, `--deselect`, or `testpaths` choose which tests run.
+// In `pyproject.toml`, only the `tool.pytest` and `tool.coverage` tables are (see `PYPROJECT`).
+const RUNNER_CONFIG =
+  /(^|\/)(playwright|vitest|jest)\.config\.[cm]?[jt]s$|(^|\/)bunfig\.toml$|(^|\/)(pytest\.ini|tox\.ini|setup\.cfg|\.coveragerc)$/;
+export const PYPROJECT = /(^|\/)pyproject\.toml$/;
+export const TASK_RUNNER = /(^|\/)(justfile|Justfile|\.justfile|Makefile|makefile|GNUmakefile)$/;
 const AGENT_GATE = /(^|\/)\.agent-gate$/;
 export const WORKFLOW = /^\.github\/workflows\/[^/]+\.ya?ml$/;
 // A gate tool invoked as a command, as opposed to release, deploy, or setup commands: `bun test`,
 // `bun run check`, `vp check`, `npx vitest`, `tsc`, also after `then`, `do`, or `else`, or behind
 // environment assignments (`CI=1 bun test`). Words such as `test` in `test -n "$VAR"` (the shell
-// builtin) or in an echo are not gate commands.
+// builtin, which a single-letter flag follows) or in an echo are not gate commands. Other tools'
+// names are not shell builtins, so `pytest -x` is a gate command.
+// Python tools run directly, through `uv run` (with its flags, some of which take a value, such as
+// `--with pytest-cov`), `python -m`, or `poetry run`, and `just` or `make` recipes:
+// `uv run --frozen pytest`, `python -m pytest`, `just check`.
 const GATE_TOOL =
-  /(?:^|&&|;|\|\||\b(?:then|do|else)\s)\s*(?:\w+=\S*\s+)*(?:(?:bun|bunx|npx|pnpm|yarn|npm|vp)\s+(?:run\s+|x\s+)?)?(check|verify|test|lint|typecheck|tsc|biome|playwright|vitest)(?![\w-])(?!\s+-[a-z]\s)/;
+  /(?:^|&&|;|\|\||\b(?:then|do|else)\s)\s*(?:\w+=\S*\s+)*(?:(?:bun|bunx|npx|pnpm|yarn|npm|vp)\s+(?:run\s+|x\s+)?|uv\s+run\s+(?:(?:--(?:with|with-editable|with-requirements|group|extra|package|python|project|directory|env-file|index)|-[pw])(?:=|\s+)\S+\s+|--?[\w-]+(?:=\S+)?\s+)*|(?:python3?|uv\s+run\s+python3?)\s+-m\s+|poetry\s+run\s+|(?:just|make)\s+)?(test(?![\w-])(?!\s+-[a-z]\s)|(?:check|verify|lint|typecheck|tsc|biome|playwright|vitest|pytest|ruff|pyright|mypy|tox|nox)(?![\w-]))/;
 const SKIP_OR_FOCUS =
   /\b(?:(?:it|test|describe|suite)\.(?:skip|only|todo|fixme|skipIf|runIf)|x(?:it|test|describe))\s*\(/;
 // Playwright's conditional skip: `test.skip(condition, "reason")`, called inside a test or hook,
@@ -132,20 +152,223 @@ function weakenedScripts(file: FileDiff): string[] {
   for (const [name, old] of before) {
     const next = after.get(name);
     const kept = next === undefined ? [] : segments(next);
-    if (segments(old).some((part) => !kept.includes(part))) weakened.push(name);
+    if (!runsAll(segments(old), kept)) weakened.push(name);
   }
   return weakened;
 }
 
+// A `justfile` or `Makefile`'s recipes: a `name params: dependencies` line at the start of a line,
+// then its indented command lines. Comments, attributes, settings, assignments, and special targets
+// such as `.PHONY` are not recipes. A command line may continue over lines ending in `\`.
+interface Recipe {
+  dependencies: string[];
+  commands: string[];
+}
+const RECIPE_HEADER = /^@?([A-Za-z_][\w-]*)([^:#]*?):(?!=)(.*)$/;
+const NOT_RECIPE = /^(?:set|export|alias|import|mod|include|define|override|unexport|vpath)$/;
+function readRecipes(text: string): Map<string, Recipe> {
+  const found = new Map<string, Recipe>();
+  let current: Recipe | undefined;
+  for (const line of text.replace(/\\\r?\n[ \t]*/g, " ").split(/\r?\n/)) {
+    if (line.trim() === "") continue;
+    if (/^[ \t]/.test(line)) {
+      // `@` only stops a line being echoed; `-` ignores its failure, so it stays part of the text.
+      const command = line.trim().replace(/^@/, "").replace(/\s+/g, " ");
+      if (current && !command.startsWith("#")) current.commands.push(...segments(command));
+      continue;
+    }
+    current = undefined;
+    const header = RECIPE_HEADER.exec(line);
+    if (!header || NOT_RECIPE.test(header[1] ?? "")) continue;
+    // Make runs the text after a `;` on the header line as the recipe's first command.
+    const [prerequisites = "", ...inline] = (header[3] ?? "").split(";");
+    // Dependencies are names, some with arguments in parentheses; quoted arguments are not names.
+    const listed = prerequisites.replace(/#.*$/, "").replace(/"[^"]*"|'[^']*'/g, "");
+    current = { dependencies: listed.match(/[A-Za-z_][\w-]*/g) ?? [], commands: [] };
+    const command = inline.join(";").trim().replace(/^@/, "").replace(/\s+/g, " ");
+    if (command !== "") current.commands.push(...segments(command));
+    found.set(header[1] ?? "", current);
+  }
+  return found;
+}
+
+// Every command a recipe runs, through its dependencies. A dependency the file does not define
+// counts by name.
+function recipeCommands(
+  all: Map<string, Recipe>,
+  name: string,
+  seen = new Set<string>(),
+): string[] {
+  const recipe = all.get(name);
+  if (!recipe) return [`recipe ${name}`];
+  if (seen.has(name)) return [];
+  seen.add(name);
+  return [
+    ...recipe.dependencies.flatMap((dependency) => recipeCommands(all, dependency, seen)),
+    ...recipe.commands,
+  ];
+}
+
+// Gate recipes (`check`, `verify`, `test`) that no longer run a command they ran before. Adding
+// commands is not a weakening; removing or changing one is, as for package scripts.
+// A gate recipe also stops running what it did when the file changes a runner environment variable
+// (`PYTEST_ADDOPTS`, see `RUNNER_ENVIRONMENT`): as an `export`, a `set dotenv-load`, or an
+// assignment, anywhere in the file, since `export` reaches every recipe. Lines that mention one are
+// compared whole.
+const environmentLines = (text: string) =>
+  text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) =>
+      /\b(?:PYTEST_\w*|COVERAGE_\w*|PYTHON\w*)\b|^set\s+(?:dotenv|export)/.test(line),
+    )
+    .filter((line) => !line.startsWith("#"));
+function weakenedRecipes(versions: TextVersions): string[] {
+  const before = readRecipes(versions.before ?? "");
+  const after = readRecipes(versions.after ?? "");
+  const was = environmentLines(versions.before ?? "");
+  const now = environmentLines(versions.after ?? "");
+  const environmentChanged = was.length !== now.length || was.some((line, at) => line !== now[at]);
+  return ["check", "verify", "test"].filter((name) => {
+    if (!before.has(name)) return false;
+    if (environmentChanged) return true;
+    const kept = after.has(name) ? recipeCommands(after, name) : [];
+    return !runsAll(recipeCommands(before, name), kept);
+  });
+}
+
+// pytest's and coverage's settings in a `pyproject.toml`: `tool.pytest` and `tool.coverage`. The
+// rest of the file, such as the version a release bumps, is not part of the gate.
+const testSettings = (value: unknown) => {
+  const tool = fields(fields(value).tool);
+  return JSON.stringify([tool.pytest ?? null, tool.coverage ?? null]);
+};
+
+// pytest settings that choose which tests run, and coverage's minimum. A change that could narrow
+// the run or lower the minimum blocks: `addopts` losing any option or gaining one that selects
+// (`-k`, `-m`, `--deselect`, `--ignore`, a path, `-p no:…`), `testpaths` or `python_files` or
+// `python_classes` or `python_functions` or `norecursedirs` or `collect_ignore` changing, `markers`
+// aside, and `fail_under` dropping or disappearing. Other edits only report.
+const SELECTING_SETTINGS = [
+  "testpaths",
+  "python_files",
+  "python_classes",
+  "python_functions",
+  "norecursedirs",
+  "collect_ignore",
+  "collect_ignore_glob",
+  "minversion",
+  "required_plugins",
+];
+const pytestOptions = (value: unknown) => {
+  const tool = fields(fields(value).tool);
+  const pytest = fields(tool.pytest);
+  // pytest 9 reads `[tool.pytest]` natively; earlier versions read `[tool.pytest.ini_options]`.
+  return {
+    ...fields(pytest.ini_options),
+    ...Object.fromEntries(Object.entries(pytest).filter(([key]) => key !== "ini_options")),
+  };
+};
+const words = (value: unknown) =>
+  optionWords(
+    Array.isArray(value) ? value.map(String).join(" ") : typeof value === "string" ? value : "",
+  );
+const minimum = (value: unknown) => {
+  const report = fields(fields(fields(fields(value).tool).coverage).report);
+  const setting = report.fail_under;
+  return typeof setting === "number" ? setting : typeof setting === "string" ? Number(setting) : 0;
+};
+function narrowedSettings(before: unknown, after: unknown): string[] {
+  const was = pytestOptions(before);
+  const now = pytestOptions(after);
+  const found: string[] = [];
+  for (const key of SELECTING_SETTINGS) {
+    if (JSON.stringify(was[key] ?? null) !== JSON.stringify(now[key] ?? null)) found.push(key);
+  }
+  const oldOptions = words(was.addopts);
+  const newOptions = words(now.addopts);
+  const kept = new Set(newOptions);
+  const known = new Set(oldOptions);
+  const dropped = oldOptions.some((word) => !kept.has(word) && !REPORT_OPTION.test(word));
+  const narrowing = newOptions.some(
+    (word) => !known.has(word) && !REPORT_OPTION.test(word) && !COVERAGE_OPTION.test(word),
+  );
+  if (dropped || narrowing) found.push("addopts");
+  const lowered = minimum(after) < minimum(before) || Number.isNaN(minimum(after));
+  if (lowered) found.push("coverage fail_under");
+  return found;
+}
+
 // A package script by name: `bun run x` and `npm run x` run the script `x`, and `npm test`,
 // `pnpm test`, and `yarn test` run `test`. `bun test` is Bun's test runner, not the `test` script,
-// so it stays as written.
+// so it stays as written. `uv run`'s flags choose how the environment is prepared, not what the tool
+// runs, so `uv run --frozen pytest` runs the same command as `uv run pytest`.
 function normalize(command: string): string {
   return command
     .trim()
-    .replace(/^(?:bun|npm|pnpm|yarn)\s+run\s+/, "")
-    .replace(/^(?:npm|pnpm|yarn)\s+test$/, "test");
+    .replace(/\s+/g, " ")
+    .replace(/^(?:bun|npm|pnpm|yarn) run /, "")
+    .replace(/^(?:npm|pnpm|yarn) test$/, "test")
+    .replace(
+      /\buv run (?:--(?:frozen|locked|no-sync|offline|quiet|no-progress|active)\s+|-q\s+)+/g,
+      "uv run ",
+    );
 }
+
+// Pytest options that add reports without choosing which tests run or whether a failure fails:
+// coverage reports, verbosity, and traceback style. A command that only adds them, or trades one for
+// another, still runs the same tests. `--cov` and `--cov-fail-under` are not report options, since
+// coverage with a threshold can fail the run.
+const REPORT_OPTION =
+  /^(?:--cov-report(?:=\S+)?|--tb=\S+|-v+|-q+|--verbose|--quiet|-r\w+|--durations=\d+|--junitxml=\S+)$/;
+// Report options whose value may follow as the next word (`--cov-report term-missing`); the two are
+// read as one word, `--cov-report=term-missing`, so changing the format stays a report change.
+const SEPARATE_VALUE = /^(?:--cov-report|--tb|--durations|--junitxml)$/;
+const optionWords = (text: string) => {
+  const words = text.split(/\s+/).filter(Boolean);
+  const joined: string[] = [];
+  for (let at = 0; at < words.length; at++) {
+    const word = words[at] ?? "";
+    const next = words[at + 1];
+    if (SEPARATE_VALUE.test(word) && next !== undefined && !next.startsWith("-")) {
+      joined.push(`${word}=${next}`);
+      at++;
+    } else joined.push(word);
+  }
+  return joined;
+};
+// Whether `after` runs everything `before` did: the same command, or the same pytest command with
+// report options changed or coverage added. The program (everything through `pytest`) must match,
+// every other word of `before` must remain, and `after` may add only coverage options. So adding a
+// path or `-k`, which narrows the run, or dropping `--cov`, still blocks.
+const PYTEST_PROGRAM = /^(.*?\bpytest)(?: |$)/;
+// Options that measure more, which a command may add: `--cov`, `--cov-branch` (which also counts
+// branches, so it changes the percentage a threshold checks), and a first `--cov-fail-under`.
+// Dropping any of them blocks.
+const COVERAGE_OPTION = /^--cov(?:=\S+)?$|^--cov-branch$|^--cov-fail-under=\d+(?:\.\d+)?$/;
+function stillRuns(before: string, after: string): boolean {
+  const a = normalize(before);
+  const b = normalize(after);
+  if (a === b) return true;
+  const was = PYTEST_PROGRAM.exec(a);
+  const now = PYTEST_PROGRAM.exec(b);
+  if (!was || !now || was[1] !== now[1]) return false;
+  const selecting = (command: string, program: string) =>
+    optionWords(command.slice(program.length)).filter((word) => !REPORT_OPTION.test(word));
+  const old = selecting(a, was[1] ?? "");
+  const added = [...selecting(b, now[1] ?? "")];
+  for (const word of old) {
+    const at = added.indexOf(word);
+    if (at === -1) return false;
+    added.splice(at, 1);
+  }
+  // A threshold may be added only where none was set; a second one could lower it.
+  const threshold = (word: string) => word.startsWith("--cov-fail-under");
+  if (old.some(threshold) && added.some(threshold)) return false;
+  return added.every((word) => COVERAGE_OPTION.test(word));
+}
+const runsAll = (before: string[], after: string[]) =>
+  before.every((command) => after.some((next) => stillRuns(command, next)));
 
 // A command, and when it names a script, the commands that script runs, one level deep.
 function expand(command: string, scripts: Map<string, string>): string[] {
@@ -259,6 +482,28 @@ const asBroad = (after: Triggers, before: Triggers) =>
     return kept !== undefined && [...kept].every(([key, value]) => filters.get(key) === value);
   });
 
+// Environment variables that change which tests a runner collects, which plugins it loads, or
+// where it reads its settings: `PYTEST_ADDOPTS`, `PYTEST_PLUGINS`, `PYTEST_DISABLE_PLUGIN_AUTOLOAD`,
+// coverage's `COVERAGE_*`, and Python's own `PYTHON*` (such as `PYTHONPATH`). Their effective values
+// for a step (workflow, then job, then step `env`) are part of its scope, so changing one means the
+// step no longer runs what it did. An `env` that is not a mapping is compared whole.
+const RUNNER_ENVIRONMENT = /^(?:PYTEST_\w*|COVERAGE_\w*|PYTHON\w*)$/;
+function runnerEnvironment(...levels: unknown[]): string {
+  const effective = new Map<string, string>();
+  for (const level of levels) {
+    const env = fields(level).env;
+    if (env === undefined) continue;
+    if (env === null || typeof env !== "object" || Array.isArray(env)) {
+      effective.set("*", scalar(env));
+      continue;
+    }
+    for (const [name, value] of Object.entries(env)) {
+      if (RUNNER_ENVIRONMENT.test(name)) effective.set(name, scalar(value));
+    }
+  }
+  return JSON.stringify([...effective].sort(([a], [b]) => a.localeCompare(b)));
+}
+
 // Every step's commands are read, and anchors let a small file repeat a large `run:` many times, so
 // the text read is bounded.
 const MAX_RUN_CHARACTERS = 1024 * 1024;
@@ -292,6 +537,7 @@ function gateCommandsIn(workflow: unknown): GateCommand[] {
         scalar(step["continue-on-error"] ?? null),
         directory,
         shell.shell,
+        runnerEnvironment(root, job, step),
       ]);
       // Under GitHub's `bash -e`, a failing command stops the step, except on the left of `&&` on
       // a line other than the last command line; the last line's status is the step's.
@@ -332,17 +578,13 @@ function droppedCommands(versions: WorkflowVersions, scripts: Map<string, string
   return before
     .filter(({ scope, triggers, atRoot, command }) => {
       const known = atRoot ? scripts : new Map<string, string>();
-      const ran = new Set(
-        after
-          .filter((c) => c.scope === scope && asBroad(c.triggers, triggers))
-          .flatMap((c) => expand(c.command, known)),
-      );
+      const ran = after
+        .filter((c) => c.scope === scope && asBroad(c.triggers, triggers))
+        .flatMap((c) => expand(c.command, known));
       const name = normalize(command);
       const body = known.get(name);
-      const stillRuns =
-        ran.has(name) ||
-        (body !== undefined && segments(body).every((part) => ran.has(normalize(part))));
-      return !stillRuns;
+      const covered = runsAll([name], ran) || (body !== undefined && runsAll(segments(body), ran));
+      return !covered;
     })
     .map((c) => c.command);
 }
@@ -688,6 +930,25 @@ export function detect(diff: string, head: Head = {}): Finding[] {
     }
     if (RUNNER_CONFIG.test(path) && edited)
       add("gate-edited", path, "test runner configuration changed");
+    if (PYPROJECT.test(path) || PYPROJECT.test(file.from)) {
+      const versions = head.pyprojects?.get(path);
+      if (!versions) throw new Error(`the contents of ${path} were not supplied`);
+      const narrowed = narrowedSettings(versions.before, versions.after);
+      if (narrowed.length > 0) {
+        add("gate-weakened", path, `pytest or coverage settings narrowed: ${narrowed.join(", ")}`);
+      } else if (testSettings(versions.before) !== testSettings(versions.after)) {
+        add("gate-edited", path, "pytest or coverage settings changed");
+      }
+    }
+    if (TASK_RUNNER.test(path) || TASK_RUNNER.test(file.from)) {
+      const versions = head.taskFiles?.get(path);
+      if (!versions) throw new Error(`the contents of ${path} were not supplied`);
+      const weakened = weakenedRecipes(versions);
+      for (const name of weakened) {
+        add("gate-weakened", path, `the "${name}" recipe no longer runs everything it did`);
+      }
+      if (weakened.length === 0 && edited) add("gate-edited", path, "task runner file changed");
+    }
     if (/(^|\/)package\.json$/.test(path)) {
       for (const name of weakenedScripts(file)) {
         add("gate-weakened", path, `the "${name}" script no longer runs everything it did`);

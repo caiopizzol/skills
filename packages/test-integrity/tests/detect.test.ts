@@ -949,3 +949,291 @@ test("removing Python assertions is reported, counted per statement or call", ()
     "test-content-changed",
   ]);
 });
+
+// A task runner file change: a diff that marks the file as edited, and its text before and after.
+function taskChange(before: string | null, after: string | null, path = "justfile") {
+  const text = diff(path, after === null ? [] : ["# after"], ["# before"], after === null);
+  return rules(text, { taskFiles: new Map([[path, { before, after }]]) });
+}
+const recipes = (check: string, extra = "") =>
+  `# tasks\ninstall:\n    uv sync\n\ntest:\n    uv run --frozen pytest --cov\n\ncheck:\n    ${check}\n${extra}`;
+const FULL_CHECK =
+  "uv run --frozen ruff check . && uv run --frozen ruff format --check . && uv run --frozen pyright && uv run --frozen pytest --cov";
+
+test("Python gate tools, run directly or through uv, python -m, poetry, just, or make, are gate commands", () => {
+  for (const command of [
+    "uv run --frozen pytest --cov --cov-report=xml",
+    "uv run --frozen ruff check .",
+    "uv run --frozen pyright",
+    "uv run --with pytest-cov pytest",
+    "python -m pytest -q",
+    "uv run python -m pytest",
+    "poetry run pytest",
+    "TEST_IMAGE=app:ci uv run --frozen pytest tests/test_recovery.py",
+    "pytest",
+    "mypy src",
+    "just check",
+    "make test",
+  ]) {
+    expect(workflowChange(workflow([run(command)]), workflow([]))).toEqual(["gate-weakened"]);
+  }
+  for (const command of ["uv sync", "uv run python main.py --list", "just run", "make build"]) {
+    expect(workflowChange(workflow([run(command)]), workflow([]))).toEqual(["gate-edited"]);
+  }
+});
+
+test("dropping a command from a gate recipe, or the recipe itself, blocks", () => {
+  expect(
+    taskChange(
+      recipes(FULL_CHECK),
+      recipes("uv run --frozen ruff check . && uv run --frozen pyright"),
+    ),
+  ).toEqual(["gate-weakened"]);
+  // Dropping a flag changes the command, as for a package script.
+  expect(
+    taskChange(recipes(FULL_CHECK), recipes(FULL_CHECK.replace("pytest --cov", "pytest"))),
+  ).toEqual(["gate-weakened"]);
+  expect(taskChange(recipes(FULL_CHECK), "install:\n    uv sync\n")).toEqual([
+    "gate-weakened",
+    "gate-weakened",
+  ]);
+  expect(taskChange(recipes(FULL_CHECK), null)).toEqual(["gate-weakened", "gate-weakened"]);
+  const make = (test: string) => `.PHONY: test\ntest:\n\t${test}\n`;
+  expect(taskChange(make("pytest -q && ruff check ."), make("ruff check ."), "Makefile")).toEqual([
+    "gate-weakened",
+  ]);
+  // Make runs the text after `;` on a recipe's header line as its first command.
+  const inline = (test: string) => `test: ; ${test}\n`;
+  expect(taskChange(inline("pytest"), inline("pytest --ignore=tests/slow"), "Makefile")).toEqual([
+    "gate-weakened",
+  ]);
+  expect(taskChange(inline("pytest"), "test: ;\n", "Makefile")).toEqual(["gate-weakened"]);
+  expect(taskChange(inline("pytest"), inline("pytest -q"), "Makefile")).toEqual(["gate-edited"]);
+});
+
+test("adding to a gate recipe, reshaping it through dependencies, or editing other recipes only reports", () => {
+  expect(taskChange(recipes(FULL_CHECK), recipes(`${FULL_CHECK} && uv run mypy .`))).toEqual([
+    "gate-edited",
+  ]);
+  // A check that now depends on recipes running the same commands still runs them all.
+  const split =
+    "# tasks\nlint:\n    uv run --frozen ruff check .\n    uv run --frozen ruff format --check .\n\n" +
+    "typecheck:\n    uv run --frozen pyright\n\ntest:\n    uv run --frozen pytest --cov\n\n" +
+    "check: lint typecheck test\n";
+  expect(taskChange(recipes(FULL_CHECK), split)).toEqual(["gate-edited"]);
+  expect(
+    taskChange(
+      recipes(FULL_CHECK, "\nrun *ARGS:\n    uv run python main.py {{ARGS}}\n"),
+      recipes(FULL_CHECK),
+    ),
+  ).toEqual(["gate-edited"]);
+  // A command continued over lines reads as one command.
+  expect(
+    taskChange(
+      recipes("uv run --frozen pytest --cov"),
+      recipes("uv run --frozen \\\n        pytest --cov"),
+    ),
+  ).toEqual(["gate-edited"]);
+});
+
+test("a gate recipe that depends on one the file no longer defines, or on a cycle, still counts what it ran", () => {
+  expect(taskChange("check: lint\nlint:\n    ruff check .\n", "check: lint\n")).toEqual([
+    "gate-weakened",
+  ]);
+  expect(taskChange("check: a\na: check\n    pytest\n", "check: a\na: check\n")).toEqual([
+    "gate-weakened",
+  ]);
+});
+
+test("a task runner change must come with the file's contents, or the check refuses it", () => {
+  expect(() => rules(diff("justfile", ["# after"], ["# before"]))).toThrow("were not supplied");
+});
+
+// A `pyproject.toml` change, with the file parsed before and after.
+function pyprojectChange(before: unknown, after: unknown) {
+  const text = diff("pyproject.toml", ["# after"], ["# before"]);
+  return rules(text, { pyprojects: new Map([["pyproject.toml", { before, after }]]) });
+}
+const pyproject = (pytest: Record<string, unknown>, version = "1.0.0") => ({
+  project: { name: "pipeline", version },
+  tool: { pytest: { ini_options: pytest }, ruff: { "line-length": 120 } },
+});
+
+test("pytest settings that narrow the run, or a lower coverage minimum, block", () => {
+  const base = { testpaths: ["tests"], addopts: "-v --tb=short" };
+  const coverage = (fail_under: unknown) => ({
+    ...pyproject(base),
+    tool: { ...pyproject(base).tool, coverage: { report: { fail_under } } },
+  });
+  for (const after of [
+    pyproject({ ...base, addopts: "-v --tb=short -k 'not slow'" }),
+    pyproject({ ...base, addopts: "-v --tb=short --deselect tests/test_main.py::test_run" }),
+    pyproject({ ...base, addopts: "-v --tb=short -p no:randomly" }),
+    pyproject({ ...base, addopts: "-v --tb=short tests/unit" }),
+    pyproject({ ...base, testpaths: ["tests/unit"] }),
+    pyproject({ ...base, python_files: "test_fast_*.py" }),
+  ]) {
+    expect(pyprojectChange(pyproject(base), after)).toEqual(["gate-weakened"]);
+  }
+  // Dropping an option that is not a report option, such as `--strict-markers`, blocks too.
+  expect(
+    pyprojectChange(pyproject({ ...base, addopts: "-v --strict-markers" }), pyproject(base)),
+  ).toEqual(["gate-weakened"]);
+  // A native `[tool.pytest]` table is read like `[tool.pytest.ini_options]`.
+  expect(
+    pyprojectChange(pyproject(base), {
+      ...pyproject(base),
+      tool: { pytest: { ini_options: base, addopts: "-v --tb=short -k fast" } },
+    }),
+  ).toEqual(["gate-weakened"]);
+  for (const after of [coverage(50), coverage("fifty"), pyproject(base)]) {
+    expect(pyprojectChange(coverage(94), after)).toEqual(["gate-weakened"]);
+  }
+  expect(pyprojectChange(pyproject(base), null)).toEqual(["gate-weakened"]);
+});
+
+test("pytest settings that keep or widen the run, or a higher coverage minimum, only report", () => {
+  const base = { testpaths: ["tests"], addopts: "-v --tb=short" };
+  const coverage = (fail_under: number) => ({
+    ...pyproject(base),
+    tool: { ...pyproject(base).tool, coverage: { report: { fail_under, precision: 2 } } },
+  });
+  for (const after of [
+    pyproject({ ...base, addopts: "-q --tb=long" }),
+    pyproject({ ...base, addopts: "-v --tb=short --cov" }),
+    pyproject({ ...base, addopts: "-v --tb=short --cov-report term-missing" }),
+    pyproject({ ...base, markers: ["slow: runs for minutes"] }),
+    // Dropping only report options leaves the same tests running.
+    pyproject({ testpaths: ["tests"] }),
+  ]) {
+    expect(pyprojectChange(pyproject(base), after)).toEqual(["gate-edited"]);
+  }
+  // A project configuring pytest for the first time reports, unless it chooses which tests run.
+  const first = { project: { name: "pipeline" } };
+  expect(pyprojectChange(first, pyproject({ addopts: "-v" }))).toEqual(["gate-edited"]);
+  for (const setting of [
+    { testpaths: ["unit"] },
+    { python_files: "test_*.py" },
+    { norecursedirs: ["slow"] },
+  ]) {
+    expect(pyprojectChange(first, pyproject(setting))).toEqual(["gate-weakened"]);
+  }
+  expect(pyprojectChange(pyproject(base), coverage(94))).toEqual(["gate-edited"]);
+  expect(pyprojectChange(coverage(90), coverage(94))).toEqual(["gate-edited"]);
+});
+
+test("a release version bump or another tool's settings in pyproject.toml is not a gate change", () => {
+  const base = { testpaths: ["tests"] };
+  expect(pyprojectChange(pyproject(base, "1.0.0"), pyproject(base, "1.0.1"))).toEqual([]);
+  expect(
+    pyprojectChange(pyproject(base), {
+      ...pyproject(base),
+      tool: { ...pyproject(base).tool, ruff: { "line-length": 100 } },
+    }),
+  ).toEqual([]);
+});
+
+test("pytest's own configuration files are test runner configuration", () => {
+  for (const path of ["pytest.ini", "tox.ini", "setup.cfg", ".coveragerc"]) {
+    expect(rules(diff(path, ["addopts = -x"], ["addopts = -v"]))).toEqual(["gate-edited"]);
+  }
+});
+
+test("uv's environment flags and pytest's report options do not change which tests a command runs", () => {
+  for (const [before, after] of [
+    ["uv run ruff check .", "uv run --frozen ruff check ."],
+    ["uv run pytest", "uv run --frozen --locked pytest"],
+    ["uv run pytest", "uv run pytest --cov --cov-branch --cov-report=xml"],
+    [
+      "uv run --frozen pytest --cov --cov-branch --cov-report=xml",
+      "uv run --frozen pytest --cov --cov-branch --cov-report=xml --cov-report=term-missing",
+    ],
+    ["pytest -v --tb=short", "pytest -q"],
+    ["uv run pytest --cov", "uv run pytest --cov --cov-fail-under=94"],
+    ["uv run pytest --cov", "uv run pytest --cov --cov-branch"],
+    ["uv run pytest --cov-report term-missing", "uv run pytest --cov-report xml"],
+    ["uv run pytest --tb short", "uv run pytest --tb=long"],
+  ]) {
+    expect(workflowChange(workflow([run(before)]), workflow([run(after)]))).toEqual([
+      "gate-edited",
+    ]);
+    expect(taskChange(recipes(before), recipes(after))).toEqual(["gate-edited"]);
+  }
+});
+
+test("a pytest command that narrows the run, drops coverage, or turns into another tool still blocks", () => {
+  for (const [before, after] of [
+    ["uv run pytest", "uv run pytest tests/test_main.py"],
+    ["uv run pytest", "uv run pytest -k 'not slow'"],
+    ["uv run pytest --cov", "uv run pytest"],
+    ["uv run pytest --cov --cov-fail-under=94", "uv run pytest --cov"],
+    // Branch coverage changes the percentage a threshold checks, so dropping it can pass more.
+    [
+      "uv run pytest --cov --cov-branch --cov-fail-under=94",
+      "uv run pytest --cov --cov-fail-under=94",
+    ],
+    // A report option's value is its own word only when it follows the option.
+    ["uv run pytest --cov-report xml tests/", "uv run pytest --cov-report xml"],
+    ["uv run pytest -x tests/", "uv run pytest tests/unit"],
+    ["uv run pytest", "uv run python -m unittest"],
+    ["uv run ruff check .", "uv run ruff check src"],
+    ["uv run ruff check .", "uv run --frozen ruff format --check ."],
+    ["uv run pytest --cov", "uv run pytest --cov --deselect tests/test_main.py::test_run"],
+    ["uv run pytest tests/", "uv run pytest tests/ tests/"],
+    // The same options on another package's pytest are not the same test run.
+    ["uv run pytest --cov", "uv run --package api pytest --cov"],
+  ]) {
+    expect(workflowChange(workflow([run(before)]), workflow([run(after)]))).toEqual([
+      "gate-weakened",
+    ]);
+  }
+});
+
+test("changing a step's pytest environment is not running the same command", () => {
+  const step = (env?: Record<string, string>) => run("uv run pytest", env ? { env } : {});
+  for (const [before, after] of [
+    [workflow([step()]), workflow([step({ PYTEST_ADDOPTS: "-k 'not slow'" })])],
+    [workflow([step({ PYTEST_ADDOPTS: "-v" })]), workflow([step({ PYTEST_ADDOPTS: "-x" })])],
+    [workflow([step()]), workflow([step()], { env: { PYTEST_ADDOPTS: "--deselect tests/a.py" } })],
+    [workflow([step()]), workflow([step({ PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1" })])],
+    [workflow([step()]), workflow([step({ COVERAGE_RCFILE: "loose.cfg" })])],
+  ]) {
+    expect(workflowChange(before, after)).toEqual(["gate-weakened"]);
+  }
+  // Other variables, such as a database URL, do not change which tests run.
+  expect(
+    workflowChange(workflow([step()]), workflow([step({ DATABASE_URL: "postgres://db" })])),
+  ).toEqual(["gate-edited"]);
+});
+
+test("a second coverage threshold on a pytest command could lower it, so it blocks", () => {
+  expect(
+    workflowChange(
+      workflow([run("uv run pytest --cov --cov-fail-under=94")]),
+      workflow([run("uv run pytest --cov --cov-fail-under=94 --cov-fail-under=0")]),
+    ),
+  ).toEqual(["gate-weakened"]);
+});
+
+test("a task runner file that changes a runner environment variable weakens its gate recipes", () => {
+  const withEnv = (line: string) => `${line}\n${recipes(FULL_CHECK)}`;
+  for (const [before, after] of [
+    [recipes(FULL_CHECK), withEnv('export PYTEST_ADDOPTS := "-k smoke"')],
+    [recipes(FULL_CHECK), withEnv('export PYTEST_DISABLE_PLUGIN_AUTOLOAD := "1"')],
+    [withEnv('export PYTEST_ADDOPTS := "-v"'), withEnv('export PYTEST_ADDOPTS := "-x"')],
+    [recipes(FULL_CHECK), withEnv("set dotenv-load")],
+    [
+      recipes("PYTEST_ADDOPTS=-v uv run --frozen pytest"),
+      recipes("PYTEST_ADDOPTS='-k smoke' uv run --frozen pytest"),
+    ],
+  ]) {
+    expect(taskChange(before, after)).toEqual(["gate-weakened", "gate-weakened"]);
+  }
+  // Another variable, or a comment that names one, does not change which tests run.
+  expect(
+    taskChange(recipes(FULL_CHECK), withEnv('export DATABASE_URL := "postgres://db"')),
+  ).toEqual(["gate-edited"]);
+  expect(taskChange(recipes(FULL_CHECK), withEnv("# PYTEST_ADDOPTS stays unset here"))).toEqual([
+    "gate-edited",
+  ]);
+});

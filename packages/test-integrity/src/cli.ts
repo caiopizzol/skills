@@ -4,7 +4,15 @@
 // Exits 0 when the change passes, 1 when a blocking finding lacks the exception label, and 2 on any
 // error (fail closed). The label is signalled with TESTS_CHANGED_OK=true.
 import { decide, EXCEPTION_LABEL } from "./decide.ts";
-import { detect, parseDiff, WORKFLOW, type WorkflowVersions } from "./detect.ts";
+import {
+  detect,
+  parseDiff,
+  PYPROJECT,
+  TASK_RUNNER,
+  type TextVersions,
+  WORKFLOW,
+  type WorkflowVersions,
+} from "./detect.ts";
 import { decidePrior, formatRecord, type PriorRuns, RECORD_TITLE } from "./prior.ts";
 
 const MAX_FILE_BYTES = 256 * 1024;
@@ -125,7 +133,28 @@ try {
     });
   }
 
-  const findings = detect(diff, { scripts, workflows });
+  // Each changed task runner file as text and each changed `pyproject.toml` parsed, before and
+  // after, so gate recipes and pytest's settings are compared whole.
+  const taskFiles = new Map<string, TextVersions>();
+  const pyprojects = new Map<string, WorkflowVersions>();
+  for (const file of parseDiff(diff)) {
+    if (TASK_RUNNER.test(file.path) || TASK_RUNNER.test(file.from)) {
+      taskFiles.set(file.path, {
+        before: TASK_RUNNER.test(file.from) ? (read(mergeBase, file.from) ?? null) : null,
+        after: TASK_RUNNER.test(file.path) ? (read(head, file.path) ?? null) : null,
+      });
+    }
+    if (PYPROJECT.test(file.path) || PYPROJECT.test(file.from)) {
+      const toml = (commit: string, path: string) =>
+        PYPROJECT.test(path) ? parse(read(commit, path), path, Bun.TOML.parse) : null;
+      pyprojects.set(file.path, {
+        before: toml(mergeBase, file.from),
+        after: toml(head, file.path),
+      });
+    }
+  }
+
+  const findings = detect(diff, { scripts, workflows, taskFiles, pyprojects });
   const verdict = decide(findings, process.env.TESTS_CHANGED_OK === "true");
   for (const finding of findings) console.log(JSON.stringify(finding));
   await finish(verdict.pass, `## Test integrity\n\n${verdict.summary}\n`);
