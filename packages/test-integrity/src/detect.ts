@@ -224,6 +224,64 @@ const testSettings = (value: unknown) => {
   return JSON.stringify([tool.pytest ?? null, tool.coverage ?? null]);
 };
 
+// pytest settings that choose which tests run, and coverage's minimum. A change that could narrow
+// the run or lower the minimum blocks: `addopts` losing any option or gaining one that selects
+// (`-k`, `-m`, `--deselect`, `--ignore`, a path, `-p no:…`), `testpaths` or `python_files` or
+// `python_classes` or `python_functions` or `norecursedirs` or `collect_ignore` changing, `markers`
+// aside, and `fail_under` dropping or disappearing. Other edits only report.
+const SELECTING_SETTINGS = [
+  "testpaths",
+  "python_files",
+  "python_classes",
+  "python_functions",
+  "norecursedirs",
+  "collect_ignore",
+  "collect_ignore_glob",
+  "minversion",
+  "required_plugins",
+];
+const pytestOptions = (value: unknown) => {
+  const tool = fields(fields(value).tool);
+  const pytest = fields(tool.pytest);
+  // pytest 9 reads `[tool.pytest]` natively; earlier versions read `[tool.pytest.ini_options]`.
+  return {
+    ...fields(pytest.ini_options),
+    ...Object.fromEntries(Object.entries(pytest).filter(([key]) => key !== "ini_options")),
+  };
+};
+const words = (value: unknown) =>
+  (Array.isArray(value) ? value.map(String).join(" ") : typeof value === "string" ? value : "")
+    .split(/\s+/)
+    .filter(Boolean);
+const minimum = (value: unknown) => {
+  const report = fields(fields(fields(fields(value).tool).coverage).report);
+  const setting = report.fail_under;
+  return typeof setting === "number" ? setting : typeof setting === "string" ? Number(setting) : 0;
+};
+function narrowedSettings(before: unknown, after: unknown): string[] {
+  const was = pytestOptions(before);
+  const now = pytestOptions(after);
+  const found: string[] = [];
+  // A file with no pytest settings adds its first ones: that configures pytest, and any tests it
+  // stops collecting are reported by the test file rules.
+  const configured = Object.keys(was).length > 0;
+  for (const key of configured ? SELECTING_SETTINGS : []) {
+    if (JSON.stringify(was[key] ?? null) !== JSON.stringify(now[key] ?? null)) found.push(key);
+  }
+  const oldOptions = words(was.addopts);
+  const newOptions = words(now.addopts);
+  const kept = new Set(newOptions);
+  const known = new Set(oldOptions);
+  const dropped = oldOptions.some((word) => !kept.has(word) && !REPORT_OPTION.test(word));
+  const narrowing = newOptions.some(
+    (word) => !known.has(word) && !REPORT_OPTION.test(word) && !COVERAGE_OPTION.test(word),
+  );
+  if (dropped || narrowing) found.push("addopts");
+  const lowered = minimum(after) < minimum(before) || Number.isNaN(minimum(after));
+  if (lowered) found.push("coverage fail_under");
+  return found;
+}
+
 // A package script by name: `bun run x` and `npm run x` run the script `x`, and `npm test`,
 // `pnpm test`, and `yarn test` run `test`. `bun test` is Bun's test runner, not the `test` script,
 // so it stays as written. `uv run`'s flags choose how the environment is prepared, not what the tool
@@ -271,6 +329,9 @@ function stillRuns(before: string, after: string): boolean {
     if (at === -1) return false;
     added.splice(at, 1);
   }
+  // A threshold may be added only where none was set; a second one could lower it.
+  const threshold = (word: string) => word.startsWith("--cov-fail-under");
+  if (old.some(threshold) && added.some(threshold)) return false;
   return added.every((word) => COVERAGE_OPTION.test(word));
 }
 const runsAll = (before: string[], after: string[]) =>
@@ -388,6 +449,28 @@ const asBroad = (after: Triggers, before: Triggers) =>
     return kept !== undefined && [...kept].every(([key, value]) => filters.get(key) === value);
   });
 
+// Environment variables that change which tests a runner collects, which plugins it loads, or
+// where it reads its settings: `PYTEST_ADDOPTS`, `PYTEST_PLUGINS`, `PYTEST_DISABLE_PLUGIN_AUTOLOAD`,
+// coverage's `COVERAGE_*`, and Python's own `PYTHON*` (such as `PYTHONPATH`). Their effective values
+// for a step (workflow, then job, then step `env`) are part of its scope, so changing one means the
+// step no longer runs what it did. An `env` that is not a mapping is compared whole.
+const RUNNER_ENVIRONMENT = /^(?:PYTEST_\w*|COVERAGE_\w*|PYTHON\w*)$/;
+function runnerEnvironment(...levels: unknown[]): string {
+  const effective = new Map<string, string>();
+  for (const level of levels) {
+    const env = fields(level).env;
+    if (env === undefined) continue;
+    if (env === null || typeof env !== "object" || Array.isArray(env)) {
+      effective.set("*", scalar(env));
+      continue;
+    }
+    for (const [name, value] of Object.entries(env)) {
+      if (RUNNER_ENVIRONMENT.test(name)) effective.set(name, scalar(value));
+    }
+  }
+  return JSON.stringify([...effective].sort(([a], [b]) => a.localeCompare(b)));
+}
+
 // Every step's commands are read, and anchors let a small file repeat a large `run:` many times, so
 // the text read is bounded.
 const MAX_RUN_CHARACTERS = 1024 * 1024;
@@ -421,6 +504,7 @@ function gateCommandsIn(workflow: unknown): GateCommand[] {
         scalar(step["continue-on-error"] ?? null),
         directory,
         shell.shell,
+        runnerEnvironment(root, job, step),
       ]);
       // Under GitHub's `bash -e`, a failing command stops the step, except on the left of `&&` on
       // a line other than the last command line; the last line's status is the step's.
@@ -816,7 +900,10 @@ export function detect(diff: string, head: Head = {}): Finding[] {
     if (PYPROJECT.test(path) || PYPROJECT.test(file.from)) {
       const versions = head.pyprojects?.get(path);
       if (!versions) throw new Error(`the contents of ${path} were not supplied`);
-      if (testSettings(versions.before) !== testSettings(versions.after)) {
+      const narrowed = narrowedSettings(versions.before, versions.after);
+      if (narrowed.length > 0) {
+        add("gate-weakened", path, `pytest or coverage settings narrowed: ${narrowed.join(", ")}`);
+      } else if (testSettings(versions.before) !== testSettings(versions.after)) {
         add("gate-edited", path, "pytest or coverage settings changed");
       }
     }

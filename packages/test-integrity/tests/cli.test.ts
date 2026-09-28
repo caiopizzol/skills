@@ -162,11 +162,18 @@ test("a justfile's gate recipe and pyproject.toml's pytest settings are read fro
     rules: [],
   });
 
+  const quieter = await repository(base, { "pyproject.toml": toml("1.0.0", "-q") });
+  const reported = await runCli([quieter.base, quieter.head, quieter.dir]);
+  expect({ exitCode: reported.exitCode, rules: rules(reported.stdout) }).toEqual({
+    exitCode: 0,
+    rules: ["gate-edited"],
+  });
+
   const narrowed = await repository(base, { "pyproject.toml": toml("1.0.0", "-v -k 'not db'") });
   const options = await runCli([narrowed.base, narrowed.head, narrowed.dir]);
   expect({ exitCode: options.exitCode, rules: rules(options.stdout) }).toEqual({
-    exitCode: 0,
-    rules: ["gate-edited"],
+    exitCode: 1,
+    rules: ["gate-weakened"],
   });
 
   const dropped = await repository(base, { justfile: just("uv run --frozen ruff check .") });

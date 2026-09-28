@@ -1052,18 +1052,63 @@ const pyproject = (pytest: Record<string, unknown>, version = "1.0.0") => ({
   tool: { pytest: { ini_options: pytest }, ruff: { "line-length": 120 } },
 });
 
-test("changing pytest or coverage settings in pyproject.toml is reported for review", () => {
-  const base = { testpaths: ["tests"], addopts: "-v" };
+test("pytest settings that narrow the run, or a lower coverage minimum, block", () => {
+  const base = { testpaths: ["tests"], addopts: "-v --tb=short" };
+  const coverage = (fail_under: unknown) => ({
+    ...pyproject(base),
+    tool: { ...pyproject(base).tool, coverage: { report: { fail_under } } },
+  });
+  for (const after of [
+    pyproject({ ...base, addopts: "-v --tb=short -k 'not slow'" }),
+    pyproject({ ...base, addopts: "-v --tb=short --deselect tests/test_main.py::test_run" }),
+    pyproject({ ...base, addopts: "-v --tb=short -p no:randomly" }),
+    pyproject({ ...base, addopts: "-v --tb=short tests/unit" }),
+    pyproject({ ...base, testpaths: ["tests/unit"] }),
+    pyproject({ ...base, python_files: "test_fast_*.py" }),
+  ]) {
+    expect(pyprojectChange(pyproject(base), after)).toEqual(["gate-weakened"]);
+  }
+  // Dropping an option that is not a report option, such as `--strict-markers`, blocks too.
   expect(
-    pyprojectChange(pyproject(base), pyproject({ ...base, addopts: "-v -k 'not slow'" })),
-  ).toEqual(["gate-edited"]);
+    pyprojectChange(pyproject({ ...base, addopts: "-v --strict-markers" }), pyproject(base)),
+  ).toEqual(["gate-weakened"]);
+  // A native `[tool.pytest]` table is read like `[tool.pytest.ini_options]`.
   expect(
     pyprojectChange(pyproject(base), {
       ...pyproject(base),
-      tool: { ...pyproject(base).tool, coverage: { report: { fail_under: 50 } } },
+      tool: { pytest: { ini_options: base, addopts: "-v --tb=short -k fast" } },
     }),
+  ).toEqual(["gate-weakened"]);
+  for (const after of [coverage(50), coverage("fifty"), pyproject(base)]) {
+    expect(pyprojectChange(coverage(94), after)).toEqual(["gate-weakened"]);
+  }
+  expect(pyprojectChange(pyproject(base), null)).toEqual(["gate-weakened"]);
+});
+
+test("pytest settings that keep or widen the run, or a higher coverage minimum, only report", () => {
+  const base = { testpaths: ["tests"], addopts: "-v --tb=short" };
+  const coverage = (fail_under: number) => ({
+    ...pyproject(base),
+    tool: { ...pyproject(base).tool, coverage: { report: { fail_under, precision: 2 } } },
+  });
+  for (const after of [
+    pyproject({ ...base, addopts: "-q --tb=long" }),
+    pyproject({ ...base, addopts: "-v --tb=short --cov" }),
+    pyproject({ ...base, markers: ["slow: runs for minutes"] }),
+    // Dropping only report options leaves the same tests running.
+    pyproject({ testpaths: ["tests"] }),
+  ]) {
+    expect(pyprojectChange(pyproject(base), after)).toEqual(["gate-edited"]);
+  }
+  // A project configuring pytest for the first time narrows nothing it ran before.
+  expect(
+    pyprojectChange(
+      { project: { name: "pipeline" } },
+      pyproject({ ...base, python_files: "test_*.py" }),
+    ),
   ).toEqual(["gate-edited"]);
-  expect(pyprojectChange(pyproject(base), null)).toEqual(["gate-edited"]);
+  expect(pyprojectChange(pyproject(base), coverage(94))).toEqual(["gate-edited"]);
+  expect(pyprojectChange(coverage(90), coverage(94))).toEqual(["gate-edited"]);
 });
 
 test("a release version bump or another tool's settings in pyproject.toml is not a gate change", () => {
@@ -1121,4 +1166,30 @@ test("a pytest command that narrows the run, drops coverage, or turns into anoth
       "gate-weakened",
     ]);
   }
+});
+
+test("changing a step's pytest environment is not running the same command", () => {
+  const step = (env?: Record<string, string>) => run("uv run pytest", env ? { env } : {});
+  for (const [before, after] of [
+    [workflow([step()]), workflow([step({ PYTEST_ADDOPTS: "-k 'not slow'" })])],
+    [workflow([step({ PYTEST_ADDOPTS: "-v" })]), workflow([step({ PYTEST_ADDOPTS: "-x" })])],
+    [workflow([step()]), workflow([step()], { env: { PYTEST_ADDOPTS: "--deselect tests/a.py" } })],
+    [workflow([step()]), workflow([step({ PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1" })])],
+    [workflow([step()]), workflow([step({ COVERAGE_RCFILE: "loose.cfg" })])],
+  ]) {
+    expect(workflowChange(before, after)).toEqual(["gate-weakened"]);
+  }
+  // Other variables, such as a database URL, do not change which tests run.
+  expect(
+    workflowChange(workflow([step()]), workflow([step({ DATABASE_URL: "postgres://db" })])),
+  ).toEqual(["gate-edited"]);
+});
+
+test("a second coverage threshold on a pytest command could lower it, so it blocks", () => {
+  expect(
+    workflowChange(
+      workflow([run("uv run pytest --cov --cov-fail-under=94")]),
+      workflow([run("uv run pytest --cov --cov-fail-under=94 --cov-fail-under=0")]),
+    ),
+  ).toEqual(["gate-weakened"]);
 });
