@@ -198,6 +198,24 @@ const runDefault = (value: unknown, key: string) => {
 const defaultDirectory = (value: unknown) => runDefault(value, "working-directory");
 const defaultShell = (value: unknown) => runDefault(value, "shell");
 
+// The shell a step runs in, and whether a failing command stops it. With no shell set, GitHub runs
+// `bash -e` on Linux and macOS runners and PowerShell on Windows, where a failing native command
+// does not stop the script. `bash` and `sh` stop on errors. With no shell set, only a GitHub-hosted
+// Linux or macOS label counts as stopping; a self-hosted runner may be Windows, and a runner chosen
+// by an expression is unknown.
+const HOSTED_UNIX = /^(?:ubuntu|macos)-(?:latest|\d[\w.-]*)$/;
+function stepShell(
+  step: Record<string, unknown>,
+  job: Record<string, unknown>,
+  root: Record<string, unknown>,
+): { shell: string; failFast: boolean } {
+  const set = step.shell ?? defaultShell(job) ?? defaultShell(root);
+  if (set !== undefined) return { shell: scalar(set), failFast: set === "bash" || set === "sh" };
+  const runsOn = job["runs-on"];
+  const known = typeof runsOn === "string" && HOSTED_UNIX.test(runsOn);
+  return { shell: `default on ${scalar(runsOn ?? null)}`, failFast: known };
+}
+
 // A YAML value as part of a scope. Conditions and filters are scalars or short lists of them. Any
 // other value, such as a mapping or a large alias graph that would grow when serialized, gets a
 // key that matches nothing, so a command under it is never counted as still running.
@@ -262,6 +280,7 @@ function gateCommandsIn(workflow: unknown): GateCommand[] {
         defaultDirectory(job) ??
         defaultDirectory(root) ??
         ".";
+      const shell = stepShell(step, job, root);
       const scope = JSON.stringify([
         id,
         scalar(job.if ?? null),
@@ -269,7 +288,7 @@ function gateCommandsIn(workflow: unknown): GateCommand[] {
         scalar(step.if ?? null),
         scalar(step["continue-on-error"] ?? null),
         directory,
-        scalar(step.shell ?? defaultShell(job) ?? defaultShell(root) ?? null),
+        shell.shell,
       ]);
       // Under GitHub's `bash -e`, a failing command stops the step, except on the left of `&&` on
       // a line other than the last command line; the last line's status is the step's.
@@ -277,7 +296,7 @@ function gateCommandsIn(workflow: unknown): GateCommand[] {
       const last = lines.findLastIndex(
         (line) => line.trim() !== "" && !line.trim().startsWith("#"),
       );
-      const plain = lines.every(isPlainLine);
+      const plain = shell.failFast && lines.every(isPlainLine);
       lines.forEach((line, at) => {
         for (const command of segments(line).filter((part) => GATE_TOOL.test(part))) {
           const fails = plain && (at === last || !line.includes("&&"));

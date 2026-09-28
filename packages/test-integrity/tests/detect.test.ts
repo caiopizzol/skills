@@ -602,3 +602,45 @@ test("an unchanged step keeps counting, even with shell control flow", () => {
     workflowChange(workflow([guarded, run("echo a")]), workflow([guarded, run("echo b")])),
   ).toEqual(["gate-edited"]);
 });
+
+test("a changed run block counts only in a shell that stops on the first failure", () => {
+  const block = "bun test\necho done\n";
+  // `bash {0}` runs without `-e`, so a failing `bun test` is followed by `echo done`, which exits 0.
+  const noErrexit = { shell: "bash {0}" };
+  expect(
+    workflowChange(workflow([run("bun test", noErrexit)]), workflow([run(block, noErrexit)])),
+  ).toEqual(["gate-weakened"]);
+  // Windows runners default to PowerShell, and a runner chosen by an expression is unknown.
+  // A self-hosted runner may be Windows too, so only GitHub-hosted Linux and macOS labels count.
+  for (const runsOn of [
+    "windows-latest",
+    "${{ matrix.os }}",
+    "self-hosted",
+    ["self-hosted", "linux"],
+  ]) {
+    const on = (script: string) => ({
+      on: { pull_request: null },
+      jobs: { check: { "runs-on": runsOn, steps: [run(script)] } },
+    });
+    expect(workflowChange(on("bun test"), on(block))).toEqual(["gate-weakened"]);
+  }
+  for (const runsOn of ["ubuntu-24.04", "macos-15", "ubuntu-24.04-arm"]) {
+    const on = (script: string) => ({
+      on: { pull_request: null },
+      jobs: { check: { "runs-on": runsOn, steps: [run(script)] } },
+    });
+    expect(workflowChange(on("bun test"), on(block))).toEqual(["gate-edited"]);
+  }
+  // `bash` and `sh` stop on errors, like the default on Linux.
+  for (const shell of ["bash", "sh"]) {
+    expect(
+      workflowChange(workflow([run("bun test", { shell })]), workflow([run(block, { shell })])),
+    ).toEqual(["gate-edited"]);
+  }
+  // An unchanged block moved to a Windows runner no longer runs the same way.
+  const moved = {
+    on: { pull_request: null },
+    jobs: { check: { "runs-on": "windows-latest", steps: [run(block)] } },
+  };
+  expect(workflowChange(workflow([run(block)]), moved)).toEqual(["gate-weakened"]);
+});
