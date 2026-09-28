@@ -157,6 +157,48 @@ test("conditions that compare the run to a string are conditional skips", () => 
   }
 });
 
+test("escaped quotes stay inside their string, so they cannot hide or split an argument", () => {
+  // A reason with an escaped quote is still one argument.
+  for (const reason of [String.raw`'It doesn\'t matter'`, String.raw`"He said \"no\""`]) {
+    expect(
+      rules(diff("src/a.test.ts", [`  test.skip(browserName === "webkit", ${reason});`])),
+    ).toEqual(["conditional-skip-added"]);
+  }
+  expect(
+    rules(diff("src/a.test.ts", [String.raw`  test.skip(browserName === "a\"b", "why");`])),
+  ).toEqual(["conditional-skip-added"]);
+  // An escaped quote cannot end a string early and hide an always-true condition after it.
+  expect(
+    rules(diff("src/a.test.ts", [String.raw`  test.skip(browserName === "\")" || true, "why");`])),
+  ).toEqual(["skip-or-focus-added"]);
+});
+
+test("operators inside a compared string are part of the string", () => {
+  for (const text of ['"a || b"', '"a && b"', '"a === b"']) {
+    expect(
+      rules(diff("src/a.test.ts", [`  test.skip(process.env.MODE === ${text}, "why");`])),
+    ).toEqual(["conditional-skip-added"]);
+  }
+});
+
+test("under or, one value may repeat only as equality with different strings", () => {
+  expect(
+    rules(
+      diff("src/a.test.ts", [
+        '  test.skip(browserName === "chromium" || browserName === "firefox", "why");',
+      ]),
+    ),
+  ).toEqual(["conditional-skip-added"]);
+  for (const condition of [
+    'browserName === "chromium" || browserName === "chromium"',
+    'browserName === "chromium" || browserName !== "firefox"',
+  ]) {
+    expect(rules(diff("src/a.test.ts", [`  test.skip(${condition}, "why");`]))).toEqual([
+      "skip-or-focus-added",
+    ]);
+  }
+});
+
 test("a condition and a function body is a skipped test, not a conditional skip", () => {
   for (const call of [
     'test.skip(browserName === "webkit", () => {});',
