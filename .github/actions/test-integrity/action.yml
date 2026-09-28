@@ -1,9 +1,11 @@
 name: Test integrity
 description: >-
   Fails when a pull request weakens its tests or test gate (a deleted test file, an unconditional
-  skip or focus, or a gate that runs less) unless the `tests-changed-ok` label is present. Reads
-  git only; it never checks out or runs the pull request's code. Call it from a
-  pull_request_target workflow.
+  skip or focus, or a gate that runs less). Adding the `tests-changed-ok` label accepts the pull
+  request's current head only; any later push is checked again, and the label must be removed and
+  added again to accept it. Reads git only; it never checks out or runs the pull request's code.
+  Call it from a pull_request_target workflow on `opened`, `synchronize`, `reopened`, `edited`
+  (a new base branch changes the diff), `labeled`, and `unlabeled`, with a job `timeout-minutes`.
 runs:
   using: composite
   steps:
@@ -40,7 +42,9 @@ runs:
       env:
         BASE_SHA: ${{ github.event.pull_request.base.sha }}
         HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        TESTS_CHANGED_OK: ${{ contains(github.event.pull_request.labels.*.name, 'tests-changed-ok') }}
+        # Only the run started by adding the label accepts the change. A label that stays on the
+        # pull request does not carry over to later pushes, which are checked again.
+        TESTS_CHANGED_OK: ${{ github.event.action == 'labeled' && github.event.label.name == 'tests-changed-ok' }}
         TOKEN: ${{ github.token }}
       # The check reads the files it needs, and git fetches each one then. The token reaches those
       # fetches only as git configuration in this process's environment: never on disk or in a
