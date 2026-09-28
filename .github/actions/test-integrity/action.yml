@@ -3,9 +3,14 @@ description: >-
   Fails when a pull request weakens its tests or test gate (a deleted test file, an unconditional
   skip or focus, or a gate that runs less). Adding the `tests-changed-ok` label accepts the pull
   request's current head only; any later push is checked again, and the label must be removed and
-  added again to accept it. Reads git only; it never checks out or runs the pull request's code.
+  added again to accept it. Rerunning that run does not accept it again. Reads git only; it never
+  checks out or runs the pull request's code.
   Call it from a pull_request_target workflow on `opened`, `synchronize`, `reopened`, `edited`
   (a new base branch changes the diff), `labeled`, and `unlabeled`, with a job `timeout-minutes`.
+  A title edit or another label keeps the earlier verdict only when the workflow grants
+  `actions: read` and `checks: read` and pins this action by commit SHA; otherwise the change is
+  checked again. Give it a job of its own, with a name no other job in the workflow uses, and run
+  no pull request code in that job.
 runs:
   using: composite
   steps:
@@ -37,14 +42,54 @@ runs:
         git -C "$dir" merge-base "$BASE_SHA" "$HEAD_SHA" >/dev/null || { echo "No common history with the base" >&2; exit 2; }
         echo "TEST_INTEGRITY_REPO=$dir" >> "$GITHUB_ENV"
 
+    # This workflow's earlier runs on the head commit, with the records its job of this name wrote,
+    # which an event that cannot change the verdict may reuse. Needs `actions: read` and
+    # `checks: read`; without them, or on any error, nothing is reused and the change is checked.
+    - name: Read earlier verdicts for this head
+      shell: bash
+      env:
+        REPOSITORY: ${{ github.repository }}
+        HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        RUN_ID: ${{ github.run_id }}
+        CHECK_RUN_ID: ${{ job.check_run_id }}
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -uo pipefail
+        out="$RUNNER_TEMP/test-integrity-prior.json"
+        echo '{"workflowId":0,"jobName":"","total":0,"runs":[]}' > "$out"
+        echo "TEST_INTEGRITY_PRIOR_RUNS=$out" >> "$GITHUB_ENV"
+        api() { gh api "repos/$REPOSITORY/$1" --jq "$2" 2>/dev/null; }
+        workflow=$(api "actions/runs/$RUN_ID" .workflow_id) && [[ "$workflow" =~ ^[0-9]+$ ]] || exit 0
+        name=$(api "check-runs/$CHECK_RUN_ID" .name) && [ -n "$name" ] || exit 0
+        listed=$(api "actions/workflows/$workflow/runs?head_sha=$HEAD_SHA&event=pull_request_target&per_page=100" \
+          '{total: .total_count, runs: [.workflow_runs[] | {id, event, workflowId: .workflow_id, startedAt: .run_started_at}]}') || exit 0
+        listed=$(jq -c --argjson w "$workflow" --arg name "$name" '. + {workflowId: $w, jobName: $name}' <<< "$listed")
+        for id in $(jq -r --argjson self "$RUN_ID" '.runs[] | select(.id != $self) | .id' <<< "$listed"); do
+          # A run's jobs, and a job's notices, are kept only when all of them could be read.
+          jobs=$(api "actions/runs/$id/jobs?filter=latest&per_page=100" \
+            'if (.jobs | length) == .total_count then [.jobs[] | {name, status, conclusion, check: (.check_run_url | split("/") | last)}] else error("partial") end') || continue
+          for check in $(jq -r --arg name "$name" '.[] | select(.name == $name) | .check' <<< "$jobs"); do
+            count=$(api "check-runs/$check" .output.annotations_count) && [[ "$count" =~ ^[0-9]+$ ]] || continue
+            notes=$(api "check-runs/$check/annotations?per_page=100" \
+              "if length == $count then [.[] | select(.annotation_level == \"notice\") | {title: (.title // \"\"), message}] else error(\"partial\") end") || continue
+            jobs=$(jq -c --arg c "$check" --argjson n "$notes" 'map(if .check == $c then .records = $n else . end)' <<< "$jobs")
+          done
+          listed=$(jq -c --argjson id "$id" --argjson j "$jobs" '.runs |= map(if .id == $id then .jobs = $j else . end)' <<< "$listed")
+        done
+        printf '%s' "$listed" > "$out"
+
     - name: Check the change
       shell: bash
       env:
         BASE_SHA: ${{ github.event.pull_request.base.sha }}
         HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         # Only the run started by adding the label accepts the change. A label that stays on the
-        # pull request does not carry over to later pushes, which are checked again.
-        TESTS_CHANGED_OK: ${{ github.event.action == 'labeled' && github.event.label.name == 'tests-changed-ok' }}
+        # pull request does not carry over to later pushes, which are checked again. A rerun replays
+        # the original event even after the label is removed, so only the first attempt accepts.
+        TESTS_CHANGED_OK: ${{ github.event.action == 'labeled' && github.event.label.name == 'tests-changed-ok' && github.run_attempt == '1' }}
+        # Verdicts are reused only by the same detector, identified by the action's own commit.
+        TEST_INTEGRITY_VERSION: ${{ github.action_ref }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
         TOKEN: ${{ github.token }}
       # The check reads the files it needs, and git fetches each one then. The token reaches those
       # fetches only as git configuration in this process's environment: never on disk or in a
