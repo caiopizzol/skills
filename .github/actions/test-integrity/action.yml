@@ -25,9 +25,11 @@ runs:
         [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ && "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "Missing commit SHAs" >&2; exit 2; }
         dir="$RUNNER_TEMP/test-integrity-repo"
         git init -q "$dir"
-        # The token is passed per command, never written to the repository's config.
+        # The token is passed to this one command, never written to the repository's config. So the
+        # fetch is complete, not partial: the check reads files later, without the token, and a
+        # partial clone would have to fetch them then.
         auth="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$TOKEN" | base64 | tr -d '\n')"
-        git -C "$dir" -c "http.extraheader=$auth" fetch -q --filter=blob:none \
+        git -C "$dir" -c "http.extraheader=$auth" fetch -q \
           "https://github.com/${REPOSITORY}.git" "$BASE_SHA" "+refs/pull/${PR_NUMBER}/head:refs/remotes/pr"
         [ "$(git -C "$dir" rev-parse refs/remotes/pr)" = "$HEAD_SHA" ] || { echo "Pull request head moved; rerun" >&2; exit 2; }
         git -C "$dir" merge-base "$BASE_SHA" "$HEAD_SHA" >/dev/null || { echo "No common history with the base" >&2; exit 2; }
