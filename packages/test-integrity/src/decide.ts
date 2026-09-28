@@ -22,16 +22,19 @@ const plain = (text: string, max: number) =>
     .trim()
     .slice(0, max);
 
+// The detail can quote the pull request's code, so it is a code span too: no links or images.
 const line = (f: Finding) =>
-  `- \`${f.rule}\` in \`${plain(f.file, 200)}\`: ${plain(f.detail, 200)}`;
+  `- \`${f.rule}\` in \`${plain(f.file, 200)}\`: \`${plain(f.detail, 200)}\``;
 
 export function decide(findings: Finding[], hasExceptionLabel: boolean): Verdict {
   const blocking = findings.filter((f) => f.severity === "block");
   const reported = findings.filter((f) => f.severity === "report");
   const parts: string[] = [];
 
-  if (blocking.length === 0) {
+  if (findings.length === 0) {
     parts.push("No change weakens the tests or the test gate.");
+  } else if (blocking.length === 0) {
+    parts.push("Nothing blocks this change.");
   } else if (hasExceptionLabel) {
     parts.push(
       `These changes would weaken the tests or the gate. The \`${EXCEPTION_LABEL}\` label accepts them:`,

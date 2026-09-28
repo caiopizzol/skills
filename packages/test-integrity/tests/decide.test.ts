@@ -33,7 +33,7 @@ test("a blocking finding fails without the label and says how to accept it", () 
   const verdict = decide([blockFinding, reportFinding], false);
   expect(verdict.pass).toBe(false);
   expect(verdict.summary).toContain(`add the \`${EXCEPTION_LABEL}\` label`);
-  expect(verdict.summary).toContain("`test-file-deleted` in `src/a.test.ts`: test file deleted");
+  expect(verdict.summary).toContain("`test-file-deleted` in `src/a.test.ts`: `test file deleted`");
 });
 
 test("the label accepts blocking findings, which are still listed", () => {
@@ -60,4 +60,22 @@ test("text from the pull request cannot break out of its summary line", () => {
 
 test("the label does not matter when nothing blocks", () => {
   expect(decide([reportFinding], true).pass).toBe(true);
+});
+
+test("a change with only findings for review does not claim nothing changed", () => {
+  const verdict = decide([reportFinding], false);
+  expect(verdict.summary.split("\n")[0]).toBe("Nothing blocks this change.");
+});
+
+test("a detail quoting the pull request cannot render as a link or an image", () => {
+  const linked: Finding = {
+    rule: "gate-weakened",
+    severity: "block",
+    file: ".github/workflows/ci.yml",
+    detail: "gate step removed: [ok](https://example.invalid) ![x](https://example.invalid/p.png)",
+  };
+  const findingLine = decide([linked], false).summary.split("\n").at(-1);
+  expect(findingLine).toBe(
+    "- `gate-weakened` in `.github/workflows/ci.yml`: `gate step removed: [ok](https://example.invalid) ![x](https://example.invalid/p.png)`",
+  );
 });

@@ -22,38 +22,39 @@ function git(...args: string[]): string {
   return result.stdout.toString();
 }
 
-// Scripts from every package.json at the head commit, so a workflow step that names a script can be
-// matched to the commands it runs.
+// The root package's scripts at the head commit, where workflow steps run by default, so a step
+// that names a script can be matched to the commands it runs.
 const known = new Map<string, string>();
-for (const entry of git("ls-tree", "-r", "-l", "--full-tree", head).split("\n")) {
-  const match = /^\d+ blob [0-9a-f]+\s+(\d+)\t(.+)$/.exec(entry);
-  if (!match) continue;
-  const [, size = "0", path = ""] = match;
-  if (!/(^|\/)package\.json$/.test(path) || path.includes("node_modules/")) continue;
-  if (Number(size) > MAX_PACKAGE_JSON_BYTES)
-    fail(`${path} is larger than ${MAX_PACKAGE_JSON_BYTES} bytes`);
+const rootPackage = /^\d+ blob [0-9a-f]+\s+(\d+)\tpackage\.json$/.exec(
+  git("ls-tree", "-l", head, "package.json").trim(),
+);
+if (rootPackage) {
+  if (Number(rootPackage[1]) > MAX_PACKAGE_JSON_BYTES)
+    fail(`package.json is larger than ${MAX_PACKAGE_JSON_BYTES} bytes`);
   let scripts: unknown;
   try {
-    scripts = JSON.parse(git("show", `${head}:${path}`)).scripts;
+    scripts = JSON.parse(git("show", `${head}:package.json`)).scripts;
   } catch {
-    fail(`${path} at ${head} is not valid JSON`);
+    fail(`package.json at ${head} is not valid JSON`);
   }
   if (scripts && typeof scripts === "object") {
     for (const [name, command] of Object.entries(scripts)) {
-      if (typeof command === "string" && !known.has(name)) known.set(name, command);
+      if (typeof command === "string") known.set(name, command);
     }
   }
 }
 
 // Git's usual rename detection, so a file moved with small edits reads as a move, not a deletion
 // plus an addition. The detector reads each rename's old and new path and reports a test that moves
-// out of the test patterns.
+// out of the test patterns. Whole files as context, so every step a changed workflow still runs is
+// in view.
 const diff = git(
   "diff",
   "--no-color",
   "--no-ext-diff",
   "--find-renames",
   "--no-textconv",
+  "--unified=100000",
   `${base}...${head}`,
 );
 let findings;

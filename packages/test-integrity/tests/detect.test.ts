@@ -228,12 +228,23 @@ test("replacing a gate step with an equivalent one that still runs it is not a w
     ["      - run: bun run verify"],
   );
   expect(rules(moved)).toEqual(["gate-edited"]);
-  // `bun test` and `bun run test` run the same step.
+  // `npm run test`, `bun run test`, and `npm test` all run the `test` script.
   expect(
     rules(
-      diff(".github/workflows/ci.yml", ["      - run: bun run test"], ["      - run: bun test"]),
+      diff(".github/workflows/ci.yml", ["      - run: npm test"], ["      - run: bun run test"]),
     ),
   ).toEqual(["gate-edited"]);
+});
+
+test("`bun test` is the test runner, not the `test` script, so one does not cover the other", () => {
+  // A root `test` script can run more than the runner, such as each workspace's tests.
+  const scripts = new Map([["test", "bun scripts/run-workspaces.ts test && bun test scripts/"]]);
+  const text = diff(
+    ".github/workflows/ci.yml",
+    ["      - run: bun test"],
+    ["      - run: bun run test"],
+  );
+  expect(detect(text, scripts).map((f) => f.rule)).toEqual(["gate-weakened"]);
 });
 
 test("folding separate gate steps into one script that runs them all is not a weakening", () => {
@@ -444,4 +455,71 @@ test("findings name the file and say what happened", () => {
     file: "src/a.test.ts",
     detail: 'test.only("focus", () => {});',
   });
+});
+
+test("an early return spread over three lines blocks like the one-line form", () => {
+  expect(detect(diff("src/a.test.ts", ["  if (process.env.CI) {", "    return;", "  }"]))).toEqual([
+    {
+      rule: "early-exit-added",
+      severity: "block",
+      file: "src/a.test.ts",
+      detail: "if (process.env.CI) { return; }",
+    },
+  ]);
+  // A guard with more in its body, or one that returns a value, is ordinary test code.
+  expect(rules(diff("src/a.test.ts", ["  if (!up) {", "    await start();", "  }"]))).toEqual([]);
+  expect(rules(diff("src/a.test.ts", ["  if (cached) {", "    return cached;", "  }"]))).toEqual(
+    [],
+  );
+});
+
+test("a gate command inside a shell conditional or behind an environment variable is a gate step", () => {
+  for (const command of [
+    'if [ -n "$CI" ]; then bun test; fi',
+    "for dir in a b; do bun run check; done",
+    "CI=1 bun test",
+  ]) {
+    expect(rules(diff(".github/workflows/ci.yml", [], [`      - run: ${command}`]))).toEqual([
+      "gate-weakened",
+    ]);
+  }
+});
+
+test("a step that ran in another directory is not covered by the root's script of the same name", () => {
+  const text = diff(
+    ".github/workflows/ci.yml",
+    [],
+    ["      - run: bun run test", "        working-directory: packages/api"],
+    false,
+    ["      - run: bun run test"],
+  );
+  expect(detect(text, new Map([["test", "bun test"]])).map((f) => f.rule)).toEqual([
+    "gate-weakened",
+  ]);
+});
+
+test("a step is covered only when every gate command it ran still runs", () => {
+  const scripts = new Map([["check", "vp check && bun test"]]);
+  const removed = ["      - run: bun run check"];
+  expect(
+    detect(diff(".github/workflows/ci.yml", ["      - run: vp check"], removed), scripts).map(
+      (f) => f.rule,
+    ),
+  ).toEqual(["gate-weakened"]);
+  expect(
+    detect(
+      diff(".github/workflows/ci.yml", ["      - run: vp check", "      - run: bun test"], removed),
+      scripts,
+    ).map((f) => f.rule),
+  ).toEqual(["gate-edited"]);
+  // The same holds for a step that chains commands itself.
+  expect(
+    rules(
+      diff(
+        ".github/workflows/ci.yml",
+        ["      - run: vp check"],
+        ["      - run: vp check && bun test"],
+      ),
+    ),
+  ).toEqual(["gate-weakened"]);
 });

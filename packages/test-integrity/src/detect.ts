@@ -54,10 +54,11 @@ const AGENT_GATE = /(^|\/)\.agent-gate$/;
 const WORKFLOW = /^\.github\/workflows\//;
 // A workflow line that runs part of the gate, as opposed to release, deploy, or setup steps: a
 // one-line `run:` step, or a command line inside a multi-line `run: |` block.
-// A gate tool invoked as a command: `bun test`, `bun run check`, `vp check`, `npx vitest`, `tsc`.
+// A gate tool invoked as a command: `bun test`, `bun run check`, `vp check`, `npx vitest`, `tsc`,
+// also after `then`, `do`, or `else`, or behind environment assignments (`CI=1 bun test`).
 // Words such as `test` in `test -n "$VAR"` (the shell builtin) or in an echo are not gate commands.
 const GATE_TOOL =
-  /(?:^|&&|;|\|\|)\s*(?:(?:bun|bunx|npx|pnpm|yarn|npm|vp)\s+(?:run\s+|x\s+)?)?(check|verify|test|lint|typecheck|tsc|biome|playwright|vitest)(?![\w-])(?!\s+-[a-z]\s)/;
+  /(?:^|&&|;|\|\||\b(?:then|do|else)\s)\s*(?:\w+=\S*\s+)*(?:(?:bun|bunx|npx|pnpm|yarn|npm|vp)\s+(?:run\s+|x\s+)?)?(check|verify|test|lint|typecheck|tsc|biome|playwright|vitest)(?![\w-])(?!\s+-[a-z]\s)/;
 const RUN_PREFIX = /^\s*-?\s*run:\s*/;
 function isGateLine(line: string): boolean {
   const command = line.replace(RUN_PREFIX, "").trim();
@@ -74,10 +75,28 @@ const SKIP_OR_FOCUS =
 // text that follows the marker.
 const CONDITIONAL_SKIP_START = /\btest\.skip\s*\(\s*$|\btest\.skip\s*\(\s*[^"'`\s]/;
 const ASSERTION = /\bexpect\s*\(|\bassert(?:\.\w+)?\s*\(/g;
-// A guard that leaves a test before its assertions without a value: `if (process.env.CI) return;`.
+// A guard that leaves a test before its assertions without a value: `if (process.env.CI) return;`,
+// or the same guard over three lines (`if (…) {`, `return;`, `}`).
 // A bare `return` gives up; `return value` is a helper, a mock, or a retry loop answering, and
 // those are ordinary test code.
 const EARLY_EXIT = /^\s*if\s*\(.+\)\s*(?:\{\s*)?return\s*;?\s*\}?\s*$/;
+const GUARD_OPEN = /^\s*if\s*\(.+\)\s*\{\s*$/;
+const BARE_RETURN = /^\s*return\s*;?\s*$/;
+const CLOSE = /^\s*\}\s*$/;
+function earlyExits(lines: string[]): string[] {
+  const found: string[] = [];
+  lines.forEach((line, at) => {
+    if (EARLY_EXIT.test(line)) found.push(line.trim());
+    else if (
+      GUARD_OPEN.test(line) &&
+      BARE_RETURN.test(lines[at + 1] ?? "") &&
+      CLOSE.test(lines[at + 2] ?? "")
+    ) {
+      found.push(`${line.trim()} return; }`);
+    }
+  });
+  return found;
+}
 const GATE_SCRIPT = /^\s*"(check|verify|test)"\s*:\s*"(.*)"\s*,?\s*$/;
 
 // The commands a gate script chains with `&&`.
@@ -109,11 +128,12 @@ function weakenedScripts(file: FileDiff): string[] {
   return weakened;
 }
 
-// The package scripts after the change, so a removed workflow step can be matched to a script
-// that still runs it. `scripts` holds only the lines this diff added or kept in view.
+// The root package's scripts after the change, so a removed workflow step can be matched to a
+// script that still runs it. Workflow steps run at the root unless they set `working-directory`.
+// This holds only the lines this diff added; the caller supplies the rest.
 function scriptsAfter(files: FileDiff[]): Map<string, string> {
   const scripts = new Map<string, string>();
-  for (const file of files.filter((f) => /(^|\/)package\.json$/.test(f.path))) {
+  for (const file of files.filter((f) => f.path === "package.json")) {
     for (const line of file.added) {
       const match = /^\s*"([\w:.-]+)"\s*:\s*"(.*)"\s*,?\s*$/.exec(line);
       if (match) scripts.set(match[1] ?? "", match[2] ?? "");
@@ -122,48 +142,47 @@ function scriptsAfter(files: FileDiff[]): Map<string, string> {
   return scripts;
 }
 
-// The command a workflow line executes, with `bun run x` and `bun x` naming the same script.
-function stepCommand(line: string): string {
-  return line.replace(RUN_PREFIX, "").trim();
-}
+// A package script by name: `bun run x`, `npm run x`, and `npm test` all run the script `x` or
+// `test`. `bun test` is Bun's test runner, not the `test` script, so it stays as written.
 function normalize(command: string): string {
   return command
-    .replace(/^bun run /, "")
-    .replace(/^bun /, "")
-    .replace(/^npm run /, "")
-    .trim();
+    .trim()
+    .replace(/^(?:bun|npm|pnpm|yarn)\s+run\s+/, "")
+    .replace(/^npm\s+test$/, "test");
 }
 
-// The commands a named script runs, following `bun run <script>` references one level into the
-// scripts this change defines. `bun run format:check` and `prettier --check .` are the same when
-// the script `format:check` is `prettier --check .`, but that script may not be in this diff; the
-// caller passes the scripts it can see.
+// The gate commands a workflow line runs, split at `&&`.
+const gateCommands = (line: string) =>
+  segments(line.replace(RUN_PREFIX, "")).filter((part) => GATE_TOOL.test(part));
+
+// A command, and when it names a script, the commands that script runs, one level deep.
 function expand(command: string, scripts: Map<string, string>): string[] {
-  const direct = normalize(command);
-  const body = scripts.get(direct);
-  return body ? [direct, ...segments(body).map(normalize)] : [direct];
+  const name = normalize(command);
+  const body = scripts.get(name);
+  return body ? [name, ...segments(body).map(normalize)] : [name];
 }
 
-// A removed gate step is still covered when a remaining step, or a script it runs (also when that
-// script is changed in the same diff), runs the same command. `bun test` and `bun run test` are the
-// same step. `known` holds tool commands whose script bodies are known: a removed
-// `bun run typecheck` is covered by a remaining `tsc --noEmit` only when the repository's
-// `typecheck` script is exactly that, so unresolvable names do not count as covered.
+// A removed gate step is still covered when every gate command it ran still runs: by name (a
+// remaining step, or a script a remaining step runs), or because every command in its script
+// does. A remaining `vp check` does not cover a removed `bun run check` that also ran the tests.
 function stillCovered(
   removed: string,
   remainingSteps: string[],
   scripts: Map<string, string>,
-  known: Map<string, string>,
 ): boolean {
-  const target = normalize(stepCommand(removed));
-  const targetBody = known.get(target);
-  const targets = new Set([target, ...(targetBody ? segments(targetBody).map(normalize) : [])]);
-  for (const step of remainingSteps) {
-    for (const part of expand(stepCommand(step), scripts)) {
-      if (targets.has(part)) return true;
-    }
-  }
-  return false;
+  const ran = new Set(
+    remainingSteps.flatMap((step) => gateCommands(step).flatMap((c) => expand(c, scripts))),
+  );
+  const commands = gateCommands(removed);
+  return (
+    commands.length > 0 &&
+    commands.every((command) => {
+      const name = normalize(command);
+      if (ran.has(name)) return true;
+      const body = scripts.get(name);
+      return body !== undefined && segments(body).every((part) => ran.has(normalize(part)));
+    })
+  );
 }
 
 export class UnparseableDiff extends Error {}
@@ -212,7 +231,7 @@ function isConditionalSkip(lines: string[], at: number): boolean {
   return hasReason && !hasBody;
 }
 
-// `known` maps script names to their commands in the repository after the change, for scripts the
+// `known` maps the root package's script names to their commands after the change, for scripts the
 // diff does not touch (see cli.ts). Tests may omit it.
 export function detect(diff: string, known: Map<string, string> = new Map()): Finding[] {
   const findings: Finding[] = [];
@@ -243,10 +262,9 @@ export function detect(diff: string, known: Map<string, string> = new Map()): Fi
         );
       });
       // An added guard that returns early skips the test's assertions silently, like a skip.
-      for (const line of file.added) {
-        if (EARLY_EXIT.test(line) && !file.removed.some((r) => r.trim() === line.trim())) {
-          add("early-exit-added", path, line.trim());
-        }
+      const existing = new Set(earlyExits(file.removed));
+      for (const guard of earlyExits(file.added)) {
+        if (!existing.has(guard)) add("early-exit-added", path, guard);
       }
       // Counted per file: assertions added to one file do not hide ones removed from another.
       const added = count(file.added, ASSERTION);
@@ -277,8 +295,11 @@ export function detect(diff: string, known: Map<string, string> = new Map()): Fi
     if (WORKFLOW.test(path)) {
       // Steps that still run after the change: added ones, and unchanged ones the diff shows.
       const remaining = [...file.added, ...file.context].filter((line) => GATE_STEP.test(line));
+      // Scripts are the root package's. A removed step that ran in another directory may have run
+      // another package's script of the same name, so nothing counts as still running it.
+      const scoped = file.removed.some((line) => /^\s*working-directory:/.test(line));
       const dropped = file.removed.filter(
-        (line) => GATE_STEP.test(line) && !stillCovered(line, remaining, scripts, scripts),
+        (line) => GATE_STEP.test(line) && (scoped || !stillCovered(line, remaining, scripts)),
       );
       // Deleting a workflow weakens the gate only when that workflow ran gate steps; a deploy or
       // release workflow is not part of the gate.
