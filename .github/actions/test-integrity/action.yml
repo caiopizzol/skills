@@ -4,7 +4,8 @@ description: >-
   skip or focus, or a gate that runs less). Adding the `tests-changed-ok` label accepts the pull
   request's current head only; any later push is checked again, and the label must be removed and
   added again to accept it. Reads git only; it never checks out or runs the pull request's code.
-  Call it from a pull_request_target workflow that includes the `labeled` event.
+  Call it from a pull_request_target workflow on `opened`, `synchronize`, `reopened`, `edited`
+  (a new base branch changes the diff), `labeled`, and `unlabeled`, with a job `timeout-minutes`.
 runs:
   using: composite
   steps:
