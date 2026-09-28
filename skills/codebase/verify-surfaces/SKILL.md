@@ -22,7 +22,8 @@ Change nothing.
    token), and never records secrets.
 3. Add one test that fails when a surface in the declaration has no test case. For each surface
    and output mode, assert:
-   - the exact output (`toBe`), expected stderr, and exit code;
+   - the exact output (`toBe`), expected stderr, and exit code; for a page, every heading and
+     labelled region it renders, not a chosen few;
    - the exact outbound requests: method, origin, path, query, and relevant body fields;
    - that no secret appears in the output;
    - that each state-changing request happens only after its guard, such as a confirmation or scope
