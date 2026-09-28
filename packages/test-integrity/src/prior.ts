@@ -3,9 +3,10 @@
 //
 // Events that cannot change the verdict (a title or body edit, or any label other than the
 // exception label) reuse the newest completed verdict recorded for the same base, head, and
-// detector version, so an approval is not lost to unrelated activity. Anything else, or no exact
-// match, is evaluated again, which is fail-closed: without the exception label a blocking change
-// fails.
+// detector version, so an approval is not lost to unrelated activity. The version must be a commit
+// SHA: a branch or tag pin names different code over time, so it never reuses. Anything else, or no
+// exact match, is evaluated again, which is fail-closed: without the exception label a blocking
+// change fails.
 
 export const RECORD_TITLE = "test-integrity-result";
 
@@ -36,6 +37,7 @@ export interface Subject {
 export type Decision = { kind: "evaluate" } | { kind: "reuse"; pass: boolean; runId: number };
 
 const GITHUB_ACTIONS = 15368;
+const COMMIT = /^[0-9a-f]{40}$/;
 
 // A verdict record: `base=<sha> head=<sha> version=<id> verdict=pass|fail`.
 export function formatRecord(subject: Subject, pass: boolean): string {
@@ -66,7 +68,8 @@ export function decidePrior(
   subject: Subject,
   runs: CheckRun[],
 ): Decision {
-  if (!reusable(event, exceptionLabel)) return { kind: "evaluate" };
+  if (!reusable(event, exceptionLabel) || !COMMIT.test(subject.version))
+    return { kind: "evaluate" };
   const candidates = runs
     .filter((run) => run.status === "completed" && run.appId === GITHUB_ACTIONS)
     .filter((run) => run.conclusion === "success" || run.conclusion === "failure")

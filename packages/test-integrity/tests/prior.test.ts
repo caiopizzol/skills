@@ -9,7 +9,7 @@ import {
 } from "../src/prior.ts";
 
 const LABEL = "tests-changed-ok";
-const subject = { base: "a".repeat(40), head: "b".repeat(40), version: "v1" };
+const subject = { base: "a".repeat(40), head: "b".repeat(40), version: "e".repeat(40) };
 
 function run(overrides: Partial<CheckRun> & { pass?: boolean; record?: string }): CheckRun {
   const pass = overrides.pass ?? true;
@@ -76,10 +76,18 @@ test("a verdict for another base, head, or detector version is not reused", () =
   for (const other of [
     { ...subject, base: "c".repeat(40) },
     { ...subject, head: "d".repeat(40) },
-    { ...subject, version: "v0" },
+    { ...subject, version: "f".repeat(40) },
   ]) {
     const runs = [run({ record: formatRecord(other, true) })];
     expect(decidePrior(otherLabel, LABEL, subject, runs)).toEqual({ kind: "evaluate" });
+  }
+});
+
+test("a detector pinned by branch or tag never reuses, since the name can move to new code", () => {
+  for (const version of ["main", "v1", "v0.8.0", "E".repeat(40), "e".repeat(39)]) {
+    const pinned = { ...subject, version };
+    const runs = [run({ record: formatRecord(pinned, true) })];
+    expect(decidePrior(otherLabel, LABEL, pinned, runs)).toEqual({ kind: "evaluate" });
   }
 });
 

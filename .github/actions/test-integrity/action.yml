@@ -6,6 +6,8 @@ description: >-
   added again to accept it. Reads git only; it never checks out or runs the pull request's code.
   Call it from a pull_request_target workflow on `opened`, `synchronize`, `reopened`, `edited`
   (a new base branch changes the diff), `labeled`, and `unlabeled`, with a job `timeout-minutes`.
+  A title edit or another label keeps the earlier verdict only when the workflow grants
+  `checks: read` and pins this action by commit SHA; otherwise the change is checked again.
 runs:
   using: composite
   steps:
