@@ -25,8 +25,10 @@ runs:
         [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ && "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "Missing commit SHAs" >&2; exit 2; }
         dir="$RUNNER_TEMP/test-integrity-repo"
         git init -q "$dir"
-        # The token is passed per command, never written to the repository's config.
+        # The token is passed to this command only, never written to the repository's config. The
+        # fetch is partial: file contents arrive later, when the check reads them.
         auth="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$TOKEN" | base64 | tr -d '\n')"
+        echo "::add-mask::$auth"
         git -C "$dir" -c "http.extraheader=$auth" fetch -q --filter=blob:none \
           "https://github.com/${REPOSITORY}.git" "$BASE_SHA" "+refs/pull/${PR_NUMBER}/head:refs/remotes/pr"
         [ "$(git -C "$dir" rev-parse refs/remotes/pr)" = "$HEAD_SHA" ] || { echo "Pull request head moved; rerun" >&2; exit 2; }
@@ -39,4 +41,14 @@ runs:
         BASE_SHA: ${{ github.event.pull_request.base.sha }}
         HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         TESTS_CHANGED_OK: ${{ contains(github.event.pull_request.labels.*.name, 'tests-changed-ok') }}
-      run: bun "$GITHUB_ACTION_PATH/../../../packages/test-integrity/src/cli.ts" "$BASE_SHA" "$HEAD_SHA" "$TEST_INTEGRITY_REPO"
+        TOKEN: ${{ github.token }}
+      # The check reads the files it needs, and git fetches each one then. The token reaches those
+      # fetches only as git configuration in this process's environment: never on disk or in a
+      # later step, and the check runs no code from the pull request.
+      run: |
+        set -euo pipefail
+        auth="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$TOKEN" | base64 | tr -d '\n')"
+        echo "::add-mask::$auth"
+        unset TOKEN
+        GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.extraheader GIT_CONFIG_VALUE_0="$auth" \
+          bun "$GITHUB_ACTION_PATH/../../../packages/test-integrity/src/cli.ts" "$BASE_SHA" "$HEAD_SHA" "$TEST_INTEGRITY_REPO"
