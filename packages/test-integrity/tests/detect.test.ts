@@ -1,31 +1,46 @@
 import { expect, test } from "vite-plus/test";
-import { detect, type Rule } from "../src/detect.ts";
+import { detect, type Head, type Rule } from "../src/detect.ts";
 
-// Builds a minimal unified diff for one file. `context` lines are unchanged lines shown around the
-// edit.
-function diff(
-  path: string,
-  added: string[],
-  removed: string[] = [],
-  deleted = false,
-  context: string[] = [],
-): string {
+// Builds a minimal unified diff for one file.
+function diff(path: string, added: string[], removed: string[] = [], deleted = false): string {
   return [
     `diff --git a/${path} b/${path}`,
     ...(deleted ? ["deleted file mode 100644"] : []),
     `--- a/${path}`,
     `+++ ${deleted ? "/dev/null" : `b/${path}`}`,
     "@@ -1 +1 @@",
-    ...context.map((line) => ` ${line}`),
     ...removed.map((line) => `-${line}`),
     ...added.map((line) => `+${line}`),
   ].join("\n");
 }
-const rules = (text: string): Rule[] =>
-  detect(text)
+const rules = (text: string, head?: Head): Rule[] =>
+  detect(text, head)
     .map((f) => f.rule)
     .sort();
 
+// A parsed workflow, as `cli.ts` reads it with Bun.YAML: one pull request job with these steps.
+type Step = Record<string, unknown>;
+const workflow = (steps: Step[], extra: Record<string, unknown> = {}) => ({
+  on: { pull_request: null },
+  jobs: { check: { "runs-on": "ubuntu-latest", steps } },
+  ...extra,
+});
+const run = (command: string, more: Step = {}): Step => ({ run: command, ...more });
+
+// A workflow change: a diff that marks the file as edited, and its full contents before and after.
+function workflowChange(
+  before: unknown,
+  after: unknown,
+  scripts: Record<string, string> = {},
+  path = ".github/workflows/ci.yml",
+) {
+  const text = diff(path, after === null ? [] : ["# after"], ["# before"], after === null);
+  const head: Head = {
+    scripts: new Map(Object.entries(scripts)),
+    workflows: new Map([[path, { before, after }]]),
+  };
+  return rules(text, head);
+}
 test("a deleted test file is reported once, as a deleted file", () => {
   expect(rules(diff("src/cli.test.ts", [], ['test("x", () => expect(1).toBe(1));'], true))).toEqual(
     ["test-file-deleted"],
@@ -162,7 +177,7 @@ test("a production-only change is not reported", () => {
   expect(rules(diff("src/cli.ts", ["const a = 2;"], ["const a = 1;"]))).toEqual([]);
 });
 
-test("weakening the gate blocks: dropping a command, a workflow gate step, or the agent gate", () => {
+test("weakening the gate blocks: dropping a command, a workflow gate command, or the agent gate", () => {
   expect(
     rules(
       diff(
@@ -181,7 +196,7 @@ test("weakening the gate blocks: dropping a command, a workflow gate step, or th
       ),
     ),
   ).toEqual(["gate-weakened"]);
-  expect(rules(diff(".github/workflows/ci.yml", [], ["      - run: bun run verify"]))).toEqual([
+  expect(workflowChange(workflow([run("bun run verify")]), workflow([]))).toEqual([
     "gate-weakened",
   ]);
   expect(rules(diff(".agent-gate", ["true"], ["bun run check"]))).toEqual(["gate-weakened"]);
@@ -201,19 +216,9 @@ test("strengthening or reshaping the gate only reports", () => {
   expect(rules(diff("package.json", ['    "verify": "bun run check && bun test",']))).toEqual([]);
   expect(rules(diff(".agent-gate", ["bun run verify"]))).toEqual([]);
   expect(
-    rules(
-      diff(".github/workflows/ci.yml", [
-        "      - run: bunx playwright install --with-deps chromium",
-      ]),
-    ),
-  ).toEqual(["gate-edited"]);
-  expect(
-    rules(
-      diff(
-        ".github/workflows/release.yml",
-        [],
-        ["          # NPM_TOKEN: ${{ secrets.NPM_TOKEN }}"],
-      ),
+    workflowChange(
+      workflow([run("bun run check")]),
+      workflow([run("bunx playwright install --with-deps chromium"), run("bun run check")]),
     ),
   ).toEqual(["gate-edited"]);
   expect(rules(diff("playwright.config.ts", ["  retries: 3,"], ["  retries: 0,"]))).toEqual([
@@ -221,101 +226,186 @@ test("strengthening or reshaping the gate only reports", () => {
   ]);
 });
 
-test("replacing a gate step with an equivalent one that still runs it is not a weakening", () => {
-  const moved = diff(
-    ".github/workflows/ci.yml",
-    ["      - run: bun run verify", "      - run: bun run test:package"],
-    ["      - run: bun run verify"],
+test("a workflow change must come with the workflow's contents, or the check refuses it", () => {
+  expect(() => rules(diff(".github/workflows/ci.yml", ["# after"], ["# before"]))).toThrow(
+    "were not supplied",
   );
-  expect(rules(moved)).toEqual(["gate-edited"]);
-  // `npm run test`, `bun run test`, and `npm test` all run the `test` script.
-  expect(
-    rules(
-      diff(".github/workflows/ci.yml", ["      - run: npm test"], ["      - run: bun run test"]),
-    ),
-  ).toEqual(["gate-edited"]);
+});
+
+test("replacing a gate command with one that runs the same script is not a weakening", () => {
+  // `npm test`, `pnpm test`, `yarn test`, and `bun run test` all run the `test` script.
+  for (const command of ["npm test", "pnpm test", "yarn test", "pnpm run test"]) {
+    expect(workflowChange(workflow([run("bun run test")]), workflow([run(command)]))).toEqual([
+      "gate-edited",
+    ]);
+  }
 });
 
 test("`bun test` is the test runner, not the `test` script, so one does not cover the other", () => {
   // A root `test` script can run more than the runner, such as each workspace's tests.
-  const scripts = new Map([["test", "bun scripts/run-workspaces.ts test && bun test scripts/"]]);
-  const text = diff(
-    ".github/workflows/ci.yml",
-    ["      - run: bun test"],
-    ["      - run: bun run test"],
-  );
-  expect(detect(text, scripts).map((f) => f.rule)).toEqual(["gate-weakened"]);
-});
-
-test("folding separate gate steps into one script that runs them all is not a weakening", () => {
-  const text = [
-    diff(
-      ".github/workflows/ci.yml",
-      ["      - run: bun run verify"],
-      [
-        "      - run: bun run format:check",
-        "      - run: bun run typecheck",
-        "      - run: bun test",
-      ],
-    ),
-    diff("package.json", [
-      '    "verify": "bun run format:check && bun run typecheck && bun test",',
-    ]),
-  ].join("\n");
-  expect(rules(text)).toEqual(["gate-edited"]);
-});
-
-test("deleting a workflow blocks only when it ran gate steps", () => {
-  expect(rules(diff(".github/workflows/ci.yml", [], ["      - run: bun run check"], true))).toEqual(
-    ["gate-weakened"],
-  );
+  const scripts = { test: "bun scripts/run-workspaces.ts test && bun test scripts/" };
   expect(
-    rules(
-      diff(
-        ".github/workflows/deploy.yml",
-        [],
-        ["      - run: bun install --frozen-lockfile", "      - run: wrangler deploy"],
-        true,
-      ),
+    workflowChange(workflow([run("bun run test")]), workflow([run("bun test")]), scripts),
+  ).toEqual(["gate-weakened"]);
+});
+
+test("folding separate gate commands into one root script that runs them all is not a weakening", () => {
+  const before = workflow([run("bun run format:check"), run("bun run typecheck"), run("bun test")]);
+  const verify = "bun run format:check && bun run typecheck && bun test";
+  expect(workflowChange(before, workflow([run("bun run verify")]), { verify })).toEqual([
+    "gate-edited",
+  ]);
+  // The same fold into a script that silently drops one of them is a weakening.
+  expect(
+    workflowChange(before, workflow([run("bun run verify")]), {
+      verify: "bun run format:check && bun run typecheck",
+    }),
+  ).toEqual(["gate-weakened"]);
+});
+
+test("deleting a workflow blocks only when it ran gate commands", () => {
+  expect(workflowChange(workflow([run("bun run check")]), null)).toEqual(["gate-weakened"]);
+  expect(
+    workflowChange(
+      workflow([run("bun install --frozen-lockfile"), run("wrangler deploy")]),
+      null,
+      {},
+      ".github/workflows/deploy.yml",
     ),
   ).toEqual(["gate-edited"]);
 });
 
-test("a step dropped because an unchanged step now runs it is not a weakening", () => {
-  const text = [
-    diff(".github/workflows/check.yml", [], ["      - run: bun test"], false, [
-      "      - run: bun run check",
-    ]),
-    diff(
-      "package.json",
-      ['    "check": "biome check && tsc && bun test",'],
-      ['    "check": "biome check && tsc",'],
-    ),
-  ].join("\n");
-  expect(rules(text)).toEqual(["gate-edited"]);
+test("a command dropped because an unchanged step's script now runs it is not a weakening", () => {
+  const before = workflow([run("bun run check"), run("bun test")]);
+  const after = workflow([run("bun run check")]);
+  expect(workflowChange(before, after, { check: "biome check && tsc && bun test" })).toEqual([
+    "gate-edited",
+  ]);
+  expect(workflowChange(before, after, { check: "biome check && tsc" })).toEqual(["gate-weakened"]);
 });
 
-test("a step dropped with nothing left running it is a weakening, even beside unchanged steps", () => {
-  const text = diff(".github/workflows/check.yml", [], ["      - run: bun test"], false, [
-    "      - run: bun run check",
+test("a gate command dropped from a multi-line run block blocks; one kept only reports", () => {
+  const before = workflow([run("bun run check\nbun test\n")]);
+  expect(workflowChange(before, workflow([run("bun run check\n")]))).toEqual(["gate-weakened"]);
+  expect(workflowChange(before, workflow([run("bun run check\nbun test\necho done\n")]))).toEqual([
+    "gate-edited",
   ]);
-  expect(detect(text, new Map([["check", "biome check && tsc"]])).map((f) => f.rule)).toEqual([
+});
+
+test("the shell's `test` builtin, words in an echo, and comments are not gate commands", () => {
+  const guard = 'test -n "$DB_ID" || { echo "DB_ID is not set"; exit 1; }';
+  for (const command of [guard, 'echo "run the tests with bun test"', "# bun test"]) {
+    expect(workflowChange(workflow([run(command)]), workflow([]))).toEqual(["gate-edited"]);
+  }
+});
+
+test("gate tools invoked through package runners are gate commands", () => {
+  for (const command of [
+    "bunx biome check src/",
+    "npx vitest run",
+    "vp check",
+    "bun run typecheck",
+    "tsc --noEmit",
+    "npm test",
+  ]) {
+    expect(workflowChange(workflow([run(command)]), workflow([]))).toEqual(["gate-weakened"]);
+  }
+});
+
+test("a gate command inside a shell conditional or behind an environment variable is a gate command", () => {
+  for (const command of [
+    'if [ -n "$CI" ]; then bun test; fi',
+    "for dir in a b; do bun run check; done",
+    "CI=1 bun test",
+  ]) {
+    expect(workflowChange(workflow([run(command)]), workflow([]))).toEqual(["gate-weakened"]);
+  }
+});
+
+test("a command is covered only when every gate command of the removed step still runs", () => {
+  const scripts = { check: "vp check && bun test" };
+  expect(
+    workflowChange(workflow([run("bun run check")]), workflow([run("vp check")]), scripts),
+  ).toEqual(["gate-weakened"]);
+  expect(
+    workflowChange(
+      workflow([run("bun run check")]),
+      workflow([run("vp check"), run("bun test")]),
+      scripts,
+    ),
+  ).toEqual(["gate-edited"]);
+  expect(
+    workflowChange(workflow([run("vp check && bun test")]), workflow([run("vp check")])),
+  ).toEqual(["gate-weakened"]);
+});
+
+test("a step's working directory scopes its commands: another directory never covers it", () => {
+  const scripts = { test: "bun test", check: "bun run test" };
+  const inApi = { "working-directory": "packages/api" };
+  // Moved from packages/api to the root: the root's `test` script is not the package's.
+  expect(
+    workflowChange(
+      workflow([run("bun run test", inApi)]),
+      workflow([run("bun run test")]),
+      scripts,
+    ),
+  ).toEqual(["gate-weakened"]);
+  // Replaced in packages/api by a script that, at the root, would run it.
+  expect(
+    workflowChange(
+      workflow([run("bun run test", inApi)]),
+      workflow([run("bun run check", inApi)]),
+      scripts,
+    ),
+  ).toEqual(["gate-weakened"]);
+  // A job-level default directory scopes its steps too.
+  const jobDefault = {
+    jobs: {
+      check: {
+        defaults: { run: { "working-directory": "packages/api" } },
+        steps: [run("bun test")],
+      },
+    },
+  };
+  expect(workflowChange(workflow([], jobDefault), workflow([run("bun test")]), scripts)).toEqual([
     "gate-weakened",
   ]);
 });
 
-test("folding steps into a script that silently drops one of them is a weakening", () => {
-  const text = [
-    diff(
-      ".github/workflows/ci.yml",
-      ["      - run: bun run verify"],
-      ["      - run: bun run typecheck", "      - run: bun test"],
-    ),
-    diff("package.json", ['    "verify": "bun run typecheck",']),
-  ].join("\n");
-  expect(detect(text).find((f) => f.rule === "gate-weakened")?.detail).toBe(
-    "gate step removed: - run: bun test",
-  );
+test("a working directory elsewhere in the workflow does not block an unrelated covered change", () => {
+  const other = run("bun install --frozen-lockfile", { "working-directory": "packages/web" });
+  const before = workflow([other, run("bun test"), run("bun run check")]);
+  const after = workflow([run("bun run check")]);
+  expect(workflowChange(before, after, { check: "biome check && bun test" })).toEqual([
+    "gate-edited",
+  ]);
+});
+
+test("a command still run only by a push-only workflow, another job, or a skipped step is dropped", () => {
+  const before = workflow([run("bun test")]);
+  const onPushOnly = { ...workflow([run("bun test")]), on: { push: { branches: ["main"] } } };
+  expect(workflowChange(before, onPushOnly)).toEqual(["gate-weakened"]);
+  const otherJob = { on: { pull_request: null }, jobs: { release: { steps: [run("bun test")] } } };
+  expect(workflowChange(before, otherJob)).toEqual(["gate-weakened"]);
+  expect(workflowChange(before, workflow([run("bun test", { if: "false" })]))).toEqual([
+    "gate-weakened",
+  ]);
+  expect(
+    workflowChange(before, workflow([run("bun test", { "continue-on-error": true })])),
+  ).toEqual(["gate-weakened"]);
+  const skippedJob = {
+    on: { pull_request: null },
+    jobs: { check: { if: "github.event_name == 'push'", steps: [run("bun test")] } },
+  };
+  expect(workflowChange(before, skippedJob)).toEqual(["gate-weakened"]);
+});
+
+test("pull request triggers are read in every YAML form", () => {
+  for (const on of ["pull_request", ["push", "pull_request"], { pull_request_target: null }]) {
+    const before = { ...workflow([run("bun test")]), on };
+    const after = { ...workflow([run("bun test"), run("echo done")]), on };
+    expect(workflowChange(before, after)).toEqual(["gate-edited"]);
+  }
 });
 
 test("other package.json edits, such as a dependency bump, are not gate changes", () => {
@@ -391,62 +481,6 @@ test("an early return in production code is not a test weakening", () => {
   expect(rules(diff("src/cli.ts", ["  if (!input) return;"]))).toEqual([]);
 });
 
-test("a gate command dropped from a multi-line run block blocks", () => {
-  const text = diff(".github/workflows/ci.yml", [], ["          bun test"], false, [
-    "      - run: |",
-    "          bun run check",
-  ]);
-  expect(detect(text)).toEqual([
-    {
-      rule: "gate-weakened",
-      severity: "block",
-      file: ".github/workflows/ci.yml",
-      detail: "gate step removed: bun test",
-    },
-  ]);
-});
-
-test("a multi-line run block that keeps every gate command only reports", () => {
-  const text = diff(".github/workflows/ci.yml", ["          echo done"], [], false, [
-    "      - run: |",
-    "          bun run check",
-    "          bun test",
-  ]);
-  expect(rules(text)).toEqual(["gate-edited"]);
-});
-
-test("the shell's `test` builtin and words in an echo are not gate commands", () => {
-  const guard = '          test -n "$DB_ID" || { echo "DB_ID is not set"; exit 1; }';
-  expect(rules(diff(".github/workflows/deploy.yml", [], [guard]))).toEqual(["gate-edited"]);
-  expect(
-    rules(diff(".github/workflows/ci.yml", [], ['          echo "run the tests with bun test"'])),
-  ).toEqual(["gate-edited"]);
-});
-
-test("gate tools invoked through package runners are gate commands", () => {
-  for (const command of [
-    "bunx biome check src/",
-    "npx vitest run",
-    "vp check",
-    "bun run typecheck",
-    "tsc --noEmit",
-    "npm test",
-  ]) {
-    expect(rules(diff(".github/workflows/ci.yml", [], [`      - run: ${command}`]))).toEqual([
-      "gate-weakened",
-    ]);
-  }
-});
-
-test("YAML keys and comments in a workflow are not gate commands", () => {
-  expect(rules(diff(".github/workflows/ci.yml", [], ["      - name: Run tests"]))).toEqual([
-    "gate-edited",
-  ]);
-  expect(rules(diff(".github/workflows/ci.yml", [], ["        # run the tests again"]))).toEqual([
-    "gate-edited",
-  ]);
-});
-
 test("findings name the file and say what happened", () => {
   const [finding] = detect(diff("src/a.test.ts", ['test.only("focus", () => {});']));
   expect(finding).toEqual({
@@ -473,53 +507,98 @@ test("an early return spread over three lines blocks like the one-line form", ()
   );
 });
 
-test("a gate command inside a shell conditional or behind an environment variable is a gate step", () => {
-  for (const command of [
-    'if [ -n "$CI" ]; then bun test; fi',
-    "for dir in a b; do bun run check; done",
-    "CI=1 bun test",
+test("narrowing a pull request trigger's filters counts as no longer running its commands", () => {
+  const before = workflow([run("bun test")]);
+  for (const trigger of [
+    { pull_request: { types: ["closed"] } },
+    { pull_request: { branches: ["release"] } },
+    { pull_request: { paths: ["docs/**"] } },
   ]) {
-    expect(rules(diff(".github/workflows/ci.yml", [], [`      - run: ${command}`]))).toEqual([
+    expect(workflowChange(before, { ...workflow([run("bun test")]), on: trigger })).toEqual([
       "gate-weakened",
     ]);
   }
 });
 
-test("a step that ran in another directory is not covered by the root's script of the same name", () => {
-  const text = diff(
-    ".github/workflows/ci.yml",
-    [],
-    ["      - run: bun run test", "        working-directory: packages/api"],
-    false,
-    ["      - run: bun run test"],
-  );
-  expect(detect(text, new Map([["test", "bun test"]])).map((f) => f.rule)).toEqual([
-    "gate-weakened",
-  ]);
+test("a condition that is not a short scalar never counts as still running a command", () => {
+  // A YAML alias graph can make a tiny file serialize to megabytes; such a value is not compared.
+  let graph: unknown = ["x", "x", "x", "x", "x", "x", "x", "x", "x", "x"];
+  for (let level = 0; level < 6; level++) graph = Array.from({ length: 10 }, () => graph);
+  const guarded = (condition: unknown) => workflow([run("bun test", { if: condition })]);
+  expect(workflowChange(guarded(graph), guarded(graph))).toEqual(["gate-weakened"]);
+  expect(
+    workflowChange(guarded("github.actor != 'bot'"), guarded("github.actor != 'bot'")),
+  ).toEqual(["gate-edited"]);
 });
 
-test("a step is covered only when every gate command it ran still runs", () => {
-  const scripts = new Map([["check", "vp check && bun test"]]);
-  const removed = ["      - run: bun run check"];
+test("a workflow that runs too much text to read is refused", () => {
+  const long = run(`bun test\n${"echo x\n".repeat(200_000)}`);
+  expect(() => workflowChange(workflow([long]), workflow([]))).toThrow("too much text");
+});
+
+test("widening a pull request trigger, by removing a filter, still runs its commands", () => {
+  const narrow = { ...workflow([run("bun test")]), on: { pull_request: { branches: ["main"] } } };
+  const wide = { ...workflow([run("bun test")]), on: { push: null, pull_request: null } };
+  expect(workflowChange(narrow, wide)).toEqual(["gate-edited"]);
+  // Adding a filter narrows it.
+  expect(workflowChange(wide, narrow)).toEqual(["gate-weakened"]);
+});
+
+test("a gate command that a changed run block can skip or ignore no longer counts", () => {
+  const before = workflow([run("bun test")]);
+  for (const block of [
+    "if false; then\n  bun test\nfi\n",
+    "bun test || true\n",
+    "set +e\nbun test\n",
+    "exit 0\nbun test\n",
+    "trap 'exit 0' ERR\nbun test\n",
+    "bun test &\n",
+    "bun test && echo passed\necho done\n",
+    "bun test ${{ '|| true' }}\n",
+  ]) {
+    expect(workflowChange(before, workflow([run(block)]))).toEqual(["gate-weakened"]);
+  }
+  // A line before the command that could stop the step or turn off its error handling.
+  for (const setup of [
+    "${{ inputs.setup }}",
+    "$SETUP",
+    "exec true",
+    "CI=1 exit 0",
+    "'exit' 0",
+    'echo "$(exit 0)"',
+    "cd packages/api",
+    "pushd packages/api",
+    "export BUN_TEST_FILTER=none",
+  ]) {
+    expect(workflowChange(before, workflow([run(`${setup}\nbun test\n`)]))).toEqual([
+      "gate-weakened",
+    ]);
+  }
+  // A shell that does not stop on errors changes the step's scope.
   expect(
-    detect(diff(".github/workflows/ci.yml", ["      - run: vp check"], removed), scripts).map(
-      (f) => f.rule,
-    ),
+    workflowChange(before, workflow([run("bun test\necho done\n", { shell: "bash {0}" })])),
   ).toEqual(["gate-weakened"]);
+});
+
+test("a changed run block whose failures stop the step still counts", () => {
+  const before = workflow([run("bun test")]);
+  // Commands compare as written: `bun test 2>&1` or `bun test src/a` is not `bun test`.
+  for (const block of [
+    "bun install\nbun test\n",
+    "bun run build && bun test\n",
+    "bun test\necho done > summary.txt\n",
+    // On the last command line, a failure left of `&&` still fails the step: under
+    // `bash --noprofile --norc -eo pipefail`, `false && echo passed` exits 1.
+    "bun test && echo passed\n",
+    "bun test && echo passed\n# done\n",
+  ]) {
+    expect(workflowChange(before, workflow([run(block)]))).toEqual(["gate-edited"]);
+  }
+});
+
+test("an unchanged step keeps counting, even with shell control flow", () => {
+  const guarded = run('if [ -n "$CI" ]; then bun test; fi');
   expect(
-    detect(
-      diff(".github/workflows/ci.yml", ["      - run: vp check", "      - run: bun test"], removed),
-      scripts,
-    ).map((f) => f.rule),
+    workflowChange(workflow([guarded, run("echo a")]), workflow([guarded, run("echo b")])),
   ).toEqual(["gate-edited"]);
-  // The same holds for a step that chains commands itself.
-  expect(
-    rules(
-      diff(
-        ".github/workflows/ci.yml",
-        ["      - run: vp check"],
-        ["      - run: vp check && bun test"],
-      ),
-    ),
-  ).toEqual(["gate-weakened"]);
 });
