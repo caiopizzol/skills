@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.8.0](https://github.com/caiopizzol/skills/compare/v0.7.0...v0.8.0) (2026-09-28)
+
+
+### Features
+
+* **test-integrity:** add a check for pull requests that weaken tests ([#91](https://github.com/caiopizzol/skills/issues/91)) ([12b4ae0](https://github.com/caiopizzol/skills/commit/12b4ae045087919de7454e3376cbd751948680fa))
+* **verify-surfaces:** pin every heading and labelled region of a page ([#94](https://github.com/caiopizzol/skills/issues/94)) ([2cb30d7](https://github.com/caiopizzol/skills/commit/2cb30d73a176f98f2dff2027cc88f9705b12bf11))
+
+
+### Bug Fixes
+
+* **test-integrity:** authenticate the check's file reads on private repositories ([#93](https://github.com/caiopizzol/skills/issues/93)) ([36dbb67](https://github.com/caiopizzol/skills/commit/36dbb67639f637a3bf43314f8183aaa8a5e67535))
+* **test-integrity:** read a skip's own arguments to tell conditional skips ([#95](https://github.com/caiopizzol/skills/issues/95)) ([d8185b9](https://github.com/caiopizzol/skills/commit/d8185b941f065c5ab2b1dbcf46dc300af736ecb5))
+
 ## [0.7.0](https://github.com/caiopizzol/skills/compare/v0.6.0...v0.7.0) (2026-09-26)
 
 
