@@ -3,9 +3,10 @@
 //
 // Events that cannot change the verdict (a title or body edit, or any label other than the
 // exception label) reuse the verdict of the newest earlier run of this workflow on the same commit,
-// so an approval is not lost to unrelated activity. That run must have finished with one record for
-// the same pull request, base, head, and detector version. Anything else is evaluated again, which
-// is fail-closed: without the exception label a blocking change fails.
+// so an approval is not lost to unrelated activity. In that run, exactly one job named like this
+// one must have finished with one record for the same pull request, base, head, and detector
+// version. Anything else is evaluated again, which is fail-closed: without the exception label a
+// blocking change fails.
 
 export const RECORD_TITLE = "test-integrity-result";
 
@@ -17,22 +18,30 @@ export interface Event {
   baseChanged: boolean;
 }
 
-// A workflow run on the head commit, with the notice annotations its jobs wrote.
+// A job in an earlier run's latest attempt, with the notice annotations it wrote. `records` is
+// undefined when they could not all be read.
+export interface PriorJob {
+  name: string;
+  status: string;
+  conclusion: string | null;
+  records?: { title: string; message: string }[];
+}
+
+// A workflow run on the head commit. `jobs` is undefined when they could not all be read.
 export interface PriorRun {
   id: number;
   event: string;
   workflowId: number;
-  status: string;
-  conclusion: string | null;
-  // When the event that started it happened. A rerun keeps it, so runs sort in event order.
-  createdAt: string;
-  records: { title: string; message: string }[];
+  // When its latest attempt started. A rerun of an older run starts later, and then it is newest.
+  startedAt: string;
+  jobs?: PriorJob[];
 }
 
 // This workflow's runs on the head commit as GitHub listed them, and how many it has, so a list
-// cut short by paging is not trusted.
+// cut short by paging is not trusted. `jobName` is this job's check run name.
 export interface PriorRuns {
   workflowId: number;
+  jobName: string;
   total: number;
   runs: PriorRun[];
 }
@@ -93,12 +102,16 @@ export function decidePrior(
   const newest = prior.runs
     .filter((run) => run.event === "pull_request_target" && run.workflowId === prior.workflowId)
     .filter((run) => run.id !== subject.runId)
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id - a.id)[0];
+    .sort((a, b) => b.startedAt.localeCompare(a.startedAt) || b.id - a.id)[0];
   // Only the newest run counts. Without a clear verdict there (it was cancelled or failed to
   // record one), an older verdict may no longer hold: the exception label may have been removed.
-  if (!newest || newest.status !== "completed") return EVALUATE;
-  if (newest.conclusion !== "success" && newest.conclusion !== "failure") return EVALUATE;
-  const records = newest.records.filter((record) => record.title === RECORD_TITLE);
+  // The verdict is its one job named like this one; another job in the workflow may run the pull
+  // request's code and write a record of its own.
+  const jobs = newest?.jobs?.filter((job) => job.name === prior.jobName);
+  const job = jobs?.length === 1 ? jobs[0] : undefined;
+  if (!newest || !job?.records || job.status !== "completed") return EVALUATE;
+  if (job.conclusion !== "success" && job.conclusion !== "failure") return EVALUATE;
+  const records = job.records.filter((record) => record.title === RECORD_TITLE);
   const record = records.length === 1 && records[0] ? parseRecord(records[0].message) : undefined;
   if (!record) return EVALUATE;
   const matches =
@@ -106,6 +119,6 @@ export function decidePrior(
     record.base === subject.base &&
     record.head === subject.head &&
     record.version === subject.version;
-  if (!matches || record.pass !== (newest.conclusion === "success")) return EVALUATE;
+  if (!matches || record.pass !== (job.conclusion === "success")) return EVALUATE;
   return { kind: "reuse", pass: record.pass, runId: newest.id };
 }

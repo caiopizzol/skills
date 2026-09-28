@@ -3,6 +3,7 @@ import {
   decidePrior,
   type Event,
   formatRecord,
+  type PriorJob,
   type PriorRun,
   type PriorRuns,
   RECORD_TITLE,
@@ -11,25 +12,36 @@ import {
 
 const LABEL = "tests-changed-ok";
 const WORKFLOW = 42;
+const JOB = "Test integrity";
 const verdict = { pr: 5, base: "a".repeat(40), head: "b".repeat(40), version: "e".repeat(40) };
 const subject = { ...verdict, runId: 100 };
 
-function run(overrides: Partial<PriorRun> & { pass?: boolean; record?: string } = {}): PriorRun {
+function job(overrides: Partial<PriorJob> & { pass?: boolean; record?: string } = {}): PriorJob {
   const { pass = true, record = formatRecord(verdict, pass), ...rest } = overrides;
+  return {
+    name: JOB,
+    status: "completed",
+    conclusion: pass ? "success" : "failure",
+    records: [{ title: RECORD_TITLE, message: record }],
+    ...rest,
+  };
+}
+
+function run(overrides: Partial<PriorRun> & { pass?: boolean; record?: string } = {}): PriorRun {
+  const { pass, record, ...rest } = overrides;
   return {
     id: 1,
     event: "pull_request_target",
     workflowId: WORKFLOW,
-    status: "completed",
-    conclusion: pass ? "success" : "failure",
-    createdAt: "2026-09-28T13:00:00Z",
-    records: [{ title: RECORD_TITLE, message: record }],
+    startedAt: "2026-09-28T13:00:00Z",
+    jobs: [job({ pass, record })],
     ...rest,
   };
 }
 
 const listed = (...runs: PriorRun[]): PriorRuns => ({
   workflowId: WORKFLOW,
+  jobName: JOB,
   total: runs.length,
   runs,
 });
@@ -70,15 +82,13 @@ test("an unrelated label or a title edit reuses the matching verdict, pass or fa
 });
 
 test("the newest earlier run decides, and this run is not its own prior", () => {
-  const older = run({ id: 1, pass: true, createdAt: "2026-09-28T13:00:00Z" });
-  const newer = run({ id: 2, pass: false, createdAt: "2026-09-28T13:05:00Z" });
+  const older = run({ id: 1, pass: true, startedAt: "2026-09-28T13:00:00Z" });
+  const newer = run({ id: 2, pass: false, startedAt: "2026-09-28T13:05:00Z" });
   // GitHub lists this run too, as the newest and still in progress.
   const self = run({
     id: subject.runId,
-    createdAt: "2026-09-28T13:10:00Z",
-    status: "in_progress",
-    conclusion: null,
-    records: [],
+    startedAt: "2026-09-28T13:10:00Z",
+    jobs: [job({ status: "in_progress", conclusion: null, records: [] })],
   });
   expect(decidePrior(otherLabel, LABEL, subject, listed(newer, older, self))).toEqual({
     kind: "reuse",
@@ -87,17 +97,32 @@ test("the newest earlier run decides, and this run is not its own prior", () => 
   });
 });
 
+test("an older run that was rerun later is the newest", () => {
+  // Run 1 failed, run 2 then passed, and run 1 was rerun and failed again: its attempt is the latest.
+  const rerun = run({ id: 1, pass: false, startedAt: "2026-09-28T13:10:00Z" });
+  const between = run({ id: 2, pass: true, startedAt: "2026-09-28T13:05:00Z" });
+  expect(decidePrior(otherLabel, LABEL, subject, listed(rerun, between))).toEqual({
+    kind: "reuse",
+    pass: false,
+    runId: 1,
+  });
+});
+
 test("an older verdict is never used when the newest run gives none", () => {
   // The approval may have been withdrawn since the older pass, so its verdict no longer holds.
-  const approved = run({ id: 1, pass: true, createdAt: "2026-09-28T13:00:00Z" });
+  const approved = run({ id: 1, pass: true, startedAt: "2026-09-28T13:00:00Z" });
   const at = "2026-09-28T13:05:00Z";
-  for (const newest of [
-    run({ id: 2, createdAt: at, status: "in_progress", conclusion: null, records: [] }),
-    run({ id: 2, createdAt: at, conclusion: "cancelled" }),
-    run({ id: 2, createdAt: at, pass: false, records: [] }),
-    run({ id: 2, createdAt: at, pass: false, record: "garbled" }),
-    run({ id: 2, createdAt: at, pass: false, record: formatRecord({ ...verdict, pr: 6 }, false) }),
+  for (const jobs of [
+    [job({ status: "in_progress", conclusion: null, records: [] })],
+    [job({ conclusion: "cancelled" })],
+    [job({ pass: false, records: [] })],
+    [job({ pass: false, records: undefined })],
+    [job({ pass: false, record: "garbled" })],
+    [job({ pass: false, record: formatRecord({ ...verdict, pr: 6 }, false) })],
+    undefined,
+    [],
   ]) {
+    const newest = run({ id: 2, startedAt: at, jobs });
     expect(decidePrior(otherLabel, LABEL, subject, listed(approved, newest))).toEqual(evaluate);
   }
 });
@@ -130,25 +155,41 @@ test("only this workflow's pull_request_target runs can supply a verdict", () =>
   }
 });
 
-test("a run that is not a trustworthy verdict is never reused", () => {
+test("only this job's record counts, and only when one job has its name", () => {
+  // Another job in the workflow may run the pull request's code and print a passing record, while
+  // this job failed without one, or both jobs share the name.
+  const forger = job({ name: "build", pass: true });
+  const silent = job({ pass: false, records: [] });
+  for (const jobs of [[forger, silent], [forger], [job({ pass: true }), job({ pass: true })]]) {
+    expect(decidePrior(otherLabel, LABEL, subject, listed(run({ jobs })))).toEqual(evaluate);
+  }
+  const alongside = run({ jobs: [forger, job({ pass: false })] });
+  expect(decidePrior(otherLabel, LABEL, subject, listed(alongside))).toEqual({
+    kind: "reuse",
+    pass: false,
+    runId: 1,
+  });
+});
+
+test("a job that is not a trustworthy verdict is never reused", () => {
   for (const bad of [
-    run({ conclusion: "cancelled" }),
-    run({ conclusion: "skipped" }),
-    run({ status: "in_progress", conclusion: null }),
-    run({ records: [] }),
-    run({ record: `base=x head=y version=${verdict.version} verdict=pass` }),
-    run({ records: [{ title: "other", message: formatRecord(verdict, true) }] }),
-    // A record that disagrees with how the run ended.
-    run({ conclusion: "success", record: formatRecord(verdict, false) }),
-    // Two records on one run are ambiguous.
-    run({
+    job({ conclusion: "cancelled" }),
+    job({ conclusion: "skipped" }),
+    job({ status: "in_progress", conclusion: null }),
+    job({ records: [] }),
+    job({ record: `base=x head=y version=${verdict.version} verdict=pass` }),
+    job({ records: [{ title: "other", message: formatRecord(verdict, true) }] }),
+    // A record that disagrees with how the job ended.
+    job({ conclusion: "success", record: formatRecord(verdict, false) }),
+    // Two records on one job are ambiguous.
+    job({
       records: [
         { title: RECORD_TITLE, message: formatRecord(verdict, true) },
         { title: RECORD_TITLE, message: formatRecord(verdict, false) },
       ],
     }),
   ]) {
-    expect(decidePrior(otherLabel, LABEL, subject, listed(bad))).toEqual(evaluate);
+    expect(decidePrior(otherLabel, LABEL, subject, listed(run({ jobs: [bad] })))).toEqual(evaluate);
   }
 });
 
