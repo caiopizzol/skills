@@ -41,7 +41,7 @@ export function decide(findings: Finding[], hasExceptionLabel: boolean): Verdict
     );
   } else {
     parts.push(
-      `These changes weaken the tests or the gate. Explain why in the pull request, then add the \`${EXCEPTION_LABEL}\` label to accept them:`,
+      `These changes weaken the tests or the gate. Explain why in the pull request, then add the \`${EXCEPTION_LABEL}\` label to accept them. It accepts this commit only; if the label is already on the pull request, remove it and add it again:`,
     );
   }
   if (blocking.length > 0) parts.push("", ...blocking.map(line));
