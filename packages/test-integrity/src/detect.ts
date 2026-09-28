@@ -180,9 +180,13 @@ function readRecipes(text: string): Map<string, Recipe> {
     current = undefined;
     const header = RECIPE_HEADER.exec(line);
     if (!header || NOT_RECIPE.test(header[1] ?? "")) continue;
+    // Make runs the text after a `;` on the header line as the recipe's first command.
+    const [prerequisites = "", ...inline] = (header[3] ?? "").split(";");
     // Dependencies are names, some with arguments in parentheses; quoted arguments are not names.
-    const listed = (header[3] ?? "").replace(/#.*$/, "").replace(/"[^"]*"|'[^']*'/g, "");
+    const listed = prerequisites.replace(/#.*$/, "").replace(/"[^"]*"|'[^']*'/g, "");
     current = { dependencies: listed.match(/[A-Za-z_][\w-]*/g) ?? [], commands: [] };
+    const command = inline.join(";").trim().replace(/^@/, "").replace(/\s+/g, " ");
+    if (command !== "") current.commands.push(...segments(command));
     found.set(header[1] ?? "", current);
   }
   return found;
@@ -266,9 +270,9 @@ const pytestOptions = (value: unknown) => {
   };
 };
 const words = (value: unknown) =>
-  (Array.isArray(value) ? value.map(String).join(" ") : typeof value === "string" ? value : "")
-    .split(/\s+/)
-    .filter(Boolean);
+  optionWords(
+    Array.isArray(value) ? value.map(String).join(" ") : typeof value === "string" ? value : "",
+  );
 const minimum = (value: unknown) => {
   const report = fields(fields(fields(fields(value).tool).coverage).report);
   const setting = report.fail_under;
@@ -316,13 +320,32 @@ function normalize(command: string): string {
 // another, still runs the same tests. `--cov` and `--cov-fail-under` are not report options, since
 // coverage with a threshold can fail the run.
 const REPORT_OPTION =
-  /^(?:--cov-report(?:=\S+)?|--cov-branch|--tb=\S+|-v+|-q+|--verbose|--quiet|-r\w+|--durations=\d+|--junitxml=\S+)$/;
+  /^(?:--cov-report(?:=\S+)?|--tb=\S+|-v+|-q+|--verbose|--quiet|-r\w+|--durations=\d+|--junitxml=\S+)$/;
+// Report options whose value may follow as the next word (`--cov-report term-missing`); the two are
+// read as one word, `--cov-report=term-missing`, so changing the format stays a report change.
+const SEPARATE_VALUE = /^(?:--cov-report|--tb|--durations|--junitxml)$/;
+const optionWords = (text: string) => {
+  const words = text.split(/\s+/).filter(Boolean);
+  const joined: string[] = [];
+  for (let at = 0; at < words.length; at++) {
+    const word = words[at] ?? "";
+    const next = words[at + 1];
+    if (SEPARATE_VALUE.test(word) && next !== undefined && !next.startsWith("-")) {
+      joined.push(`${word}=${next}`);
+      at++;
+    } else joined.push(word);
+  }
+  return joined;
+};
 // Whether `after` runs everything `before` did: the same command, or the same pytest command with
 // report options changed or coverage added. The program (everything through `pytest`) must match,
 // every other word of `before` must remain, and `after` may add only coverage options. So adding a
 // path or `-k`, which narrows the run, or dropping `--cov`, still blocks.
 const PYTEST_PROGRAM = /^(.*?\bpytest)(?: |$)/;
-const COVERAGE_OPTION = /^--cov(?:=\S+)?$|^--cov-fail-under=\d+(?:\.\d+)?$/;
+// Options that measure more, which a command may add: `--cov`, `--cov-branch` (which also counts
+// branches, so it changes the percentage a threshold checks), and a first `--cov-fail-under`.
+// Dropping any of them blocks.
+const COVERAGE_OPTION = /^--cov(?:=\S+)?$|^--cov-branch$|^--cov-fail-under=\d+(?:\.\d+)?$/;
 function stillRuns(before: string, after: string): boolean {
   const a = normalize(before);
   const b = normalize(after);
@@ -331,10 +354,7 @@ function stillRuns(before: string, after: string): boolean {
   const now = PYTEST_PROGRAM.exec(b);
   if (!was || !now || was[1] !== now[1]) return false;
   const selecting = (command: string, program: string) =>
-    command
-      .slice(program.length)
-      .split(" ")
-      .filter((word) => word !== "" && !REPORT_OPTION.test(word));
+    optionWords(command.slice(program.length)).filter((word) => !REPORT_OPTION.test(word));
   const old = selecting(a, was[1] ?? "");
   const added = [...selecting(b, now[1] ?? "")];
   for (const word of old) {

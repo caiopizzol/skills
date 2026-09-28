@@ -1002,6 +1002,13 @@ test("dropping a command from a gate recipe, or the recipe itself, blocks", () =
   expect(taskChange(make("pytest -q && ruff check ."), make("ruff check ."), "Makefile")).toEqual([
     "gate-weakened",
   ]);
+  // Make runs the text after `;` on a recipe's header line as its first command.
+  const inline = (test: string) => `test: ; ${test}\n`;
+  expect(taskChange(inline("pytest"), inline("pytest --ignore=tests/slow"), "Makefile")).toEqual([
+    "gate-weakened",
+  ]);
+  expect(taskChange(inline("pytest"), "test: ;\n", "Makefile")).toEqual(["gate-weakened"]);
+  expect(taskChange(inline("pytest"), inline("pytest -q"), "Makefile")).toEqual(["gate-edited"]);
 });
 
 test("adding to a gate recipe, reshaping it through dependencies, or editing other recipes only reports", () => {
@@ -1094,6 +1101,7 @@ test("pytest settings that keep or widen the run, or a higher coverage minimum, 
   for (const after of [
     pyproject({ ...base, addopts: "-q --tb=long" }),
     pyproject({ ...base, addopts: "-v --tb=short --cov" }),
+    pyproject({ ...base, addopts: "-v --tb=short --cov-report term-missing" }),
     pyproject({ ...base, markers: ["slow: runs for minutes"] }),
     // Dropping only report options leaves the same tests running.
     pyproject({ testpaths: ["tests"] }),
@@ -1138,10 +1146,13 @@ test("uv's environment flags and pytest's report options do not change which tes
     ["uv run pytest", "uv run pytest --cov --cov-branch --cov-report=xml"],
     [
       "uv run --frozen pytest --cov --cov-branch --cov-report=xml",
-      "uv run --frozen pytest --cov --cov-report=xml --cov-report=term-missing",
+      "uv run --frozen pytest --cov --cov-branch --cov-report=xml --cov-report=term-missing",
     ],
     ["pytest -v --tb=short", "pytest -q"],
     ["uv run pytest --cov", "uv run pytest --cov --cov-fail-under=94"],
+    ["uv run pytest --cov", "uv run pytest --cov --cov-branch"],
+    ["uv run pytest --cov-report term-missing", "uv run pytest --cov-report xml"],
+    ["uv run pytest --tb short", "uv run pytest --tb=long"],
   ]) {
     expect(workflowChange(workflow([run(before)]), workflow([run(after)]))).toEqual([
       "gate-edited",
@@ -1156,6 +1167,13 @@ test("a pytest command that narrows the run, drops coverage, or turns into anoth
     ["uv run pytest", "uv run pytest -k 'not slow'"],
     ["uv run pytest --cov", "uv run pytest"],
     ["uv run pytest --cov --cov-fail-under=94", "uv run pytest --cov"],
+    // Branch coverage changes the percentage a threshold checks, so dropping it can pass more.
+    [
+      "uv run pytest --cov --cov-branch --cov-fail-under=94",
+      "uv run pytest --cov --cov-fail-under=94",
+    ],
+    // A report option's value is its own word only when it follows the option.
+    ["uv run pytest --cov-report xml tests/", "uv run pytest --cov-report xml"],
     ["uv run pytest -x tests/", "uv run pytest tests/unit"],
     ["uv run pytest", "uv run python -m unittest"],
     ["uv run ruff check .", "uv run ruff check src"],
