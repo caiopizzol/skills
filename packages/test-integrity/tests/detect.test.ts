@@ -949,3 +949,176 @@ test("removing Python assertions is reported, counted per statement or call", ()
     "test-content-changed",
   ]);
 });
+
+// A task runner file change: a diff that marks the file as edited, and its text before and after.
+function taskChange(before: string | null, after: string | null, path = "justfile") {
+  const text = diff(path, after === null ? [] : ["# after"], ["# before"], after === null);
+  return rules(text, { taskFiles: new Map([[path, { before, after }]]) });
+}
+const recipes = (check: string, extra = "") =>
+  `# tasks\ninstall:\n    uv sync\n\ntest:\n    uv run --frozen pytest --cov\n\ncheck:\n    ${check}\n${extra}`;
+const FULL_CHECK =
+  "uv run --frozen ruff check . && uv run --frozen ruff format --check . && uv run --frozen pyright && uv run --frozen pytest --cov";
+
+test("Python gate tools, run directly or through uv, python -m, poetry, just, or make, are gate commands", () => {
+  for (const command of [
+    "uv run --frozen pytest --cov --cov-report=xml",
+    "uv run --frozen ruff check .",
+    "uv run --frozen pyright",
+    "uv run --with pytest-cov pytest",
+    "python -m pytest -q",
+    "uv run python -m pytest",
+    "poetry run pytest",
+    "TEST_IMAGE=app:ci uv run --frozen pytest tests/test_recovery.py",
+    "pytest",
+    "mypy src",
+    "just check",
+    "make test",
+  ]) {
+    expect(workflowChange(workflow([run(command)]), workflow([]))).toEqual(["gate-weakened"]);
+  }
+  for (const command of ["uv sync", "uv run python main.py --list", "just run", "make build"]) {
+    expect(workflowChange(workflow([run(command)]), workflow([]))).toEqual(["gate-edited"]);
+  }
+});
+
+test("dropping a command from a gate recipe, or the recipe itself, blocks", () => {
+  expect(
+    taskChange(
+      recipes(FULL_CHECK),
+      recipes("uv run --frozen ruff check . && uv run --frozen pyright"),
+    ),
+  ).toEqual(["gate-weakened"]);
+  // Dropping a flag changes the command, as for a package script.
+  expect(
+    taskChange(recipes(FULL_CHECK), recipes(FULL_CHECK.replace("pytest --cov", "pytest"))),
+  ).toEqual(["gate-weakened"]);
+  expect(taskChange(recipes(FULL_CHECK), "install:\n    uv sync\n")).toEqual([
+    "gate-weakened",
+    "gate-weakened",
+  ]);
+  expect(taskChange(recipes(FULL_CHECK), null)).toEqual(["gate-weakened", "gate-weakened"]);
+  const make = (test: string) => `.PHONY: test\ntest:\n\t${test}\n`;
+  expect(taskChange(make("pytest -q && ruff check ."), make("ruff check ."), "Makefile")).toEqual([
+    "gate-weakened",
+  ]);
+});
+
+test("adding to a gate recipe, reshaping it through dependencies, or editing other recipes only reports", () => {
+  expect(taskChange(recipes(FULL_CHECK), recipes(`${FULL_CHECK} && uv run mypy .`))).toEqual([
+    "gate-edited",
+  ]);
+  // A check that now depends on recipes running the same commands still runs them all.
+  const split =
+    "# tasks\nlint:\n    uv run --frozen ruff check .\n    uv run --frozen ruff format --check .\n\n" +
+    "typecheck:\n    uv run --frozen pyright\n\ntest:\n    uv run --frozen pytest --cov\n\n" +
+    "check: lint typecheck test\n";
+  expect(taskChange(recipes(FULL_CHECK), split)).toEqual(["gate-edited"]);
+  expect(
+    taskChange(
+      recipes(FULL_CHECK, "\nrun *ARGS:\n    uv run python main.py {{ARGS}}\n"),
+      recipes(FULL_CHECK),
+    ),
+  ).toEqual(["gate-edited"]);
+  // A command continued over lines reads as one command.
+  expect(
+    taskChange(
+      recipes("uv run --frozen pytest --cov"),
+      recipes("uv run --frozen \\\n        pytest --cov"),
+    ),
+  ).toEqual(["gate-edited"]);
+});
+
+test("a gate recipe that depends on one the file no longer defines, or on a cycle, still counts what it ran", () => {
+  expect(taskChange("check: lint\nlint:\n    ruff check .\n", "check: lint\n")).toEqual([
+    "gate-weakened",
+  ]);
+  expect(taskChange("check: a\na: check\n    pytest\n", "check: a\na: check\n")).toEqual([
+    "gate-weakened",
+  ]);
+});
+
+test("a task runner change must come with the file's contents, or the check refuses it", () => {
+  expect(() => rules(diff("justfile", ["# after"], ["# before"]))).toThrow("were not supplied");
+});
+
+// A `pyproject.toml` change, with the file parsed before and after.
+function pyprojectChange(before: unknown, after: unknown) {
+  const text = diff("pyproject.toml", ["# after"], ["# before"]);
+  return rules(text, { pyprojects: new Map([["pyproject.toml", { before, after }]]) });
+}
+const pyproject = (pytest: Record<string, unknown>, version = "1.0.0") => ({
+  project: { name: "pipeline", version },
+  tool: { pytest: { ini_options: pytest }, ruff: { "line-length": 120 } },
+});
+
+test("changing pytest or coverage settings in pyproject.toml is reported for review", () => {
+  const base = { testpaths: ["tests"], addopts: "-v" };
+  expect(
+    pyprojectChange(pyproject(base), pyproject({ ...base, addopts: "-v -k 'not slow'" })),
+  ).toEqual(["gate-edited"]);
+  expect(
+    pyprojectChange(pyproject(base), {
+      ...pyproject(base),
+      tool: { ...pyproject(base).tool, coverage: { report: { fail_under: 50 } } },
+    }),
+  ).toEqual(["gate-edited"]);
+  expect(pyprojectChange(pyproject(base), null)).toEqual(["gate-edited"]);
+});
+
+test("a release version bump or another tool's settings in pyproject.toml is not a gate change", () => {
+  const base = { testpaths: ["tests"] };
+  expect(pyprojectChange(pyproject(base, "1.0.0"), pyproject(base, "1.0.1"))).toEqual([]);
+  expect(
+    pyprojectChange(pyproject(base), {
+      ...pyproject(base),
+      tool: { ...pyproject(base).tool, ruff: { "line-length": 100 } },
+    }),
+  ).toEqual([]);
+});
+
+test("pytest's own configuration files are test runner configuration", () => {
+  for (const path of ["pytest.ini", "tox.ini", "setup.cfg", ".coveragerc"]) {
+    expect(rules(diff(path, ["addopts = -x"], ["addopts = -v"]))).toEqual(["gate-edited"]);
+  }
+});
+
+test("uv's environment flags and pytest's report options do not change which tests a command runs", () => {
+  for (const [before, after] of [
+    ["uv run ruff check .", "uv run --frozen ruff check ."],
+    ["uv run pytest", "uv run --frozen --locked pytest"],
+    ["uv run pytest", "uv run pytest --cov --cov-branch --cov-report=xml"],
+    [
+      "uv run --frozen pytest --cov --cov-branch --cov-report=xml",
+      "uv run --frozen pytest --cov --cov-report=xml --cov-report=term-missing",
+    ],
+    ["pytest -v --tb=short", "pytest -q"],
+    ["uv run pytest --cov", "uv run pytest --cov --cov-fail-under=94"],
+  ]) {
+    expect(workflowChange(workflow([run(before)]), workflow([run(after)]))).toEqual([
+      "gate-edited",
+    ]);
+    expect(taskChange(recipes(before), recipes(after))).toEqual(["gate-edited"]);
+  }
+});
+
+test("a pytest command that narrows the run, drops coverage, or turns into another tool still blocks", () => {
+  for (const [before, after] of [
+    ["uv run pytest", "uv run pytest tests/test_main.py"],
+    ["uv run pytest", "uv run pytest -k 'not slow'"],
+    ["uv run pytest --cov", "uv run pytest"],
+    ["uv run pytest --cov --cov-fail-under=94", "uv run pytest --cov"],
+    ["uv run pytest -x tests/", "uv run pytest tests/unit"],
+    ["uv run pytest", "uv run python -m unittest"],
+    ["uv run ruff check .", "uv run ruff check src"],
+    ["uv run ruff check .", "uv run --frozen ruff format --check ."],
+    ["uv run pytest --cov", "uv run pytest --cov --deselect tests/test_main.py::test_run"],
+    ["uv run pytest tests/", "uv run pytest tests/ tests/"],
+    // The same options on another package's pytest are not the same test run.
+    ["uv run pytest --cov", "uv run --package api pytest --cov"],
+  ]) {
+    expect(workflowChange(workflow([run(before)]), workflow([run(after)]))).toEqual([
+      "gate-weakened",
+    ]);
+  }
+});

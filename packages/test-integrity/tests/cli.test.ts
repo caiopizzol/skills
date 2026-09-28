@@ -144,3 +144,35 @@ test("a workflow moved out of .github/workflows counts as deleted", async () => 
     detail: "workflow with gate commands deleted: bun test",
   });
 });
+
+test("a justfile's gate recipe and pyproject.toml's pytest settings are read from git in full", async () => {
+  const just = (check: string) =>
+    `test:\n    uv run --frozen pytest --cov\n\ncheck:\n    ${check}\n`;
+  const toml = (version: string, addopts: string) =>
+    `[project]\nname = "p"\nversion = "${version}"\n\n[tool.pytest.ini_options]\naddopts = "${addopts}"\n`;
+  const base = {
+    justfile: just("uv run --frozen ruff check . && uv run --frozen pytest --cov"),
+    "pyproject.toml": toml("1.0.0", "-v"),
+  };
+
+  const released = await repository(base, { "pyproject.toml": toml("1.0.1", "-v") });
+  const bump = await runCli([released.base, released.head, released.dir]);
+  expect({ exitCode: bump.exitCode, rules: rules(bump.stdout) }).toEqual({
+    exitCode: 0,
+    rules: [],
+  });
+
+  const narrowed = await repository(base, { "pyproject.toml": toml("1.0.0", "-v -k 'not db'") });
+  const options = await runCli([narrowed.base, narrowed.head, narrowed.dir]);
+  expect({ exitCode: options.exitCode, rules: rules(options.stdout) }).toEqual({
+    exitCode: 0,
+    rules: ["gate-edited"],
+  });
+
+  const dropped = await repository(base, { justfile: just("uv run --frozen ruff check .") });
+  const recipe = await runCli([dropped.base, dropped.head, dropped.dir]);
+  expect({ exitCode: recipe.exitCode, rules: rules(recipe.stdout) }).toEqual({
+    exitCode: 1,
+    rules: ["gate-weakened"],
+  });
+});
