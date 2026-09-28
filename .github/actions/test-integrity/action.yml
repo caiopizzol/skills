@@ -37,6 +37,30 @@ runs:
         git -C "$dir" merge-base "$BASE_SHA" "$HEAD_SHA" >/dev/null || { echo "No common history with the base" >&2; exit 2; }
         echo "TEST_INTEGRITY_REPO=$dir" >> "$GITHUB_ENV"
 
+    # Earlier verdicts for this head, which an event that cannot change the verdict may reuse. Needs
+    # `checks: read`; without it the list is empty and the change is evaluated again.
+    - name: Read earlier verdicts for this head
+      shell: bash
+      env:
+        REPOSITORY: ${{ github.repository }}
+        HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -uo pipefail
+        out="$RUNNER_TEMP/test-integrity-prior.json"
+        echo '[]' > "$out"
+        runs=$(gh api "repos/$REPOSITORY/commits/$HEAD_SHA/check-runs?check_name=Test%20integrity&filter=all&per_page=100" \
+          --jq '[.check_runs[] | select(.status == "completed") | {id, status, conclusion, completedAt: .completed_at, appId: .app.id}]' 2>/dev/null) || runs='[]'
+        records='[]'
+        for id in $(printf '%s' "$runs" | jq -r '.[].id'); do
+          notes=$(gh api "repos/$REPOSITORY/check-runs/$id/annotations" \
+            --jq "[.[] | select(.annotation_level == \"notice\") | {title: (.title // \"\"), message}] | {id: $id, records: .}" 2>/dev/null) || continue
+          records=$(printf '%s' "$records" | jq -c --argjson n "$notes" '. + [$n]')
+        done
+        printf '%s' "$runs" | jq -c --argjson r "$records" \
+          '[.[] as $run | $run + {records: ([$r[] | select(.id == $run.id) | .records[]])}]' > "$out"
+        echo "TEST_INTEGRITY_PRIOR_RUNS=$out" >> "$GITHUB_ENV"
+
     - name: Check the change
       shell: bash
       env:
@@ -45,6 +69,8 @@ runs:
         # Only the run started by adding the label accepts the change. A label that stays on the
         # pull request does not carry over to later pushes, which are checked again.
         TESTS_CHANGED_OK: ${{ github.event.action == 'labeled' && github.event.label.name == 'tests-changed-ok' }}
+        # Verdicts are reused only by the same detector, identified by the action's own commit.
+        TEST_INTEGRITY_VERSION: ${{ github.action_ref }}
         TOKEN: ${{ github.token }}
       # The check reads the files it needs, and git fetches each one then. The token reaches those
       # fetches only as git configuration in this process's environment: never on disk or in a

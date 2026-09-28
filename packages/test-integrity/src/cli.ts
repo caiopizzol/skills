@@ -3,8 +3,9 @@
 // Prints each finding as a JSON line and writes a Markdown summary to $GITHUB_STEP_SUMMARY when set.
 // Exits 0 when the change passes, 1 when a blocking finding lacks the exception label, and 2 on any
 // error (fail closed). The label is signalled with TESTS_CHANGED_OK=true.
-import { decide } from "./decide.ts";
+import { decide, EXCEPTION_LABEL } from "./decide.ts";
 import { detect, parseDiff, WORKFLOW, type WorkflowVersions } from "./detect.ts";
+import { type CheckRun, decidePrior, formatRecord, RECORD_TITLE } from "./prior.ts";
 
 const MAX_FILE_BYTES = 256 * 1024;
 
@@ -41,7 +42,43 @@ function parse(text: string | undefined, path: string, as: (text: string) => unk
   }
 }
 
+// Every verdict leaves a record on its own check run, as a notice annotation, so a later run on the
+// same base, head, and detector version can reuse it (see prior.ts).
+async function finish(pass: boolean, summary: string): Promise<never> {
+  const version = process.env.TEST_INTEGRITY_VERSION;
+  if (version) {
+    console.log(`::notice title=${RECORD_TITLE}::${formatRecord({ base, head, version }, pass)}`);
+  }
+  const summaryFile = process.env.GITHUB_STEP_SUMMARY;
+  if (summaryFile) await Bun.write(summaryFile, summary);
+  else console.error(summary);
+  process.exit(pass ? 0 : 1);
+}
+
+// On events that cannot change the verdict, reuse the newest matching verdict instead of
+// evaluating again, so an approval survives a title edit or an unrelated label.
+async function reusePrior(): Promise<void> {
+  const eventPath = process.env.GITHUB_EVENT_PATH;
+  const version = process.env.TEST_INTEGRITY_VERSION;
+  const runsFile = process.env.TEST_INTEGRITY_PRIOR_RUNS;
+  if (!eventPath || !version || !runsFile) return;
+  const payload = JSON.parse(await Bun.file(eventPath).text());
+  const event = {
+    action: String(payload.action ?? ""),
+    label: typeof payload.label?.name === "string" ? payload.label.name : undefined,
+    baseChanged: payload.changes?.base?.ref?.from !== undefined,
+  };
+  const runs = JSON.parse(await Bun.file(runsFile).text()) as CheckRun[];
+  const decision = decidePrior(event, EXCEPTION_LABEL, { base, head, version }, runs);
+  if (decision.kind === "evaluate") return;
+  await finish(
+    decision.pass,
+    `## Test integrity\n\nThis \`${event.action}\` event does not change what is checked, so the verdict of run ${decision.runId} on this base and head stands: ${decision.pass ? "pass" : "fail"}.\n`,
+  );
+}
+
 try {
+  await reusePrior();
   // The root package's scripts at the head commit, where workflow steps run by default, so a step
   // that names a script can be matched to the commands it runs.
   const scripts = new Map<string, string>();
@@ -86,10 +123,7 @@ try {
   const findings = detect(diff, { scripts, workflows });
   const verdict = decide(findings, process.env.TESTS_CHANGED_OK === "true");
   for (const finding of findings) console.log(JSON.stringify(finding));
-  const summaryFile = process.env.GITHUB_STEP_SUMMARY;
-  if (summaryFile) await Bun.write(summaryFile, `## Test integrity\n\n${verdict.summary}\n`);
-  else console.error(verdict.summary);
-  process.exit(verdict.pass ? 0 : 1);
+  await finish(verdict.pass, `## Test integrity\n\n${verdict.summary}\n`);
 } catch (error) {
   fail(error instanceof Error ? error.message : String(error));
 }
