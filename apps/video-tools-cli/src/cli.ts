@@ -8,7 +8,7 @@ const usage = `Usage:
 When --artifacts-dir is omitted, the command creates an isolated temporary directory and reports
 its location in the JSON result. Temporary derivatives are retained for the caller to inspect.
 
-Repeat --frame-time to extract exact moments. Do not combine it with --frame-count.
+Pass exact moments as --frame-time 1,2.5,4 or repeat the option. Do not combine it with --frame-count.
 Use --only when the other media lane is not needed.
 Pass --expected-sha256 to prove a later pass reads the same source bytes.
 

@@ -48,7 +48,8 @@ export function parseArguments(argv: readonly string[]): CliArguments {
         frameCount = positiveInteger(value, option);
         break;
       case "--frame-time":
-        timestampsSeconds.push(nonNegativeNumber(value, option));
+        for (const part of value.split(","))
+          timestampsSeconds.push(nonNegativeNumber(part, option));
         break;
       case "--timeout-ms":
         timeoutMs = positiveInteger(value, option);

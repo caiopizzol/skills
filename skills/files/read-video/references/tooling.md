@@ -14,7 +14,7 @@ Reuse the reported directory and source hash for transcript-selected frames:
 ```sh
 video-tools prepare <video-path> --artifacts-dir <directory> \
   --expected-sha256 <source-sha256> --only frames \
-  --frame-time <seconds> [--frame-time <seconds>...]
+  --frame-time <seconds>,<seconds>,...
 ```
 
 Use `--frame-count <count>` only without usable timestamps. Do not combine it with `--frame-time`.

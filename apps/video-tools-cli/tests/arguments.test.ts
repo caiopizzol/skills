@@ -53,6 +53,17 @@ describe("parseArguments", () => {
     });
   });
 
+  it("parses comma-separated frame times", () => {
+    expect(parseArguments(["prepare", "fixture.mp4", "--frame-time", "3,1.5,0"])).toEqual({
+      command: "prepare",
+      inputPath: "fixture.mp4",
+      timestampsSeconds: [3, 1.5, 0],
+    });
+    expect(() => parseArguments(["prepare", "fixture.mp4", "--frame-time", "1,,2"])).toThrow(
+      /non-negative number/,
+    );
+  });
+
   it("parses exact frame times", () => {
     expect(
       parseArguments([
