@@ -17,8 +17,8 @@ visual, try a nearby time in the same segment. Reuse the same artifacts director
 Without a usable transcript, sample evenly with `--frame-count`. It defaults to five and keeps frames at
 least one second apart.
 
-The tool sorts and deduplicates times. It rejects times after the last video frame instead of moving them,
-and lists them in the result.
+The tool sorts and deduplicates times. It rejects times after the video ends or within 0.1 seconds of the
+end, instead of moving them, and lists them in the result.
 
 ## Report coverage
 
