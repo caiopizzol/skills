@@ -153,14 +153,13 @@ export async function prepareVideo(
           inputPath,
           parentSha256: identity.sha256,
           artifactsDirectory,
-          durationSeconds: probe.probe.durationSeconds,
+          durationSeconds: probe.probe.videoDurationSeconds,
           ...(args.frameCount === undefined ? {} : { frameCount: args.frameCount }),
           ...(args.timestampsSeconds === undefined
             ? {}
             : { timestampsSeconds: args.timestampsSeconds }),
           cwd,
           exec,
-          ...(args.maxFrames === undefined ? {} : { maxFrames: args.maxFrames }),
           ...(args.timeoutMs === undefined ? {} : { timeoutMs: args.timeoutMs }),
         });
   if (frames?.outcome === "ok")

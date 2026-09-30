@@ -1,6 +1,5 @@
 import type { FrameSamplingPlan, SampledInterval } from "./types.ts";
 
-export const DEFAULT_MAX_FRAMES = 12;
 export const DEFAULT_FRAME_COUNT = 5;
 
 // ffmpeg cannot seek to the exact end of a stream reliably, so the last sample sits just inside it.
@@ -16,29 +15,23 @@ export interface FrameSamplingInput {
   durationSeconds: number;
   frameCount?: number;
   timestampsSeconds?: readonly number[];
-  maxFrames?: number;
 }
 
 export function planFrameSampling(input: FrameSamplingInput): FrameSamplingPlan {
   if (!Number.isFinite(input.durationSeconds) || input.durationSeconds <= 0) {
     throw new Error("frame sampling requires a positive duration");
   }
-  const maxFrames = normalizeMaxFrames(input.maxFrames);
   const durationSeconds = round(input.durationSeconds);
   return input.timestampsSeconds === undefined
-    ? planEvenly(durationSeconds, input.frameCount, maxFrames)
-    : planExplicit(durationSeconds, input.timestampsSeconds, maxFrames);
+    ? planEvenly(durationSeconds, input.frameCount)
+    : planExplicit(durationSeconds, input.timestampsSeconds);
 }
 
-function planEvenly(
-  durationSeconds: number,
-  requested: number | undefined,
-  maxFrames: number,
-): FrameSamplingPlan {
-  const requestedCount = normalizeRequestedCount(requested, maxFrames);
-  const lastSample = round(Math.max(0, durationSeconds - END_MARGIN_SECONDS));
+function planEvenly(durationSeconds: number, requested: number | undefined): FrameSamplingPlan {
+  const requestedCount = normalizeRequestedCount(requested);
+  const lastSample = lastSampleSeconds(durationSeconds);
   const durationLimit = Math.max(1, Math.floor(lastSample / MIN_SPACING_SECONDS) + 1);
-  const count = Math.min(requestedCount, maxFrames, durationLimit);
+  const count = Math.min(requestedCount, durationLimit);
   const timestampsSeconds =
     count === 1
       ? [round(durationSeconds / 2)]
@@ -48,8 +41,7 @@ function planEvenly(
   return {
     durationSeconds,
     requestedCount,
-    maxFrames,
-    boundedBy: boundedBy(requestedCount, maxFrames, durationLimit, count),
+    boundedBy: count < requestedCount ? "duration" : "requested",
     timestampsSeconds,
     rejectedTimestampsSeconds: [],
     omittedIntervalsSeconds: omittedIntervals(durationSeconds, timestampsSeconds),
@@ -59,28 +51,25 @@ function planEvenly(
 function planExplicit(
   durationSeconds: number,
   requestedTimestamps: readonly number[],
-  maxFrames: number,
 ): FrameSamplingPlan {
-  const accepted: number[] = [];
+  const lastSample = lastSampleSeconds(durationSeconds);
+  const timestampsSeconds: number[] = [];
   const rejectedTimestampsSeconds: number[] = [];
   for (const timestamp of requestedTimestamps) {
-    if (!Number.isFinite(timestamp) || timestamp < 0 || timestamp >= durationSeconds) {
+    if (!Number.isFinite(timestamp) || timestamp < 0 || timestamp > lastSample) {
       rejectedTimestampsSeconds.push(timestamp);
       continue;
     }
     const rounded = round(timestamp);
-    if (!accepted.includes(rounded)) accepted.push(rounded);
+    if (!timestampsSeconds.includes(rounded)) timestampsSeconds.push(rounded);
   }
-  accepted.sort((left, right) => left - right);
-  const timestampsSeconds = accepted.slice(0, maxFrames);
-  rejectedTimestampsSeconds.push(...accepted.slice(maxFrames));
+  timestampsSeconds.sort((left, right) => left - right);
   if (timestampsSeconds.length === 0)
     throw new Error("no requested timestamp falls inside the video duration");
   return {
     durationSeconds,
     requestedCount: requestedTimestamps.length,
-    maxFrames,
-    boundedBy: timestampsSeconds.length < accepted.length ? "max-frames" : "explicit",
+    boundedBy: "explicit",
     timestampsSeconds,
     rejectedTimestampsSeconds,
     omittedIntervalsSeconds: omittedIntervals(durationSeconds, timestampsSeconds),
@@ -104,26 +93,12 @@ function omittedIntervals(
   return intervals;
 }
 
-function boundedBy(
-  requestedCount: number,
-  maxFrames: number,
-  durationLimit: number,
-  count: number,
-): FrameSamplingPlan["boundedBy"] {
-  if (count === durationLimit && durationLimit < requestedCount) return "duration";
-  if (count === maxFrames && maxFrames < requestedCount) return "max-frames";
-  return "requested";
+function lastSampleSeconds(durationSeconds: number): number {
+  return round(Math.max(0, durationSeconds - END_MARGIN_SECONDS));
 }
 
-function normalizeMaxFrames(value: number | undefined): number {
-  if (value === undefined) return DEFAULT_MAX_FRAMES;
-  if (!Number.isSafeInteger(value) || value <= 0)
-    throw new Error("maxFrames must be a positive integer");
-  return value;
-}
-
-function normalizeRequestedCount(value: number | undefined, maxFrames: number): number {
-  if (value === undefined) return Math.min(DEFAULT_FRAME_COUNT, maxFrames);
+function normalizeRequestedCount(value: number | undefined): number {
+  if (value === undefined) return DEFAULT_FRAME_COUNT;
   if (!Number.isSafeInteger(value) || value <= 0)
     throw new Error("frameCount must be a positive integer");
   return value;

@@ -23,6 +23,7 @@ function probe(streams: VideoStream[]): VideoProbe {
     formatName: "mov,mp4",
     containers: ["mp4"],
     durationSeconds: 6,
+    videoDurationSeconds: 6,
     streams,
     hasVideoStream: streams.some((s) => s.codecType === "video"),
     hasAudioStream: streams.some((s) => s.codecType === "audio"),

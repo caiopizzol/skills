@@ -28,6 +28,8 @@ export interface VideoProbe {
   formatName: string;
   containers: string[];
   durationSeconds: number;
+  // Frames exist only until the video stream ends, which can be before the file ends.
+  videoDurationSeconds: number;
   streams: VideoStream[];
   hasVideoStream: boolean;
   hasAudioStream: boolean;
@@ -90,8 +92,7 @@ export interface SampledInterval {
 export interface FrameSamplingPlan {
   durationSeconds: number;
   requestedCount: number;
-  maxFrames: number;
-  boundedBy: "requested" | "max-frames" | "duration" | "explicit";
+  boundedBy: "requested" | "duration" | "explicit";
   timestampsSeconds: number[];
   rejectedTimestampsSeconds: number[];
   omittedIntervalsSeconds: SampledInterval[];

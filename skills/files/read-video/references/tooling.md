@@ -17,8 +17,8 @@ video-tools prepare <video-path> --artifacts-dir <directory> \
   --frame-time <seconds> [--frame-time <seconds>...]
 ```
 
-Use `--frame-count <count>` only without usable timestamps. Use `--max-frames <count>` as the ceiling and
-`--timeout-ms <milliseconds>` per tool call. Do not combine `--frame-count` and `--frame-time`.
+Use `--frame-count <count>` only without usable timestamps. Do not combine it with `--frame-time`.
+`--timeout-ms <milliseconds>` limits each tool call, including each frame.
 
 The host path requires `ffmpeg` and `ffprobe`. A caller may provide an existing digest-pinned container
 with `--container-image <name@sha256:digest>`. The command never pulls or builds one.

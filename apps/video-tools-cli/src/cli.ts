@@ -3,7 +3,7 @@ import { parseArguments } from "./arguments.ts";
 import { isComplete, prepareVideo } from "./prepare-video.ts";
 
 const usage = `Usage:
-  video-tools prepare <video-path> [--artifacts-dir <directory>] [--expected-sha256 <sha256>] [--only <audio|frames>] [--frame-count <count> | --frame-time <seconds>...] [--max-frames <count>] [--timeout-ms <milliseconds>] [--container-image <name@sha256:digest>]
+  video-tools prepare <video-path> [--artifacts-dir <directory>] [--expected-sha256 <sha256>] [--only <audio|frames>] [--frame-count <count> | --frame-time <seconds>...] [--timeout-ms <milliseconds>] [--container-image <name@sha256:digest>]
 
 When --artifacts-dir is omitted, the command creates an isolated temporary directory and reports
 its location in the JSON result. Temporary derivatives are retained for the caller to inspect.

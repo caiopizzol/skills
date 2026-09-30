@@ -34,7 +34,11 @@ export {
   type PrepareOutputBoundary,
   type ReadOutputBoundary,
 } from "@caiopizzol/media-exec";
-export { DEFAULT_MAX_FRAMES, planFrameSampling, type FrameSamplingInput } from "./sample-frames.ts";
+export {
+  DEFAULT_FRAME_COUNT,
+  planFrameSampling,
+  type FrameSamplingInput,
+} from "./sample-frames.ts";
 export {
   VIDEO_TOOLS_FORMAT_VERSION,
   type AudioDerivative,

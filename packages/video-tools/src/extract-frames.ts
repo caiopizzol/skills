@@ -25,7 +25,6 @@ export interface ExtractFramesOptions {
   durationSeconds: number;
   frameCount?: number;
   timestampsSeconds?: readonly number[];
-  maxFrames?: number;
   cwd: string;
   timeoutMs?: number;
   exec?: ExecBoundary;
@@ -77,7 +76,6 @@ export async function extractFrames(options: ExtractFramesOptions): Promise<Extr
       durationSeconds: options.durationSeconds,
       frameCount: options.frameCount,
       timestampsSeconds: options.timestampsSeconds,
-      maxFrames: options.maxFrames,
     });
   } catch (error) {
     return {
@@ -95,7 +93,6 @@ export async function extractFrames(options: ExtractFramesOptions): Promise<Extr
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const frames: ExtractedFrame[] = [];
   const written: string[] = [];
-  const deadline = Date.now() + timeoutMs;
   for (const [index, timestampSeconds] of sampling.timestampsSeconds.entries()) {
     const outputPath = resolveWriteTarget({
       inputPath,
@@ -104,16 +101,6 @@ export async function extractFrames(options: ExtractFramesOptions): Promise<Extr
       cwd: options.cwd,
     });
     written.push(outputPath);
-    const remainingMs = deadline - Date.now();
-    if (remainingMs <= 0) {
-      await discardAll(discardOutput, written);
-      return {
-        outcome: "timeout",
-        operation: "extract-frames",
-        inputPath,
-        message: `frame extraction exceeded the ${timeoutMs} ms deadline after ${index} of ${sampling.timestampsSeconds.length} frames`,
-      };
-    }
     await prepareOutput(outputPath);
     const run = await runTool(
       exec,
@@ -122,7 +109,7 @@ export async function extractFrames(options: ExtractFramesOptions): Promise<Extr
         args: buildExtractFrameArgs(inputPath, outputPath, timestampSeconds),
         cwd: options.cwd,
       },
-      remainingMs,
+      timeoutMs,
     );
     if (run.kind !== "result" || run.result.exitCode !== 0) {
       await discardAll(discardOutput, written);
