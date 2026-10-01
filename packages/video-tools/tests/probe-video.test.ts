@@ -104,6 +104,24 @@ describe("parseProbeOutput", () => {
     ]);
   });
 
+  it("limits frame times to the video stream when audio runs past it", () => {
+    const probe = (streams: unknown[]) =>
+      parseProbeOutput(
+        JSON.stringify({ format: { format_name: "mov,mp4", duration: "10.12" }, streams }),
+      );
+
+    expect(
+      probe([
+        { codec_type: "video", duration: "10.0" },
+        { codec_type: "audio", duration: "10.12" },
+      ]),
+    ).toMatchObject({ durationSeconds: 10.12, videoDurationSeconds: 10 });
+    expect(
+      probe([{ codec_type: "video", tags: { DURATION: "00:00:09.500000000" } }]),
+    ).toMatchObject({ videoDurationSeconds: 9.5 });
+    expect(probe([{ codec_type: "video" }])).toMatchObject({ videoDurationSeconds: 10.12 });
+  });
+
   it("rejects malformed and empty output rather than reporting an empty probe", () => {
     expect(() => parseProbeOutput("{not json")).toThrow(/invalid JSON/);
     expect(() => parseProbeOutput("")).toThrow(/no output/);

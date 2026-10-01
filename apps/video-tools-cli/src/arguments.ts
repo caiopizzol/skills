@@ -6,7 +6,6 @@ export interface PrepareArguments {
   only?: "audio" | "frames";
   frameCount?: number;
   timestampsSeconds?: number[];
-  maxFrames?: number;
   timeoutMs?: number;
   containerImage?: string;
 }
@@ -29,7 +28,6 @@ export function parseArguments(argv: readonly string[]): CliArguments {
   let only: "audio" | "frames" | undefined;
   let frameCount: number | undefined;
   const timestampsSeconds: number[] = [];
-  let maxFrames: number | undefined;
   let timeoutMs: number | undefined;
   let containerImage: string | undefined;
   for (let index = 2; index < argv.length; index += 1) {
@@ -46,14 +44,12 @@ export function parseArguments(argv: readonly string[]): CliArguments {
       case "--only":
         only = mediaLane(value);
         break;
-      case "--max-frames":
-        maxFrames = positiveInteger(value, option);
-        break;
       case "--frame-count":
         frameCount = positiveInteger(value, option);
         break;
       case "--frame-time":
-        timestampsSeconds.push(nonNegativeNumber(value, option));
+        for (const part of value.split(","))
+          timestampsSeconds.push(nonNegativeNumber(part, option));
         break;
       case "--timeout-ms":
         timeoutMs = positiveInteger(value, option);
@@ -69,10 +65,7 @@ export function parseArguments(argv: readonly string[]): CliArguments {
   if (frameCount !== undefined && timestampsSeconds.length > 0) {
     throw new Error("--frame-count and --frame-time cannot be used together");
   }
-  if (
-    only === "audio" &&
-    (frameCount !== undefined || timestampsSeconds.length > 0 || maxFrames !== undefined)
-  ) {
+  if (only === "audio" && (frameCount !== undefined || timestampsSeconds.length > 0)) {
     throw new Error("frame options cannot be used with --only audio");
   }
 
@@ -84,7 +77,6 @@ export function parseArguments(argv: readonly string[]): CliArguments {
     ...(only === undefined ? {} : { only }),
     ...(frameCount === undefined ? {} : { frameCount }),
     ...(timestampsSeconds.length === 0 ? {} : { timestampsSeconds }),
-    ...(maxFrames === undefined ? {} : { maxFrames }),
     ...(timeoutMs === undefined ? {} : { timeoutMs }),
     ...(containerImage === undefined ? {} : { containerImage }),
   };

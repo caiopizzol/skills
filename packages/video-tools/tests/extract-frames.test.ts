@@ -45,6 +45,8 @@ describe("extractFrames", () => {
       "0.000",
       "-i",
       INPUT_PATH,
+      "-map",
+      "0:v:0",
       "-frames:v",
       "1",
       "-f",
@@ -162,23 +164,32 @@ describe("extractFrames", () => {
     expect(boundary.requests).toHaveLength(0);
   });
 
-  it("honours explicit timestamps and the maximum frame bound", async () => {
+  it("extracts every explicit timestamp inside the video", async () => {
     const boundary = fakeExec(() => ok());
     const outputs = fakeOutputs();
 
     const result = await extractFrames(
       options({
         frameCount: undefined,
-        timestampsSeconds: [5, 1, 3],
-        maxFrames: 2,
+        timestampsSeconds: [5, 1, 3, 5.95],
         exec: boundary.exec,
         ...outputs,
       }),
     );
 
     if (result.outcome !== "ok") throw new Error(`expected ok, received ${result.outcome}`);
-    expect(result.sampling.timestampsSeconds).toEqual([1, 3]);
-    expect(result.sampling.rejectedTimestampsSeconds).toEqual([5]);
-    expect(boundary.requests).toHaveLength(2);
+    expect(result.sampling.timestampsSeconds).toEqual([1, 3, 5]);
+    expect(result.sampling.rejectedTimestampsSeconds).toEqual([5.95]);
+    expect(boundary.requests).toHaveLength(3);
+  });
+
+  it("applies the timeout to each frame, not to the whole run", async () => {
+    const boundary = fakeExec(() => delayedResult(ok(), 30));
+    const outputs = fakeOutputs();
+
+    const result = await extractFrames(options({ timeoutMs: 50, exec: boundary.exec, ...outputs }));
+
+    if (result.outcome !== "ok") throw new Error(`expected ok, received ${result.outcome}`);
+    expect(result.frames).toHaveLength(3);
   });
 });

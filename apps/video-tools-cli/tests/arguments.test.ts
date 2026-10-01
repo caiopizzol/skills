@@ -11,8 +11,6 @@ describe("parseArguments", () => {
         "fixture.mp4",
         "--artifacts-dir",
         "artifacts",
-        "--max-frames",
-        "4",
         "--frame-count",
         "6",
         "--timeout-ms",
@@ -24,7 +22,6 @@ describe("parseArguments", () => {
       command: "prepare",
       inputPath: "fixture.mp4",
       artifactsDirectory: "artifacts",
-      maxFrames: 4,
       frameCount: 6,
       timeoutMs: 5000,
       containerImage: `example/ffmpeg@sha256:${digest}`,
@@ -54,6 +51,17 @@ describe("parseArguments", () => {
       expectedSha256: digest,
       only: "audio",
     });
+  });
+
+  it("parses comma-separated frame times", () => {
+    expect(parseArguments(["prepare", "fixture.mp4", "--frame-time", "3,1.5,0"])).toEqual({
+      command: "prepare",
+      inputPath: "fixture.mp4",
+      timestampsSeconds: [3, 1.5, 0],
+    });
+    expect(() => parseArguments(["prepare", "fixture.mp4", "--frame-time", "1,,2"])).toThrow(
+      /non-negative number/,
+    );
   });
 
   it("parses exact frame times", () => {

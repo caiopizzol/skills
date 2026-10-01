@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { DEFAULT_MAX_FRAMES, planFrameSampling } from "../src/index.ts";
+import { planFrameSampling } from "../src/index.ts";
 
 describe("planFrameSampling", () => {
   it("covers the beginning, middle, and end of a short video", () => {
@@ -43,18 +43,11 @@ describe("planFrameSampling", () => {
     expect(plan.boundedBy).toBe("duration");
   });
 
-  it("bounds a requested count above maxFrames", () => {
-    const plan = planFrameSampling({ durationSeconds: 600, frameCount: 500, maxFrames: 4 });
-
-    expect(plan.timestampsSeconds).toHaveLength(4);
-    expect(plan.boundedBy).toBe("max-frames");
-  });
-
-  it("applies a default frame ceiling when no maxFrames is given", () => {
+  it("samples every requested frame the duration supports", () => {
     const plan = planFrameSampling({ durationSeconds: 600, frameCount: 500 });
 
-    expect(plan.maxFrames).toBe(DEFAULT_MAX_FRAMES);
-    expect(plan.timestampsSeconds).toHaveLength(DEFAULT_MAX_FRAMES);
+    expect(plan.timestampsSeconds).toHaveLength(500);
+    expect(plan.boundedBy).toBe("requested");
   });
 
   it("samples the midpoint when only one frame fits", () => {
@@ -81,16 +74,16 @@ describe("planFrameSampling", () => {
     expect(plan.boundedBy).toBe("explicit");
   });
 
-  it("bounds explicit timestamps by maxFrames and records the discarded ones", () => {
+  it("keeps every explicit timestamp and rejects those too close to the end", () => {
+    const timestampsSeconds = Array.from({ length: 40 }, (_unused, index) => index * 0.1);
     const plan = planFrameSampling({
       durationSeconds: 6,
-      timestampsSeconds: [1, 2, 3, 4],
-      maxFrames: 2,
+      timestampsSeconds: [...timestampsSeconds, 5.9, 5.95],
     });
 
-    expect(plan.timestampsSeconds).toEqual([1, 2]);
-    expect(plan.rejectedTimestampsSeconds).toEqual([3, 4]);
-    expect(plan.boundedBy).toBe("max-frames");
+    expect(plan.timestampsSeconds).toHaveLength(41);
+    expect(plan.timestampsSeconds.at(-1)).toBe(5.9);
+    expect(plan.rejectedTimestampsSeconds).toEqual([5.95]);
   });
 
   it("rejects an unusable duration and an explicit list with nothing inside it", () => {
@@ -99,9 +92,6 @@ describe("planFrameSampling", () => {
     );
     expect(() => planFrameSampling({ durationSeconds: 6, timestampsSeconds: [7, 8] })).toThrow(
       /inside the video duration/,
-    );
-    expect(() => planFrameSampling({ durationSeconds: 6, maxFrames: 0 })).toThrow(
-      /positive integer/,
     );
     expect(() => planFrameSampling({ durationSeconds: 6, frameCount: 1.5 })).toThrow(
       /positive integer/,

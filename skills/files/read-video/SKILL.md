@@ -1,6 +1,6 @@
 ---
 name: read-video
-description: Inspect one exact local video through bounded audio transcription and frame sampling. Preserve source identity and report every coverage gap. Use for a local video path or a video delegated by another skill.
+description: Inspect one exact local video by transcribing its audio and viewing the frames the objective needs. Preserve source identity and report every coverage gap. Use for a local video path or a video delegated by another skill.
 ---
 
 # Read a video
@@ -8,7 +8,7 @@ description: Inspect one exact local video through bounded audio transcription a
 ## Input
 
 Require one exact local video path. Accept an artifacts directory, expected SHA-256, objective, and frame
-bound. Do not download or choose another file.
+count or times. Do not download or choose another file.
 
 ## Workflow
 
@@ -17,12 +17,11 @@ bound. Do not download or choose another file.
    caller's artifacts directory, or report the temporary directory. Stop if probing fails.
 3. If audio exists, invoke `$transcribe-audio` with its path, SHA-256, artifacts directory, and objective.
    Preserve its transcript, timestamps, coverage, capability, and gaps. Name every audio stream not read.
-4. Review every transcript segment before choosing frames. Use transcript timestamps when they identify
-   enough distinct visual moments for the frame bound; otherwise sample evenly. Follow
-   [bounded sampling](references/sampling.md).
+4. Read the whole transcript, then choose frame times as described in
+   [choosing frames](references/sampling.md).
 5. Run `video-tools prepare --only frames` with the same artifacts directory, source SHA-256, and chosen
    times. Invoke `$read-image` for each frame with its path, SHA-256, timestamp, and objective. Preserve
-   its observations and gaps.
+   its observations and gaps. Repeat with more times until the objective is answered.
 6. Report audio and frames separately before combining them. A cross-lane claim is only as strong as its
    weaker lane.
 
@@ -32,7 +31,7 @@ Never install tools, pull or build a container, or alter the machine.
 
 - File identity: absolute path, bytes, SHA-256, and expected-hash result when supplied.
 - Metadata: container, duration, dimensions, codecs, streams, or the probe failure.
-- Frames: sampled timestamps, omitted intervals, applied bound, and per-frame observations.
+- Frames: sampled timestamps, rejected timestamps, omitted intervals, and per-frame observations.
 - Audio: discovered streams, streams read and omitted, extraction result, transcription capability,
   coverage, and transcript.
 - Derivatives: workspace path and mode, then each path, bytes, SHA-256, operation, and parent SHA-256.

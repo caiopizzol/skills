@@ -66,6 +66,43 @@ describe("prepareVideo capability reporting", () => {
     expect(isComplete(result)).toBe(true);
   });
 
+  it("samples frames only where the video stream has them", async () => {
+    const directory = await temporaryDirectory();
+    const inputPath = join(directory, "clip.mp4");
+    await writeFile(inputPath, "video bytes");
+    const probeJson = JSON.stringify({
+      format: { format_name: "mov,mp4", duration: "4.0" },
+      streams: [
+        {
+          index: 0,
+          codec_type: "video",
+          codec_name: "h264",
+          width: 16,
+          height: 16,
+          duration: "3.5",
+        },
+      ],
+    });
+    const exec: ExecBoundary = async (request) =>
+      request.command === "ffprobe" && !request.args.includes("-version")
+        ? { exitCode: 0, stdout: probeJson, stderr: "" }
+        : workingExec()(request);
+
+    const result = await prepareVideo(
+      {
+        command: "prepare",
+        inputPath,
+        artifactsDirectory: join(directory, "artifacts"),
+        only: "frames",
+      },
+      { cwd: directory, hostExec: exec },
+    );
+
+    if (result.frames?.outcome !== "ok") throw new Error("expected prepared frames");
+    expect(result.frames.sampling.durationSeconds).toBe(3.5);
+    expect(Math.max(...result.frames.sampling.timestampsSeconds)).toBeLessThan(3.5);
+  });
+
   it("creates and reports a temporary artifacts directory when the caller omits one", async () => {
     const directory = await temporaryDirectory();
     const inputPath = join(directory, "clip.mp4");

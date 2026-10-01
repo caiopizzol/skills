@@ -56,6 +56,10 @@ export function parseProbeOutput(output: string): VideoProbe {
   if (!Array.isArray(parsed.streams))
     throw new Error("ffprobe output is missing the streams array");
   const streams = parsed.streams.map((stream, index) => parseStream(stream, index));
+  const videoStream = parsed.streams.find(
+    (stream) => isRecord(stream) && stream.codec_type === "video",
+  );
+  const videoStreamSeconds = isRecord(videoStream) ? parseStreamDuration(videoStream) : null;
   return {
     formatVersion: VIDEO_TOOLS_FORMAT_VERSION,
     formatName,
@@ -64,6 +68,10 @@ export function parseProbeOutput(output: string): VideoProbe {
       .map((name) => name.trim())
       .filter((name) => name !== ""),
     durationSeconds,
+    videoDurationSeconds:
+      videoStreamSeconds !== null && videoStreamSeconds > 0
+        ? Math.min(videoStreamSeconds, durationSeconds)
+        : durationSeconds,
     streams,
     hasVideoStream: streams.some((stream) => stream.codecType === "video"),
     hasAudioStream: streams.some((stream) => stream.codecType === "audio"),
@@ -128,6 +136,17 @@ function parseStream(value: unknown, index: number): VideoStream {
     height: parseNumber(value.height),
     channels: parseNumber(value.channels),
   };
+}
+
+// MP4 and MOV report a stream duration in seconds; Matroska and WebM report it as a DURATION tag.
+function parseStreamDuration(stream: Record<string, unknown>): number | null {
+  const seconds = parseNumber(stream.duration);
+  if (seconds !== null) return seconds;
+  const tag = isRecord(stream.tags) ? stream.tags.DURATION : undefined;
+  if (typeof tag !== "string") return null;
+  const match = /^(\d+):(\d{2}):(\d{2}(?:\.\d+)?)$/.exec(tag.trim());
+  if (match === null) return null;
+  return Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3]);
 }
 
 function parseStreamKind(value: unknown): VideoStreamKind {

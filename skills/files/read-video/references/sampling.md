@@ -1,37 +1,29 @@
-# Bounded sampling
+# Choosing frames
 
-A frame shows one instant. Use the caller's bound, default to five, and never exceed twelve.
+A frame shows one instant. Take as many frames as the objective needs. There is no fixed limit.
 
-## Choose timestamps
+## Choose times
 
-Review the complete timestamped transcript. When it identifies enough distinct demonstrations, slides,
-charts, interfaces, visible text, or visual changes for the applied bound, choose one moment from each.
-Spread the choices across the recording and its main topics. Skip presenter-only moments unless the
-presenter matters.
+Read the whole timestamped transcript first. Pick one time for each moment the objective needs to see:
+slides, charts, screens, visible text, demonstrations, or visual changes. Skip moments where only the
+presenter talks unless the presenter matters.
 
-Sample inside the relevant segment. If the frame misses the visual, replace it with a nearby time from the
-same segment without increasing the bound.
+To study a short stretch closely, such as an opening hook or a transition, take frames close together, for
+example every half second.
 
-When the transcript is unavailable, untimed, or does not identify enough distinct visual moments, spread
-the bounded number of frames evenly from the start to just before the end. With the default five frames,
-use 0, 1.475, 2.95, 4.425, and 5.9 seconds for a six-second video.
+After viewing the frames, request more when something is missing or unclear. If a frame misses the
+visual, try a nearby time in the same segment. Reuse the same artifacts directory and source SHA-256.
 
-Sort and deduplicate explicit timestamps. Reject times outside the duration; never clamp them. A
-non-positive duration or no valid time is `unsupported-input`.
+Without a usable transcript, sample evenly with `--frame-count`. It defaults to five and keeps frames at
+least one second apart.
 
-Record whether each frame was transcript-targeted or evenly spaced. Record what limited the count:
-
-- `requested`: the caller's count fit.
-- `max-frames`: the ceiling reduced it.
-- `duration`: the video was too short for that many distinct instants.
+The tool sorts and deduplicates times. It rejects times after the video ends or within 0.1 seconds of the
+end, instead of moving them, and lists them in the result.
 
 ## Report coverage
 
-Frames sample instants, not spans. Report:
+Frames sample instants, not spans. Report every sampled time, every interval no frame observed, and the
+full duration. Do not report a coverage percentage.
 
-- every sampled timestamp in seconds;
-- every interval no frame observed; and
-- the full duration.
-
-Do not report a coverage percentage. Record each frame's time, path, bytes, SHA-256, operation, and parent
-SHA-256. Discard partial output after a timeout or failure.
+Record each frame's time, path, bytes, SHA-256, operation, and parent SHA-256. Discard partial output after
+a timeout or failure.

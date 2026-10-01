@@ -25,7 +25,6 @@ export interface ExtractFramesOptions {
   durationSeconds: number;
   frameCount?: number;
   timestampsSeconds?: readonly number[];
-  maxFrames?: number;
   cwd: string;
   timeoutMs?: number;
   exec?: ExecBoundary;
@@ -34,7 +33,8 @@ export interface ExtractFramesOptions {
   discardOutput?: DiscardOutputBoundary;
 }
 
-// -ss before -i seeks without decoding the whole stream, -frames:v 1 writes exactly one frame, and
+// -ss before -i seeks without decoding the whole stream, -map 0:v:0 reads the video stream the probe
+// measured instead of ffmpeg's default pick, -frames:v 1 writes exactly one frame, and
 // -y overwrites a destination the caller already owns. One invocation per timestamp keeps each
 // frame independently attributable. Overwriting is safe because resolveWriteTarget has already
 // refused any destination outside the artifacts directory or onto the input.
@@ -53,6 +53,8 @@ export function buildExtractFrameArgs(
     formatTimestamp(timestampSeconds),
     "-i",
     inputPath,
+    "-map",
+    "0:v:0",
     "-frames:v",
     "1",
     "-f",
@@ -77,7 +79,6 @@ export async function extractFrames(options: ExtractFramesOptions): Promise<Extr
       durationSeconds: options.durationSeconds,
       frameCount: options.frameCount,
       timestampsSeconds: options.timestampsSeconds,
-      maxFrames: options.maxFrames,
     });
   } catch (error) {
     return {
@@ -95,7 +96,6 @@ export async function extractFrames(options: ExtractFramesOptions): Promise<Extr
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const frames: ExtractedFrame[] = [];
   const written: string[] = [];
-  const deadline = Date.now() + timeoutMs;
   for (const [index, timestampSeconds] of sampling.timestampsSeconds.entries()) {
     const outputPath = resolveWriteTarget({
       inputPath,
@@ -104,16 +104,6 @@ export async function extractFrames(options: ExtractFramesOptions): Promise<Extr
       cwd: options.cwd,
     });
     written.push(outputPath);
-    const remainingMs = deadline - Date.now();
-    if (remainingMs <= 0) {
-      await discardAll(discardOutput, written);
-      return {
-        outcome: "timeout",
-        operation: "extract-frames",
-        inputPath,
-        message: `frame extraction exceeded the ${timeoutMs} ms deadline after ${index} of ${sampling.timestampsSeconds.length} frames`,
-      };
-    }
     await prepareOutput(outputPath);
     const run = await runTool(
       exec,
@@ -122,7 +112,7 @@ export async function extractFrames(options: ExtractFramesOptions): Promise<Extr
         args: buildExtractFrameArgs(inputPath, outputPath, timestampSeconds),
         cwd: options.cwd,
       },
-      remainingMs,
+      timeoutMs,
     );
     if (run.kind !== "result" || run.result.exitCode !== 0) {
       await discardAll(discardOutput, written);
