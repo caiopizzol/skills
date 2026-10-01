@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.9.0](https://github.com/caiopizzol/skills/compare/v0.8.0...v0.9.0) (2026-10-01)
+
+
+### Features
+
+* **test-integrity:** detect weakened Python tests ([#99](https://github.com/caiopizzol/skills/issues/99)) ([bf90fb6](https://github.com/caiopizzol/skills/commit/bf90fb65df97654e52883d39caa324109e202c2d))
+* **test-integrity:** guard Python test gates ([#100](https://github.com/caiopizzol/skills/issues/100)) ([dc51895](https://github.com/caiopizzol/skills/commit/dc51895c12b650031af010705a7dc957a8ea5dd1))
+
+
+### Bug Fixes
+
+* **test-integrity:** accept a change only on the run that adds the label ([#96](https://github.com/caiopizzol/skills/issues/96)) ([5f82500](https://github.com/caiopizzol/skills/commit/5f82500d62691626f1a2e3a01733d29cbe66f14c))
+* **test-integrity:** keep a verdict when an event cannot change it ([#98](https://github.com/caiopizzol/skills/issues/98)) ([a0bcd3d](https://github.com/caiopizzol/skills/commit/a0bcd3de3d94d705dac478db80148ede2cd9239d))
+* **video-tools:** let callers choose how many frames to read ([#101](https://github.com/caiopizzol/skills/issues/101)) ([6ea1b8e](https://github.com/caiopizzol/skills/commit/6ea1b8ee9465108dea5700c9bc7d4f37f3ea9940))
+
 ## [0.8.0](https://github.com/caiopizzol/skills/compare/v0.7.0...v0.8.0) (2026-09-28)
 
 
