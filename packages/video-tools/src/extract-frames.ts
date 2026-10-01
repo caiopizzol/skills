@@ -33,7 +33,8 @@ export interface ExtractFramesOptions {
   discardOutput?: DiscardOutputBoundary;
 }
 
-// -ss before -i seeks without decoding the whole stream, -frames:v 1 writes exactly one frame, and
+// -ss before -i seeks without decoding the whole stream, -map 0:v:0 reads the video stream the probe
+// measured instead of ffmpeg's default pick, -frames:v 1 writes exactly one frame, and
 // -y overwrites a destination the caller already owns. One invocation per timestamp keeps each
 // frame independently attributable. Overwriting is safe because resolveWriteTarget has already
 // refused any destination outside the artifacts directory or onto the input.
@@ -52,6 +53,8 @@ export function buildExtractFrameArgs(
     formatTimestamp(timestampSeconds),
     "-i",
     inputPath,
+    "-map",
+    "0:v:0",
     "-frames:v",
     "1",
     "-f",

@@ -45,6 +45,8 @@ describe("extractFrames", () => {
       "0.000",
       "-i",
       INPUT_PATH,
+      "-map",
+      "0:v:0",
       "-frames:v",
       "1",
       "-f",
